@@ -1,0 +1,52 @@
+[
+  {
+    "id": "usr_student_01",
+    "email": "student@lab.local",
+    "password": "student",
+    "displayName": "Sara Student",
+    "roles": ["student"],
+    "entitlements": [
+      { "product": "rpa-fundamentals-2026-q1", "labAccess": true, "cohort": "2026-Q1", "role": "student", "status": "active", "startsAt": "2026-01-01", "endsAt": "2026-12-31" }
+    ]
+  },
+  {
+    "id": "usr_student_02",
+    "email": "student2@lab.local",
+    "password": "student",
+    "displayName": "Omar Student",
+    "roles": ["student"],
+    "entitlements": [
+      { "product": "rpa-fundamentals-2026-q1", "labAccess": true, "cohort": "2026-Q1", "role": "student", "status": "active", "startsAt": "2026-01-01", "endsAt": "2026-12-31" }
+    ]
+  },
+  {
+    "id": "usr_expired_01",
+    "email": "expired@lab.local",
+    "password": "expired",
+    "displayName": "Expired Enrollment",
+    "roles": ["student"],
+    "entitlements": [
+      { "product": "rpa-fundamentals-2025-q3", "labAccess": true, "cohort": "2025-Q3", "role": "student", "status": "expired", "startsAt": "2025-07-01", "endsAt": "2025-12-31" }
+    ]
+  },
+  {
+    "id": "usr_ta_01",
+    "email": "ta@lab.local",
+    "password": "ta",
+    "displayName": "Tariq TA",
+    "roles": ["ta"],
+    "entitlements": [
+      { "product": "rpa-fundamentals-2026-q1", "labAccess": true, "cohort": "2026-Q1", "role": "ta", "status": "active" }
+    ]
+  },
+  {
+    "id": "usr_instructor_01",
+    "email": "instructor@lab.local",
+    "password": "instructor",
+    "displayName": "Mohammed Shaker",
+    "roles": ["instructor"],
+    "entitlements": [
+      { "product": "rpa-fundamentals-2026-q1", "labAccess": true, "cohort": "2026-Q1", "role": "instructor", "status": "active" }
+    ]
+  }
+]

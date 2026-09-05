@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Placeholder palette until the mohammedshaker.com design
+ * system is available (see docs/handoff.md, section 6). Swap these values;
+ * nothing else in the UI hard-codes a colour.
+ */
+:root {
+  --al-bg: #f7f8fa;
+  --al-surface: #ffffff;
+  --al-border: #d9dee6;
+  --al-text: #16202b;
+  --al-muted: #5b6673;
+  --al-primary: #1d3557;
+  --al-primary-contrast: #ffffff;
+  --al-accent: #e63946;
+  --al-warning: #b7791f;
+  --al-error: #c53030;
+  --al-critical: #7b1d1d;
+  --al-success: #2f855a;
+}
+
+@theme inline {
+  --color-bg: var(--al-bg);
+  --color-surface: var(--al-surface);
+  --color-border: var(--al-border);
+  --color-ink: var(--al-text);
+  --color-muted: var(--al-muted);
+  --color-primary: var(--al-primary);
+  --color-primary-contrast: var(--al-primary-contrast);
+  --color-accent: var(--al-accent);
+  --color-warning: var(--al-warning);
+  --color-error: var(--al-error);
+  --color-critical: var(--al-critical);
+  --color-success: var(--al-success);
+}
+
+html { background: var(--al-bg); color: var(--al-text); }
+body { font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Noto Sans", "Noto Naskh Arabic", sans-serif; }
+[dir="rtl"] body { font-family: "Noto Naskh Arabic", "Segoe UI", Tahoma, system-ui, sans-serif; }
+
+/* Automation-friendly defaults: visible focus, no animation surprises. */
+*:focus-visible { outline: 2px solid var(--al-primary); outline-offset: 1px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: auto; } }
+
+table.al-table { width: 100%; border-collapse: collapse; background: var(--al-surface); }
+table.al-table th, table.al-table td { border-bottom: 1px solid var(--al-border); padding: 0.45rem 0.6rem; text-align: start; vertical-align: top; font-size: 0.9rem; }
+table.al-table th { background: color-mix(in srgb, var(--al-primary) 6%, white); font-weight: 600; color: var(--al-primary); white-space: nowrap; }
+table.al-table td.num, table.al-table th.num { text-align: end; font-variant-numeric: tabular-nums; }
+
+.al-input { width: 100%; border: 1px solid var(--al-border); background: var(--al-surface); border-radius: 0.3rem; padding: 0.4rem 0.55rem; font-size: 0.9rem; }
+.al-input[aria-invalid="true"] { border-color: var(--al-error); }
+.al-label { display: block; font-size: 0.8rem; color: var(--al-muted); margin-bottom: 0.2rem; }
+.al-btn { display: inline-block; border-radius: 0.3rem; padding: 0.45rem 0.9rem; font-size: 0.9rem; font-weight: 600; border: 1px solid var(--al-primary); background: var(--al-primary); color: var(--al-primary-contrast); cursor: pointer; text-decoration: none; }
+.al-btn.secondary { background: var(--al-surface); color: var(--al-primary); }
+.al-btn.danger { background: var(--al-accent); border-color: var(--al-accent); color: white; }
+.al-btn:disabled { opacity: 0.6; cursor: default; }
+.al-card { background: var(--al-surface); border: 1px solid var(--al-border); border-radius: 0.5rem; padding: 1rem 1.2rem; }
+
+#validation-errors { border: 1px solid var(--al-border); border-radius: 0.4rem; padding: 0.6rem 0.9rem; background: var(--al-surface); }
+#validation-errors[data-count="0"] { color: var(--al-muted); }
+#validation-errors li { padding: 0.25rem 0; font-size: 0.9rem; }
+#validation-errors li[data-severity="warning"] { color: var(--al-warning); }
+#validation-errors li[data-severity="error"] { color: var(--al-error); }
+#validation-errors li[data-severity="critical"] { color: var(--al-critical); font-weight: 600; }
+#validation-errors code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; background: color-mix(in srgb, currentColor 10%, transparent); padding: 0 0.3rem; border-radius: 0.2rem; }
+
+.pill { display: inline-block; font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px solid var(--al-border); background: var(--al-surface); text-transform: capitalize; }

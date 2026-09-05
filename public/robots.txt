@@ -1,0 +1,4 @@
+# Automation Lab serves training documents with plausible but fake financial data.
+# Nothing here may be indexed.
+User-agent: *
+Disallow: /
