@@ -16,4 +16,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Generation must stay deterministic: use `Rng` from `src/lib/generator/rng.ts`, never `Math.random`.
 - PDFs are HTML/CSS rendered by Chromium in a background job. Do not add `@react-pdf/renderer`.
 - Nothing in this repo touches mohammedshaker.com or the share-know.com VPS.
+- The PDD is generated: edit `scripts/build-pdd.ts`, never `docs/pdd.md`. Its screenshots come from `pnpm pdd:figures` against a running dev server; `pnpm pdd` then rebuilds the Markdown, Word and PDF.
 - Checks before pushing: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.

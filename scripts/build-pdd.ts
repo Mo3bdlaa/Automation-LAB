@@ -7,9 +7,9 @@
  * The rule catalogue in the appendix is read from the code, so it cannot drift.
  *   pnpm tsx scripts/build-pdd.ts
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import {
-  AlignmentType, BorderStyle, Document, Footer, Header, HeadingLevel, LevelFormat, Packer, PageBreak, PageNumber, Paragraph, ShadingType, Table, TableCell, TableOfContents, TableRow, TextRun, WidthType,
+  AlignmentType, BorderStyle, Document, Footer, Header, HeadingLevel, ImageRun, LevelFormat, Packer, PageBreak, PageNumber, Paragraph, ShadingType, Table, TableCell, TableOfContents, TableRow, TextRun, WidthType,
 } from "docx";
 import { describeRules } from "../src/lib/validation/engine";
 import { ALL_RULES } from "../src/lib/validation/rules";
@@ -26,7 +26,32 @@ type Block =
   | { t: "numbered"; items: string[] }
   | { t: "table"; header: string[]; rows: string[][]; widths?: number[] }
   | { t: "note"; text: string }
+  | { t: "figure"; id: string }
   | { t: "pagebreak" };
+
+interface Figure {
+  id: string;
+  title: string;
+  file: string;
+  width: number;
+  height: number;
+  scale: number;
+  callouts: { n: number; selector: string; text: string }[];
+}
+
+/**
+ * Screenshots captured by scripts/capture-pdd-figures.mjs against a running
+ * lab with a provisioned sandbox. Figures are numbered in document order.
+ */
+const FIGURES: Map<string, Figure> = new Map(
+  (JSON.parse(readFileSync("docs/pdd-assets/figures.json", "utf8")) as Figure[]).map((f) => [f.id, f]),
+);
+const figureNumbers = new Map<string, number>();
+function figureOf(id: string): Figure & { n: number } {
+  const f = FIGURES.get(id);
+  if (!f) throw new Error(`Figure "${id}" is missing. Run: node scripts/capture-pdd-figures.mjs`);
+  return { ...f, n: figureNumbers.get(id)! };
+}
 
 const DOC = {
   title: "Automation Lab",
@@ -93,8 +118,10 @@ const B: Block[] = [
     ["PDF documents", "Files", "Download links on detail pages, bulk ZIP per queue", "Level 1 documents are native text and can be read without OCR. Levels 2 to 5 (P3) are scans of increasing difficulty."],
     ["UiPath Orchestrator", "SaaS", "Student tenant", "Queues for dispatcher/performer; assets for the lab URL and credentials."],
   ] },
+  { t: "figure", id: "01-launchpad" },
 
   { t: "h2", text: "2.3 Detailed AS-IS steps: P1 Invoice processing" },
+  { t: "p", text: "The AP clerk starts from the launchpad ({{fig:01-launchpad}}), opens the queue of invoices pending extraction ({{fig:02-invoice-queue}}) and works the oldest first." },
   { t: "table", header: ["#", "Action", "Screen / selector", "Business rule"], widths: [500, 3100, 3000, 2760], rows: [
     ["1", "Open the AP inbox filtered to pending invoices.", "/invoices?status=pending_extraction, table #invoices-table, rows #invoices-row-{INV-YYYY-NNNNN}", "Work oldest received date first."],
     ["2", "Open one invoice.", "/invoices/{INV-YYYY-NNNNN}; #invoice-document with data-rendered", "While pending, field values are hidden. Only the PDF is available."],
@@ -107,8 +134,14 @@ const B: Block[] = [
     ["9", "Decide: approve when the match is clean or only warnings; reject or route as exception otherwise.", "#invoice-approve, #invoice-reject", "See section 3.4 for the rule-to-action table."],
     ["10", "Pay approved invoices.", "#invoice-pay", "Creates a payment (PAY-YYYY-9NNNN) to the IBAN as printed. BANK-CHANGE must have been resolved before this step."],
   ] },
+  { t: "figure", id: "02-invoice-queue" },
+  { t: "figure", id: "03-invoice-pending" },
+  { t: "figure", id: "12-document-invoice" },
+  { t: "figure", id: "04-extraction-form" },
+  { t: "figure", id: "05-match-exception" },
 
   { t: "h2", text: "2.4 Detailed AS-IS steps: P2 Vendor onboarding" },
+  { t: "p", text: "The buyer opens a vendor application, downloads the compliance documents on file ({{fig:07-vendor-compliance}}) and reads the commercial registration certificate ({{fig:14-document-licence}})." },
   { t: "table", header: ["#", "Action", "Screen / selector", "Business rule"], widths: [500, 3100, 3000, 2760], rows: [
     ["1", "List pending vendor applications.", "/vendors?status=pending, #vendors-table", "Applications are vendor records in status Pending."],
     ["2", "Open the vendor and its compliance documents.", "/vendors/{V-NNNNN}, #vendor-documents-table, #vendor-documents-download-vendor_licence", "The licence PDF renders on first download; allow a few seconds."],
@@ -118,8 +151,11 @@ const B: Block[] = [
     ["6", "Compare with the record and correct it; check for duplicates by tax ID, IBAN and name.", "/vendors/{code}/edit, #vendor-form", "VEND-DUP-TAXID and VEND-IBAN-DUP are critical: stop and escalate."],
     ["7", "Set status Active (or Blocked when blacklisted or documents expired) and save.", "#vendor-field-status, #vendor-submit", "Shared-corpus vendors are read-only; create a sandbox vendor when the exercise says so."],
   ] },
+  { t: "figure", id: "07-vendor-compliance" },
+  { t: "figure", id: "14-document-licence" },
 
   { t: "h2", text: "2.5 Detailed AS-IS steps: P3 Purchase orders awaiting invoice" },
+  { t: "p", text: "The purchase order object page shows every document raised against the order ({{fig:06-purchase-order}}), which is how the clerk sees at a glance whether goods were received and whether an invoice has arrived." },
   { t: "table", header: ["#", "Action", "Screen / selector", "Business rule"], widths: [500, 3100, 3000, 2760], rows: [
     ["1", "List received purchase orders.", "/purchase-orders?status=received (and partially_received), #purchase-orders-table", "Working set only; exclude history."],
     ["2", "Open each PO and read related documents.", "/purchase-orders/{PO-YYYY-NNNNN}, #po-related with data-count, items related-grn-*, related-invoice-*", "A PO with goods receipts and no invoice is awaiting invoice."],
@@ -127,6 +163,9 @@ const B: Block[] = [
     ["4", "When an invoice exists, run the match and route exceptions.", "/invoices/{INV}, #invoice-rematch", "Same rule catalogue as P1."],
     ["5", "Report the list to the buyer.", "Export or Orchestrator queue", "Include PO number, vendor, received date, open amount."],
   ] },
+  { t: "figure", id: "06-purchase-order" },
+  { t: "figure", id: "13-document-purchase-order" },
+  { t: "figure", id: "08-goods-receipt" },
 
   { t: "h2", text: "2.6 Exceptions in the AS-IS process" },
   { t: "p", text: "Business exceptions are the defects the lab seeds into documents. Each is labelled in the data with the rule that should catch it, which is how extraction and exception handling are graded." },
@@ -179,6 +218,7 @@ const B: Block[] = [
     ["Error", "PO-INV-PRICE, GRN-QTY, PO-QTY, INV-NO-PO, INV-TAX-RATE, INV-CURRENCY, INV-UOM, INV-TOTAL-TIE, INV-LINE-PO", "Reject the invoice (#invoice-reject) unless the exercise says to hold; record the rule IDs.", "Business exception"],
     ["Warning", "TAX-CERT-EXP, INV-DATE-FUTURE, VEND-TAX-CERT-EXP", "Approve; flag in the report. Do not pay TAX-CERT-EXP invoices in the API exercise until the instructor's flag is cleared.", "Successful with note"],
   ] },
+  { t: "figure", id: "09-rule-catalogue" },
   { t: "h2", text: "3.5 Application exception handling" },
   { t: "table", header: ["Exception", "Detection", "Handling"], widths: [2600, 3000, 3760], rows: [
     ["Document not rendered", "#invoice-document[data-rendered=\"0\"] or HTTP 409 with Retry-After", "Wait the Retry-After seconds (default 5), retry 3 times, then requeue with a delay."],
@@ -241,6 +281,8 @@ const B: Block[] = [
     "A level-3 PDF is available within 10 seconds of first request and instantly thereafter; blob usage per sandbox stays below 400 MB with all levels rendered for the invoice queue.",
   ] },
 
+  { t: "figure", id: "11-arabic-rtl" },
+
   { t: "h2", text: "4.3 P4: Production identity, deployment and integration" },
   { t: "h3", text: "Deliverables" },
   { t: "table", header: ["Area", "Deliverable", "Detail"], widths: [1900, 3200, 4260], rows: [
@@ -283,6 +325,7 @@ const B: Block[] = [
     "Student-created records use separate number ranges (V-10001+, ITM-900001+, PO-YYYY-9NNNN, GRN-YYYY-9NNNN, PAY-YYYY-9NNNN) and never collide with generated data.",
     "The browser smoke test (scripts/e2e-smoke.mjs) is the acceptance test for the UI processes and must pass before a phase is released.",
   ] },
+  { t: "figure", id: "10-sandbox" },
   { t: "h2", text: "5.3 Performance targets" },
   { t: "table", header: ["Metric", "Target"], widths: [4680, 4680], rows: [
     ["Page load, list of 25 rows", "Under 1 second at the 95th percentile"],
@@ -354,24 +397,47 @@ const B: Block[] = [
   ] },
 ];
 
+for (const b of B) if (b.t === "figure") figureNumbers.set(b.id, figureNumbers.size + 1);
+/** Replaces {{fig:id}} cross-references with "Figure N". */
+function T(text: string): string {
+  return text.replace(/\{\{fig:([\w-]+)\}\}/g, (_, id: string) => {
+    const n = figureNumbers.get(id);
+    if (!n) throw new Error(`Cross-reference to unknown figure "${id}"`);
+    return `Figure ${n}`;
+  });
+}
+const FIGURE_LIST = [...figureNumbers.entries()].map(([id, n]) => ({ n, title: FIGURES.get(id)!.title, id }));
+
 // ---------------------------------------------------------------------------
 // Markdown emitter
 // ---------------------------------------------------------------------------
 function toMarkdown(): string {
-  const out: string[] = [`# ${DOC.title} — ${DOC.subtitle}`, "", `**Version:** ${DOC.version} · **Date:** ${DOC.date} · **Author:** ${DOC.author} · **Status:** ${DOC.status}`, "", "> Generated by `pnpm tsx scripts/build-pdd.ts`. Edit the script, not this file. A Word version is written to `.data/Automation-Lab-PDD.docx`.", ""];
-  const esc = (s: string) => s.replace(/\|/g, "\\|");
+  const out: string[] = [
+    `# ${DOC.title} — ${DOC.subtitle}`, "",
+    `**Version:** ${DOC.version} · **Date:** ${DOC.date} · **Author:** ${DOC.author} · **Status:** ${DOC.status}`, "",
+    "> Generated by `pnpm pdd`. Edit `scripts/build-pdd.ts`, not this file. Word and PDF versions are written to `.data/`.",
+    "> Screenshots come from `scripts/capture-pdd-figures.mjs`, captured against a running lab.", "",
+    "**Figures**", "",
+    ...FIGURE_LIST.map((f) => `${f.n}. ${f.title}`), "",
+  ];
+  const esc = (s: string) => T(s).replace(/\|/g, "\\|");
   for (const b of B) {
     switch (b.t) {
       case "h1": out.push(`## ${b.text}`, ""); break;
       case "h2": out.push(`### ${b.text}`, ""); break;
       case "h3": out.push(`#### ${b.text}`, ""); break;
-      case "p": out.push(b.text, ""); break;
-      case "note": out.push(`> ${b.text}`, ""); break;
-      case "bullets": out.push(...b.items.map((i) => `- ${i}`), ""); break;
-      case "numbered": out.push(...b.items.map((i, n) => `${n + 1}. ${i}`), ""); break;
+      case "p": out.push(T(b.text), ""); break;
+      case "note": out.push(`> ${T(b.text)}`, ""); break;
+      case "bullets": out.push(...b.items.map((i) => `- ${T(i)}`), ""); break;
+      case "numbered": out.push(...b.items.map((i, n) => `${n + 1}. ${T(i)}`), ""); break;
       case "table":
         out.push(`| ${b.header.map(esc).join(" | ")} |`, `| ${b.header.map(() => "---").join(" | ")} |`, ...b.rows.map((r) => `| ${r.map(esc).join(" | ")} |`), "");
         break;
+      case "figure": {
+        const f = figureOf(b.id);
+        out.push(`![Figure ${f.n}. ${f.title}](${f.file})`, "", `**Figure ${f.n}. ${f.title}**`, "", ...f.callouts.map((c) => `${c.n}. ${c.text}`), "");
+        break;
+      }
       case "pagebreak": break;
     }
   }
@@ -381,7 +447,7 @@ function toMarkdown(): string {
 // ---------------------------------------------------------------------------
 // HTML emitter (for the PDF)
 // ---------------------------------------------------------------------------
-const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+const escHtml = (s: string) => T(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 function toHtml(): string {
@@ -400,6 +466,14 @@ function toHtml(): string {
         const total = (b.widths ?? b.header.map(() => 1)).reduce((a, x) => a + x, 0);
         const cols = (b.widths ?? b.header.map(() => 1)).map((w) => `<col style="width:${((100 * w) / total).toFixed(2)}%">`).join("");
         body.push(`<table><colgroup>${cols}</colgroup><thead><tr>${b.header.map((h) => `<th>${escHtml(h)}</th>`).join("")}</tr></thead><tbody>${b.rows.map((r) => `<tr>${r.map((c) => `<td>${escHtml(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+        break;
+      }
+      case "figure": {
+        const f = figureOf(b.id);
+        const b64 = readFileSync(f.file).toString("base64");
+        body.push(
+          `<figure><img src="data:image/png;base64,${b64}" alt="${escHtml(f.title)}"><figcaption><b>Figure ${f.n}. ${escHtml(f.title)}</b><ol class="callouts">${f.callouts.map((c) => `<li>${escHtml(c.text)}</li>`).join("")}</ol></figcaption></figure>`,
+        );
         break;
       }
       case "pagebreak": body.push(`<div class="pb"></div>`); break;
@@ -431,6 +505,13 @@ tr { page-break-inside: avoid; }
 th { background: #1d3557; color: #fff; text-align: left; padding: 4pt 5pt; font-weight: 600; }
 td { border: 1px solid #c9d2dc; padding: 3.5pt 5pt; vertical-align: top; word-wrap: break-word; }
 tbody tr:nth-child(even) td { background: #f2f4f7; }
+figure { margin: 8pt 0 12pt; page-break-inside: avoid; }
+figure img { display: block; width: 100%; max-height: 168mm; object-fit: contain; object-position: left top; border: 1px solid #c9d2dc; }
+figcaption { font-size: 8.5pt; color: #354a5f; margin-top: 4pt; }
+figcaption b { color: #1d3557; }
+ol.callouts { margin: 3pt 0 0; padding-left: 16pt; }
+ol.callouts li { margin-bottom: 1.5pt; }
+.figlist { font-size: 9.5pt; } .figlist ol { padding-left: 16pt; } .figlist li { margin-bottom: 2pt; }
 .toc h1 { margin-top: 0; } .toc ul { list-style: none; padding: 0; } .toc li.l1 { font-weight: 600; margin-top: 6pt; } .toc li.l2 { margin-left: 14pt; font-size: 9.5pt; } .toc a { color: #1d2d3e; text-decoration: none; }
 </style></head><body>
 <div class="cover">
@@ -442,6 +523,7 @@ tbody tr:nth-child(even) td { background: #f2f4f7; }
 </div>
 <div class="pb"></div>
 ${tocHtml}
+<div class="figlist"><h2>Figures</h2><ol>${FIGURE_LIST.map((f) => `<li>${escHtml(f.title)}</li>`).join("")}</ol></div>
 <div class="pb"></div>
 ${body.join("\n")}
 </body></html>`;
@@ -456,7 +538,7 @@ const GREY = "F2F4F7";
 const PAGE_W = 11906 - 2 * 1134; // A4 minus 2 cm margins = 9638 DXA
 
 function run(text: string, opts: Partial<{ bold: boolean; size: number; color: string; italics: boolean }> = {}) {
-  return new TextRun({ text, font: FONT, size: opts.size ?? 21, bold: opts.bold, color: opts.color, italics: opts.italics });
+  return new TextRun({ text: T(text), font: FONT, size: opts.size ?? 21, bold: opts.bold, color: opts.color, italics: opts.italics });
 }
 
 function table(header: string[], rows: string[][], widths?: number[]): Table {
@@ -506,6 +588,22 @@ function blocksToDocx(): (Paragraph | Table)[] {
       case "bullets": for (const i of b.items) out.push(new Paragraph({ children: [run(i)], numbering: { reference: "bullets", level: 0 }, spacing: { after: 60 } })); break;
       case "numbered": for (const i of b.items) out.push(new Paragraph({ children: [run(i)], numbering: { reference: "numbers", level: 0 }, spacing: { after: 60 } })); break;
       case "table": out.push(table(b.header, b.rows, b.widths), new Paragraph({ children: [], spacing: { after: 120 } })); break;
+      case "figure": {
+        const f = figureOf(b.id);
+        // Content area is 9638 DXA wide (6.69 in = 642 px at 96 dpi); cap the height so a figure
+        // plus its caption still fits on one page.
+        const scale = Math.min(636 / f.width, 720 / f.height);
+        out.push(
+          new Paragraph({
+            children: [new ImageRun({ type: "png", data: readFileSync(f.file), transformation: { width: Math.round(f.width * scale), height: Math.round(f.height * scale) } })],
+            spacing: { before: 120, after: 60 },
+          }),
+          new Paragraph({ children: [run(`Figure ${f.n}. ${f.title}`, { bold: true, size: 17, color: NAVY })], spacing: { after: 60 }, keepNext: true }),
+          ...f.callouts.map((c) => new Paragraph({ children: [run(`${c.n}. ${c.text}`, { size: 17 })], spacing: { after: 30 }, indent: { left: 200 } })),
+          new Paragraph({ children: [], spacing: { after: 100 } }),
+        );
+        break;
+      }
       case "pagebreak": out.push(new Paragraph({ children: [new PageBreak()] })); break;
     }
   }
@@ -525,6 +623,9 @@ function cover(): Paragraph[] {
     new Paragraph({ children: [new PageBreak()] }),
     new Paragraph({ heading: HeadingLevel.HEADING_1, children: [run("Contents", { size: 30, bold: true, color: NAVY })], spacing: { after: 160 } }),
     new TableOfContents("Contents", { hyperlink: true, headingStyleRange: "1-2" }) as unknown as Paragraph,
+    new Paragraph({ children: [new PageBreak()] }),
+    new Paragraph({ heading: HeadingLevel.HEADING_1, children: [run("Figures", { size: 30, bold: true, color: NAVY })], spacing: { after: 160 } }),
+    ...FIGURE_LIST.map((f) => new Paragraph({ children: [run(`Figure ${f.n}. ${f.title}`, { size: 19 })], spacing: { after: 50 } })),
     new Paragraph({ children: [new PageBreak()] }),
   ];
 }

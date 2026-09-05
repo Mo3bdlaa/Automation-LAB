@@ -1,0 +1,416 @@
+[
+  {
+    "id": "01-launchpad",
+    "title": "Launchpad: work queues after sign-in",
+    "file": "docs/pdd-assets/01-launchpad.png",
+    "width": 1920,
+    "height": 936,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#sandbox-status",
+        "text": "Sandbox status and PDF render progress. A bot should wait until data-status is \"ready\" before starting."
+      },
+      {
+        "n": 2,
+        "selector": "#tile-invoices-pending",
+        "text": "Invoices pending extraction: the dispatcher queue for the invoice process. data-count holds the number."
+      },
+      {
+        "n": 3,
+        "selector": "#tile-pos-awaiting-invoice",
+        "text": "Purchase orders received but not yet invoiced: the awaiting-invoice process."
+      },
+      {
+        "n": 4,
+        "selector": "#tile-vendors-pending",
+        "text": "Vendor applications pending approval: the vendor onboarding process."
+      },
+      {
+        "n": 5,
+        "selector": "#nav-main",
+        "text": "Navigation. Each link carries a stable id (nav-invoices, nav-grns, …)."
+      }
+    ],
+    "bytes": 136640
+  },
+  {
+    "id": "02-invoice-queue",
+    "title": "AP inbox filtered to invoices pending extraction",
+    "file": "docs/pdd-assets/02-invoice-queue.png",
+    "width": 1920,
+    "height": 1035,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#invoices-filter-status",
+        "text": "Status filter. The dispatcher navigates straight to ?status=pending_extraction."
+      },
+      {
+        "n": 2,
+        "selector": "#invoices-download-pending",
+        "text": "Bulk ZIP of the whole queue, for offline extraction training."
+      },
+      {
+        "n": 3,
+        "selector": "#invoices-table",
+        "text": "Real HTML table: no virtualisation, fixed page size of 25."
+      },
+      {
+        "n": 4,
+        "selector": "#invoices-table tbody tr:first-child",
+        "text": "Each row carries data-number and data-status; field values stay hidden until the invoice is extracted."
+      },
+      {
+        "n": 5,
+        "selector": "#invoices-pager",
+        "text": "Pagination by URL. data-page, data-page-count and data-total let a bot loop without scraping text."
+      }
+    ],
+    "bytes": 267071
+  },
+  {
+    "id": "03-invoice-pending",
+    "title": "Invoice object page before extraction: only the PDF is available",
+    "file": "docs/pdd-assets/03-invoice-pending.png",
+    "width": 1920,
+    "height": 1211,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#invoice-status-INV-2026-05037",
+        "text": "Status badge with data-status=\"pending_extraction\"."
+      },
+      {
+        "n": 2,
+        "selector": "#invoice-document",
+        "text": "Document card. data-rendered=\"1\" means the PDF is ready to download."
+      },
+      {
+        "n": 3,
+        "selector": "#invoice-download",
+        "text": "Download link. Content-Disposition is attachment with a predictable file name."
+      },
+      {
+        "n": 4,
+        "selector": "#extraction-form",
+        "text": "Extraction form: the student or bot types what the PDF shows."
+      }
+    ],
+    "bytes": 156702
+  },
+  {
+    "id": "04-extraction-form",
+    "title": "Extraction form: header fields and line items",
+    "file": "docs/pdd-assets/04-extraction-form.png",
+    "width": 1241,
+    "height": 1415,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#extraction-field-number-group",
+        "text": "Every field has a stable id: extraction-field-{field}."
+      },
+      {
+        "n": 2,
+        "selector": "#extraction-field-iban-group",
+        "text": "The IBAN as printed. The match compares it with the vendor master (BANK-CHANGE)."
+      },
+      {
+        "n": 3,
+        "selector": "#extraction-lines-form",
+        "text": "Eight line rows, addressed as extraction-field-line-{n}-{field}."
+      },
+      {
+        "n": 4,
+        "selector": "#extraction-submit",
+        "text": "Submitting stores the extraction and runs the three-way match on the submitted values."
+      }
+    ],
+    "bytes": 120726
+  },
+  {
+    "id": "05-match-exception",
+    "title": "Three-way match result: violations carry stable rule IDs",
+    "file": "docs/pdd-assets/05-match-exception.png",
+    "width": 1920,
+    "height": 1032,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#invoice-status-INV-2026-05037",
+        "text": "The invoice moved to Exception because at least one blocking rule fired."
+      },
+      {
+        "n": 2,
+        "selector": "#validation-errors",
+        "text": "Fixed container. data-count and data-blocking let a bot branch without reading any text."
+      },
+      {
+        "n": 3,
+        "selector": "#validation-errors li:first-child",
+        "text": "One list item per violation with data-rule-id and data-severity."
+      },
+      {
+        "n": 4,
+        "selector": "#invoice-approve",
+        "text": "Approve and Reject actions. Critical findings must be escalated, never approved."
+      },
+      {
+        "n": 5,
+        "selector": "#invoice-rematch",
+        "text": "Re-run match after a corrected extraction."
+      }
+    ],
+    "bytes": 200494
+  },
+  {
+    "id": "06-purchase-order",
+    "title": "Purchase order object page with its related documents",
+    "file": "docs/pdd-assets/06-purchase-order.png",
+    "width": 1920,
+    "height": 1211,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#po-detail-PO-2026-05058",
+        "text": "Header facts: vendor, dates, payment terms, cost centre."
+      },
+      {
+        "n": 2,
+        "selector": "#po-related",
+        "text": "Related documents: RFQ, quotation, delivery notes, goods receipts and invoices, each with its status."
+      },
+      {
+        "n": 3,
+        "selector": "#po-document",
+        "text": "The purchase order PDF itself."
+      },
+      {
+        "n": 4,
+        "selector": "#po-lines-table",
+        "text": "Lines with quantity, unit of measure, price and tax code: the reference values for the match."
+      }
+    ],
+    "bytes": 206329
+  },
+  {
+    "id": "07-vendor-compliance",
+    "title": "Vendor master record and its compliance documents",
+    "file": "docs/pdd-assets/07-vendor-compliance.png",
+    "width": 1920,
+    "height": 1211,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#vendor-detail-V-00001",
+        "text": "Master data. Records from the shared corpus are read-only for students."
+      },
+      {
+        "n": 2,
+        "selector": "#vendor-documents-table",
+        "text": "Commercial registration, tax card, bank letter and trade licence, with issue and expiry dates."
+      },
+      {
+        "n": 3,
+        "selector": "#vendor-documents-download-vendor_licence",
+        "text": "The licence PDF renders on first download, then is cached."
+      }
+    ],
+    "bytes": 145714
+  },
+  {
+    "id": "08-goods-receipt",
+    "title": "Posting a goods receipt: over-receipt is rejected by rule",
+    "file": "docs/pdd-assets/08-goods-receipt.png",
+    "width": 1310,
+    "height": 671,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#grn-lines-form",
+        "text": "One row per delivered line. Accepted plus rejected must equal received (GRN-SPLIT)."
+      },
+      {
+        "n": 2,
+        "selector": "#validation-errors li:first-child",
+        "text": "GRN-OVER-PO fires when the total received would exceed the ordered quantity."
+      },
+      {
+        "n": 3,
+        "selector": "#grn-submit",
+        "text": "Posting updates the purchase order to Partially received or Received."
+      }
+    ],
+    "bytes": 70881
+  },
+  {
+    "id": "09-rule-catalogue",
+    "title": "Validation rule catalogue, also available as JSON at /api/rules",
+    "file": "docs/pdd-assets/09-rule-catalogue.png",
+    "width": 1920,
+    "height": 1211,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#rules-table",
+        "text": "Every rule with its ID, severity, scope and parameters. Rule IDs are a public contract and never change."
+      },
+      {
+        "n": 2,
+        "selector": "#rules-table tbody tr:first-child",
+        "text": "Each row carries data-severity."
+      }
+    ],
+    "bytes": 253851
+  },
+  {
+    "id": "10-sandbox",
+    "title": "Sandbox page: seed, reset and the background job log",
+    "file": "docs/pdd-assets/10-sandbox.png",
+    "width": 1920,
+    "height": 1211,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#sandbox-detail",
+        "text": "Seed and tenant. The seed derives from the user id, so a reset reproduces the identical starting set."
+      },
+      {
+        "n": 2,
+        "selector": "#sandbox-reset",
+        "text": "Reset returns the sandbox to identical starting conditions, which makes every exercise replayable."
+      },
+      {
+        "n": 3,
+        "selector": "#jobs-table",
+        "text": "Background jobs: provisioning and PDF rendering."
+      }
+    ],
+    "bytes": 182942
+  },
+  {
+    "id": "11-arabic-rtl",
+    "title": "The same screen in Arabic: the interface switches to right-to-left",
+    "file": "docs/pdd-assets/11-arabic-rtl.png",
+    "width": 1920,
+    "height": 1302,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#nav-language",
+        "text": "Language switch. The choice is stored in a cookie and applies to every screen."
+      },
+      {
+        "n": 2,
+        "selector": "#invoices-table",
+        "text": "Tables, labels and status badges are translated; ids and data-testid values stay identical."
+      }
+    ],
+    "bytes": 322427
+  },
+  {
+    "id": "12-document-invoice",
+    "title": "Input document: a vendor tax invoice as the lab generates it (seeded defect: currency_mismatch (INV-CURRENCY))",
+    "file": "docs/pdd-assets/12-document-invoice.png",
+    "width": 1350,
+    "height": 1269,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#po-number, .doc-title table, .dtitle table",
+        "text": "Header block: invoice number, dates and the purchase order reference the match needs."
+      },
+      {
+        "n": 2,
+        "selector": "#invoice-iban",
+        "text": "Bank details as printed. The match compares them with the vendor master (BANK-CHANGE)."
+      },
+      {
+        "n": 3,
+        "selector": "table.lines",
+        "text": "Line items: quantity, unit of measure, unit price, VAT rate and line total."
+      },
+      {
+        "n": 4,
+        "selector": "#invoice-grand-total",
+        "text": "Printed grand total. INV-TOTAL-TIE checks it against the sum of the lines."
+      }
+    ],
+    "bytes": 249651
+  },
+  {
+    "id": "13-document-purchase-order",
+    "title": "Reference document: the purchase order, bilingual English and Arabic",
+    "file": "docs/pdd-assets/13-document-purchase-order.png",
+    "width": 1350,
+    "height": 1539,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#po-number",
+        "text": "Purchase order number, quoted on every downstream document."
+      },
+      {
+        "n": 2,
+        "selector": ".parties",
+        "text": "Vendor and delivery details, including payment terms and the approver."
+      },
+      {
+        "n": 3,
+        "selector": "table.lines",
+        "text": "Ordered quantities and prices: the reference side of the three-way match."
+      },
+      {
+        "n": 4,
+        "selector": ".watermark span",
+        "text": "Every generated document is watermarked SPECIMEN - TRAINING ONLY in both languages."
+      }
+    ],
+    "bytes": 312827
+  },
+  {
+    "id": "14-document-licence",
+    "title": "Input document: a vendor commercial registration certificate",
+    "file": "docs/pdd-assets/14-document-licence.png",
+    "width": 1350,
+    "height": 936,
+    "scale": 1.5,
+    "callouts": [
+      {
+        "n": 1,
+        "selector": "#doc-number",
+        "text": "Commercial registration number: 10 digits with a mod-11 check digit (VEND-CR-FMT)."
+      },
+      {
+        "n": 2,
+        "selector": ".grid",
+        "text": "Fields to extract during onboarding: legal name in both scripts, address, tax ID, activities, manager."
+      },
+      {
+        "n": 3,
+        "selector": "#doc-expiry",
+        "text": "Expiry date. An expired registration blocks the vendor (VEND-CR-EXP)."
+      },
+      {
+        "n": 4,
+        "selector": ".seal",
+        "text": "Seal and machine-readable block, which make the document harder to read than plain text."
+      }
+    ],
+    "bytes": 128916
+  }
+]
