@@ -1,8 +1,9 @@
 /**
- * Builds the Process Definition Document (PDD) for Automation Lab in two
+ * Builds the Process Definition Document (PDD) for Automation Lab in three
  * formats from one content model:
  *   docs/pdd.md                       (tracked in the repository)
  *   .data/Automation-Lab-PDD.docx     (Word, for distribution)
+ *   .data/Automation-Lab-PDD.pdf      (PDF via the lab's Chromium renderer)
  * The rule catalogue in the appendix is read from the code, so it cannot drift.
  *   pnpm tsx scripts/build-pdd.ts
  */
@@ -12,6 +13,8 @@ import {
 } from "docx";
 import { describeRules } from "../src/lib/validation/engine";
 import { ALL_RULES } from "../src/lib/validation/rules";
+import { closeRenderer, renderHtmlToPdf } from "../src/lib/documents/renderer";
+import { fontFaceCss } from "../src/lib/documents/fonts";
 
 // ---------------------------------------------------------------------------
 // Content model
@@ -376,6 +379,75 @@ function toMarkdown(): string {
 }
 
 // ---------------------------------------------------------------------------
+// HTML emitter (for the PDF)
+// ---------------------------------------------------------------------------
+const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+function toHtml(): string {
+  const body: string[] = [];
+  const toc: { level: 1 | 2; text: string; id: string }[] = [];
+  for (const b of B) {
+    switch (b.t) {
+      case "h1": { const id = slug(b.text); toc.push({ level: 1, text: b.text, id }); body.push(`<h1 id="${id}">${escHtml(b.text)}</h1>`); break; }
+      case "h2": { const id = slug(b.text); toc.push({ level: 2, text: b.text, id }); body.push(`<h2 id="${id}">${escHtml(b.text)}</h2>`); break; }
+      case "h3": body.push(`<h3>${escHtml(b.text)}</h3>`); break;
+      case "p": body.push(`<p>${escHtml(b.text)}</p>`); break;
+      case "note": body.push(`<p class="note">${escHtml(b.text)}</p>`); break;
+      case "bullets": body.push(`<ul>${b.items.map((i) => `<li>${escHtml(i)}</li>`).join("")}</ul>`); break;
+      case "numbered": body.push(`<ol>${b.items.map((i) => `<li>${escHtml(i)}</li>`).join("")}</ol>`); break;
+      case "table": {
+        const total = (b.widths ?? b.header.map(() => 1)).reduce((a, x) => a + x, 0);
+        const cols = (b.widths ?? b.header.map(() => 1)).map((w) => `<col style="width:${((100 * w) / total).toFixed(2)}%">`).join("");
+        body.push(`<table><colgroup>${cols}</colgroup><thead><tr>${b.header.map((h) => `<th>${escHtml(h)}</th>`).join("")}</tr></thead><tbody>${b.rows.map((r) => `<tr>${r.map((c) => `<td>${escHtml(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+        break;
+      }
+      case "pagebreak": body.push(`<div class="pb"></div>`); break;
+    }
+  }
+  const tocHtml = `<nav class="toc"><h1>Contents</h1><ul>${toc.map((e) => `<li class="l${e.level}"><a href="#${e.id}">${escHtml(e.text)}</a></li>`).join("")}</ul></nav>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escHtml(`${DOC.title} — ${DOC.subtitle}`)}</title><style>
+${fontFaceCss()}
+@page { size: A4; }
+* { box-sizing: border-box; }
+body { font-family: "Noto Sans", Arial, sans-serif; font-size: 10pt; color: #1d2d3e; line-height: 1.45; margin: 0; }
+.cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; }
+.cover h1 { font-size: 34pt; color: #1d3557; margin: 0 0 4pt; }
+.cover .sub { font-size: 20pt; color: #354a5f; border-bottom: 3px solid #1d3557; padding-bottom: 10pt; margin-bottom: 18pt; }
+.cover .course { color: #556b82; font-size: 12pt; margin-bottom: 40pt; }
+.cover dl { display: grid; grid-template-columns: 34mm 1fr; row-gap: 3pt; font-size: 11pt; }
+.cover dt { color: #556b82; } .cover dd { margin: 0; font-weight: 600; }
+.cover .warn { margin-top: 50pt; color: #7a0000; font-style: italic; font-size: 9pt; }
+.pb { page-break-after: always; }
+h1 { font-size: 16pt; color: #1d3557; margin: 18pt 0 8pt; page-break-after: avoid; }
+h2 { font-size: 12.5pt; color: #1d3557; margin: 14pt 0 6pt; page-break-after: avoid; }
+h3 { font-size: 11pt; color: #354a5f; margin: 10pt 0 4pt; page-break-after: avoid; }
+p { margin: 0 0 7pt; text-align: justify; }
+p.note { font-style: italic; margin-left: 10pt; }
+ul, ol { margin: 0 0 8pt; padding-left: 18pt; } li { margin-bottom: 3pt; }
+table { width: 100%; border-collapse: collapse; margin: 4pt 0 10pt; font-size: 8.8pt; page-break-inside: auto; table-layout: fixed; }
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
+th { background: #1d3557; color: #fff; text-align: left; padding: 4pt 5pt; font-weight: 600; }
+td { border: 1px solid #c9d2dc; padding: 3.5pt 5pt; vertical-align: top; word-wrap: break-word; }
+tbody tr:nth-child(even) td { background: #f2f4f7; }
+.toc h1 { margin-top: 0; } .toc ul { list-style: none; padding: 0; } .toc li.l1 { font-weight: 600; margin-top: 6pt; } .toc li.l2 { margin-left: 14pt; font-size: 9.5pt; } .toc a { color: #1d2d3e; text-decoration: none; }
+</style></head><body>
+<div class="cover">
+  <h1>${escHtml(DOC.title)}</h1>
+  <div class="sub">${escHtml(DOC.subtitle)}</div>
+  <div class="course">Document Understanding &amp; RPA course · practice sandbox</div>
+  <dl><dt>Version</dt><dd>${DOC.version}</dd><dt>Date</dt><dd>${DOC.date}</dd><dt>Author</dt><dd>${escHtml(DOC.author)}</dd><dt>Status</dt><dd>${escHtml(DOC.status)}</dd><dt>Target application</dt><dd>https://automationlab.mohammedshaker.com</dd></dl>
+  <div class="warn">All data in Automation Lab is fictitious. Documents are watermarked SPECIMEN - TRAINING ONLY.</div>
+</div>
+<div class="pb"></div>
+${tocHtml}
+<div class="pb"></div>
+${body.join("\n")}
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
 // DOCX emitter
 // ---------------------------------------------------------------------------
 const FONT = "Calibri";
@@ -501,7 +573,18 @@ async function main() {
   });
   const buf = await Packer.toBuffer(doc);
   writeFileSync(".data/Automation-Lab-PDD.docx", buf);
-  console.log(`Wrote docs/pdd.md and .data/Automation-Lab-PDD.docx (${buf.byteLength} bytes, ${rules.length} rules in the catalogue)`);
+
+  const html = toHtml();
+  writeFileSync(".data/Automation-Lab-PDD.html", html);
+  const chrome = 'font-family: Arial, sans-serif; font-size: 7.5pt; color: #556b82; width: 100%; padding: 0 14mm;';
+  const { pdf, pages } = await renderHtmlToPdf(html, {
+    margin: { top: "18mm", bottom: "18mm", left: "16mm", right: "16mm" },
+    headerTemplate: `<div style="${chrome} text-align: right;">${escHtml(`${DOC.title} · ${DOC.subtitle} · v${DOC.version}`)}</div>`,
+    footerTemplate: `<div style="${chrome} text-align: center; color: #7a0000;">SPECIMEN - TRAINING ONLY · fictitious data · page <span class="pageNumber"></span> of <span class="totalPages"></span></div>`,
+  });
+  writeFileSync(".data/Automation-Lab-PDD.pdf", pdf);
+  await closeRenderer();
+  console.log(`Wrote docs/pdd.md, .data/Automation-Lab-PDD.docx (${buf.byteLength} bytes) and .data/Automation-Lab-PDD.pdf (${pages} pages, ${pdf.byteLength} bytes); ${rules.length} rules in the catalogue`);
 }
 
 main().catch((e) => {

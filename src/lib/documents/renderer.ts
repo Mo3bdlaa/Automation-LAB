@@ -66,14 +66,30 @@ export interface RenderResult {
   pages: number;
 }
 
-export async function renderHtmlToPdf(html: string): Promise<RenderResult> {
+export interface RenderOptions {
+  /** Chromium header/footer templates (HTML). Both must be given to enable them. */
+  headerTemplate?: string;
+  footerTemplate?: string;
+  margin?: { top: string; bottom: string; left: string; right: string };
+}
+
+export async function renderHtmlToPdf(html: string, opts: RenderOptions = {}): Promise<RenderResult> {
   const browser = await getBrowser();
   const context = await browser.newContext();
   try {
     const page = await context.newPage();
     await page.setContent(html, { waitUntil: "load" });
     await page.evaluate(() => (document as unknown as { fonts: { ready: Promise<unknown> } }).fonts.ready);
-    const pdf = await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true });
+    const chrome = Boolean(opts.headerTemplate && opts.footerTemplate);
+    const pdf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      preferCSSPageSize: !chrome,
+      displayHeaderFooter: chrome,
+      headerTemplate: opts.headerTemplate,
+      footerTemplate: opts.footerTemplate,
+      margin: opts.margin,
+    });
     const pages = countPdfPages(pdf);
     return { pdf: new Uint8Array(pdf), pages };
   } finally {
