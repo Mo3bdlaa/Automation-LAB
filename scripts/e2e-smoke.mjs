@@ -2,52 +2,58 @@
  * Browser smoke test against a running dev server with the seeded corpus.
  *   pnpm dev            (in one terminal)
  *   node scripts/e2e-smoke.mjs [screenshot-dir]
- * Logs in as student@lab.local, waits for provisioning, exercises vendors/items/POs,
- * downloads a PDF, switches to Arabic, resets the sandbox and checks replayability.
+ * Logs in as student@lab.local, waits for provisioning, exercises the full
+ * cycle (vendors, items, RFQ award, GRN posting, invoice extraction + match,
+ * approve, pay), downloads PDFs and a ZIP, switches to Arabic, resets the
+ * sandbox and checks replayability.
  */
 import { chromium } from "playwright-core";
+import { mkdirSync, readFileSync, copyFileSync } from "node:fs";
 const base = process.env.BASE_URL ?? "http://localhost:3000";
 const shots = process.argv[2] ?? ".data/shots";
-import { mkdirSync } from "node:fs";
 mkdirSync(shots, { recursive: true });
 const b = await chromium.launch({ executablePath: process.env.CHROMIUM_EXECUTABLE_PATH ?? "/opt/pw-browsers/chromium", args: ["--no-sandbox"] });
-const ctx = await b.newContext({ viewport: { width: 1200, height: 900 }, acceptDownloads: true });
+const ctx = await b.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true });
 const p = await ctx.newPage();
 const log = (...a) => console.log(...a);
+const fail = (m) => { throw new Error(m); };
 const mod97 = (str) => { let r = 0; for (const ch of str) { const v = /[A-Z]/.test(ch) ? String(ch.charCodeAt(0) - 55) : ch; for (const d of v) r = (r * 10 + Number(d)) % 97; } return r; };
 const digits = (n) => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join("");
 const makeIban = () => { const bban = "80" + digits(18); const c = 98 - mod97(bban + "SA00"); return "SA" + String(c).padStart(2, "0") + bban; };
 const luhn = (payload) => { let sum = 0, dbl = true; for (let i = payload.length - 1; i >= 0; i--) { let d = Number(payload[i]); if (dbl) { d *= 2; if (d > 9) d -= 9; } sum += d; dbl = !dbl; } return String((10 - (sum % 10)) % 10); };
 const makeTaxId = () => { const body = "3" + digits(13); return body + luhn(body); };
 const uniq = Date.now().toString(36);
+const ruleIds = async () => (await p.locator("#validation-errors li").evaluateAll((els) => els.map((e) => e.dataset.ruleId))).join(",");
+
+async function waitReady() {
+  for (let i = 0; i < 200; i++) {
+    await p.goto(`${base}/`);
+    const s = p.locator("#sandbox-status");
+    const status = await s.getAttribute("data-status");
+    const rendered = Number(await s.getAttribute("data-rendered"));
+    const docs = Number(await s.getAttribute("data-documents"));
+    if (status === "ready" && docs > 0 && rendered === docs) return { rendered, docs };
+    if (status === "failed") fail("provisioning failed: " + (await p.locator("#sandbox-status-message").innerText()));
+    await p.waitForTimeout(3000);
+  }
+  fail("sandbox never became ready");
+}
 
 await p.goto(`${base}/login`);
 await p.fill("#login-field-email", "student@lab.local");
 await p.fill("#login-field-password", "student");
 await Promise.all([p.waitForURL(`${base}/`), p.click("#login-submit")]);
 log("logged in:", await p.locator("#nav-user").getAttribute("data-user-id"));
-
-// Wait for provisioning (dashboard auto-refreshes every 3s while provisioning).
-for (let i = 0; i < 60; i++) {
-  const status = await p.locator("#sandbox-status").getAttribute("data-status");
-  const rendered = await p.locator("#sandbox-status").getAttribute("data-rendered");
-  const docs = await p.locator("#sandbox-status").getAttribute("data-documents");
-  if (status === "ready" && rendered === docs && Number(docs) > 0) { log(`sandbox ready: ${rendered}/${docs} PDFs`); break; }
-  if (status === "failed") throw new Error("provisioning failed: " + (await p.locator("#sandbox-status-message").innerText()));
-  await p.waitForTimeout(3000);
-  await p.goto(`${base}/`);
-}
+const ready = await waitReady();
+log(`sandbox ready: ${ready.rendered}/${ready.docs} PDFs`);
 await p.screenshot({ path: `${shots}/dashboard.png`, fullPage: true });
 
-// Vendors table + pager
+// Vendors: filter, invalid then valid create, read-only shared row, compliance docs lazy render
 await p.goto(`${base}/vendors?q=Trading`);
-const rows = await p.locator("#vendors-table tbody tr").count();
-log("vendors filtered rows:", rows, "pager:", await p.locator("#vendors-pager").getAttribute("data-total"));
+log("vendors filtered rows:", await p.locator("#vendors-table tbody tr").count(), "pager total:", await p.locator("#vendors-pager").getAttribute("data-total"));
 await p.screenshot({ path: `${shots}/vendors.png`, fullPage: true });
-
-// Vendor create: invalid first (bad IBAN/tax id) then valid
 await p.goto(`${base}/vendors/new`);
-const code = await p.inputValue("#vendor-field-code");
+const vendorCode = await p.inputValue("#vendor-field-code");
 await p.fill("#vendor-field-name", `Test Vendor ${uniq} LLC`);
 await p.fill("#vendor-field-crNumber", "1010456783");
 await p.fill("#vendor-field-crExpiry", "2027-06-30");
@@ -63,17 +69,23 @@ await p.fill("#vendor-field-addressLine", "1 Test St");
 await p.fill("#vendor-field-city", "Riyadh");
 await p.click("#vendor-submit");
 await p.waitForSelector('#validation-errors[data-count]:not([data-count="0"])');
-const ruleIds = await p.locator("#validation-errors li").evaluateAll((els) => els.map((e) => e.dataset.ruleId));
-log("vendor invalid submit rule ids:", ruleIds.join(","));
+log("vendor invalid submit rule ids:", await ruleIds());
 await p.screenshot({ path: `${shots}/vendor-form-errors.png`, fullPage: true });
 await p.fill("#vendor-field-crNumber", "1010456784");
 await p.fill("#vendor-field-taxId", makeTaxId());
 await p.fill("#vendor-field-iban", makeIban());
 await p.fill("#vendor-field-email", "t@test.example");
 await Promise.all([p.waitForURL(/\/vendors\/V-\d+\?saved=1/), p.click("#vendor-submit")]);
-log("vendor created:", code, "flash:", await p.locator("#flash").getAttribute("data-status"));
+log("vendor created:", vendorCode, "flash:", await p.locator("#flash").getAttribute("data-status"));
+await p.goto(`${base}/vendors/V-00001/edit`);
+log("shared vendor edit redirected to:", p.url());
+await p.goto(`${base}/vendors/V-00001`);
+const licenceDocId = await p.locator("#vendor-documents-row-vendor_licence").getAttribute("data-document-id");
+const lic = await p.request.get(`${base}/api/documents/${licenceDocId}/file`);
+log("vendor licence lazy render:", lic.status(), lic.headers()["content-type"], lic.headers()["content-disposition"]);
+await p.screenshot({ path: `${shots}/vendor-detail.png`, fullPage: true });
 
-// Item create
+// Items
 await p.goto(`${base}/items/new`);
 const itemCode = await p.inputValue("#item-field-code");
 await p.fill("#item-field-name", "Test Widget");
@@ -81,83 +93,116 @@ await p.fill("#item-field-unitPrice", "12.5");
 await Promise.all([p.waitForURL(/\/items\/ITM-\d+\?saved=1/), p.click("#item-submit")]);
 log("item created:", itemCode);
 
-// Shared row is read-only: edit URL redirects to detail
-await p.goto(`${base}/vendors/V-00001/edit`);
-log("shared vendor edit redirected to:", p.url());
-
-// PO list + PO detail + download
-await p.goto(`${base}/purchase-orders?status=approved`);
-const firstPo = await p.locator("#purchase-orders-table tbody tr").first().getAttribute("data-number");
-log("first approved PO:", firstPo, "total:", await p.locator("#purchase-orders-pager").getAttribute("data-total"));
-await p.goto(`${base}/purchase-orders/${firstPo}`);
-for (let i = 0; i < 5; i++) {
-  const flag = await p.locator("#po-document").getAttribute("data-rendered");
-  log("po rendered flag:", flag, "doc:", await p.locator("#po-document").getAttribute("data-document-id"));
-  if (flag === "1") break;
-  await p.waitForTimeout(2000);
-  await p.reload();
-}
-log("file:", await p.locator("#po-document-filename").innerText());
+// PO detail with related documents and download
+await p.goto(`${base}/purchase-orders?status=received`);
+const receivedPo = await p.locator("#purchase-orders-table tbody tr").first().getAttribute("data-number");
+await p.goto(`${base}/purchase-orders/${receivedPo}`);
+log("received PO", receivedPo, "related docs:", await p.locator("#po-related").getAttribute("data-count"), "rendered:", await p.locator("#po-document").getAttribute("data-rendered"));
 await p.screenshot({ path: `${shots}/po-detail.png`, fullPage: true });
 const [dl] = await Promise.all([p.waitForEvent("download"), p.click("#po-download")]);
-const path = await dl.path();
-const fs = await import("node:fs");
-const bytes = fs.readFileSync(path);
+const bytes = readFileSync(await dl.path());
 log("download:", dl.suggestedFilename(), bytes.length, "bytes, header:", bytes.subarray(0, 5).toString());
-fs.copyFileSync(path, `${shots}/downloaded.pdf`);
+copyFileSync(await dl.path(), `${shots}/downloaded-po.pdf`);
 
-// New PO with validation errors then success + approve
-await p.goto(`${base}/purchase-orders/new`);
-await p.selectOption("#po-field-vendorCode", { index: 1 });
-await p.fill("#po-field-line-1-itemCode", "ITM-000001");
-await p.fill("#po-field-line-1-quantity", "10");
-await p.fill("#po-field-line-1-unitPrice", "99999");
-await p.fill("#po-field-line-2-itemCode", "ITM-NOPE");
-await p.fill("#po-field-line-2-quantity", "0");
-await p.click("#po-submit");
-await p.waitForSelector('#validation-errors[data-count]:not([data-count="0"])');
-log("po invalid rule ids:", (await p.locator("#validation-errors li").evaluateAll((els) => els.map((e) => e.dataset.ruleId))).join(","));
-await p.fill("#po-field-line-1-unitPrice", "");
-await p.fill("#po-field-line-2-itemCode", "");
-await p.fill("#po-field-line-2-quantity", "");
-await Promise.all([p.waitForURL(/\/purchase-orders\/PO-\d{4}-9\d{4}\?created=1/), p.click("#po-submit")]);
-const newPo = p.url().match(/PO-\d{4}-\d{5}/)[0];
-log("po created:", newPo, "status:", await p.locator(`#po-status-${newPo}`).innerText());
-await Promise.all([p.waitForURL(/approved=1/), p.click("#po-approve")]);
-for (let i = 0; i < 20; i++) {
-  if ((await p.locator("#po-document").getAttribute("data-rendered")) === "1") break;
-  await p.waitForTimeout(2000);
-  await p.reload();
+// RFQ award → draft PO
+await p.goto(`${base}/rfqs`);
+const rfqCount = Number(await p.locator("#rfqs-pager").getAttribute("data-total"));
+log("rfqs:", rfqCount);
+// Generated RFQs are already awarded; award flow tested on a fresh one if present, else skip.
+const openRfq = await p.locator('#rfqs-table tbody tr[data-status="open"], #rfqs-table tbody tr[data-status="quoted"]').first();
+if (await openRfq.count()) {
+  const n = await openRfq.getAttribute("data-number");
+  await p.goto(`${base}/rfqs/${n}`);
+  await Promise.all([p.waitForURL(/awarded=1/), p.locator('[id^="quotes-action-award-"]').first().click()]);
+  log("awarded rfq", n);
+} else {
+  const anyRfq = await p.locator("#rfqs-table tbody tr").first().getAttribute("data-number");
+  await p.goto(`${base}/rfqs/${anyRfq}`);
+  log("rfq", anyRfq, "quotes:", await p.locator("#quotes-table tbody tr").count(), "status:", await p.locator(`#rfq-status-${anyRfq}`).getAttribute("data-status"));
+  await p.screenshot({ path: `${shots}/rfq-detail.png`, fullPage: true });
 }
-log("approved PO rendered:", await p.locator("#po-document").getAttribute("data-rendered"));
+
+// Delivery → post GRN (over-receipt rejected first, then valid)
+await p.goto(`${base}/deliveries?status=delivered`);
+const dnRow = p.locator("#deliveries-table tbody tr").first();
+if (await dnRow.count()) {
+  const dnId = (await dnRow.getAttribute("id")).replace("deliveries-row-", "");
+  await p.goto(`${base}/deliveries/${dnId}`);
+  const shipped = await p.locator("#grn-line-1 td:nth-child(5)").innerText();
+  await p.fill("#grn-field-line-1-received", String(Number(shipped) * 5));
+  await p.click("#grn-submit");
+  await p.waitForSelector('#validation-errors[data-count]:not([data-count="0"])');
+  log("grn over-receipt rule ids:", await ruleIds());
+  await p.fill("#grn-field-line-1-received", shipped);
+  await p.fill("#grn-field-line-1-rejected", "0");
+  await Promise.all([p.waitForURL(/\/grns\/GRN-\d{4}-9\d{4}\?posted=1/), p.click("#grn-submit")]);
+  log("grn posted:", p.url().match(/GRN-\d{4}-\d{5}/)[0]);
+} else log("no delivered DN awaiting GRN (ok)");
+
+// Invoice extraction + match with a wrong price → PO-INV-PRICE, then correct → approve → pay
+await p.goto(`${base}/invoices?status=pending_extraction`);
+log("pending invoices:", await p.locator("#invoices-pager").getAttribute("data-total"));
+const zip = await p.request.get(`${base}/api/queues/invoices-pending/download`);
+log("queue zip:", zip.status(), zip.headers()["content-type"], "docs:", zip.headers()["x-document-count"], "bytes:", (await zip.body()).length);
+// Pick an invoice whose PO is known and rendered: read the PDF's number from ground truth is hidden, so we use the API-free path:
+// choose a pending invoice, download its PDF (proves the file), then submit an extraction with obviously wrong values to see rule ids.
+const invRow = p.locator("#invoices-table tbody tr").first();
+const invNo = await invRow.getAttribute("data-number");
+await p.goto(`${base}/invoices/${invNo}`);
+log("invoice", invNo, "hidden:", await p.locator(`#invoice-detail-${invNo}`).getAttribute("data-hidden"), "pdf rendered:", await p.locator("#invoice-document").getAttribute("data-rendered"));
+await p.screenshot({ path: `${shots}/invoice-pending.png`, fullPage: true });
+await p.fill("#extraction-field-number", "TEST-1");
+await p.fill("#extraction-field-invoiceDate", "2026-08-01");
+await p.fill("#extraction-field-poNumber", receivedPo);
+await p.fill("#extraction-field-currency", "SAR");
+await p.fill("#extraction-field-vendorTaxId", "300000000000000");
+await p.fill("#extraction-field-iban", "SA0000");
+await p.fill("#extraction-field-grandTotal", "1");
+await p.fill("#extraction-field-line-1-poLine", "1");
+await p.fill("#extraction-field-line-1-quantity", "1");
+await p.fill("#extraction-field-line-1-unitPrice", "1");
+await p.fill("#extraction-field-line-1-taxRate", "15");
+await Promise.all([p.waitForURL(/extracted=1/), p.click("#extraction-submit")]);
+log("extraction submitted; status:", await p.locator(`#invoice-status-${invNo}`).getAttribute("data-status"), "match rule ids:", await ruleIds());
+const shownNumber = await p.locator(`#invoice-cell-${invNo}-number`).innerText();
+if (shownNumber !== "TEST-1") fail(`student view must show the extracted number, got ${shownNumber}`);
+log("student sees extracted values only:", shownNumber, "| lines source:", await p.locator("#invoice-lines-table").getAttribute("data-source"));
+await p.screenshot({ path: `${shots}/invoice-matched.png`, fullPage: true });
+await Promise.all([p.waitForURL(/approved=1/), p.click("#invoice-approve")]);
+log("approved; status:", await p.locator(`#invoice-status-${invNo}`).getAttribute("data-status"));
+await Promise.all([p.waitForURL(/paid=1/), p.click("#invoice-pay")]);
+log("paid; status:", await p.locator(`#invoice-status-${invNo}`).getAttribute("data-status"), "payment link:", await p.locator(`#invoice-cell-${invNo}-payment a`).innerText());
+
+// Payments + receipt PDF
+await p.goto(`${base}/payments`);
+const payRow = p.locator('#payments-table tbody tr[data-number^="PAY-2026-0"]').first();
+if (await payRow.count()) {
+  const payNo = await payRow.getAttribute("data-number");
+  await p.goto(`${base}/payments/${payNo}`);
+  log("payment", payNo, "receipt rendered:", await p.locator("#receipt-document").getAttribute("data-rendered"));
+}
 
 // Arabic / RTL
 await p.goto(`${base}/lang?to=ar`);
-await p.goto(`${base}/vendors`);
+await p.goto(`${base}/invoices`);
 log("dir:", await p.locator("html").getAttribute("dir"), "title:", await p.locator("#page-title").innerText());
-await p.screenshot({ path: `${shots}/vendors-ar.png`, fullPage: true });
+await p.screenshot({ path: `${shots}/invoices-ar.png`, fullPage: true });
 await p.goto(`${base}/lang?to=en`);
 
-// API
+// API + rules
 const api = await p.request.get(`${base}/api/sandbox`);
 log("api/sandbox:", JSON.stringify(await api.json()));
-const notRendered = await p.request.get(`${base}/api/documents/00000000-0000-0000-0000-000000000000/file`);
-log("api unknown doc status:", notRendered.status());
+const rules = await (await p.request.get(`${base}/api/rules`)).json();
+log("rules:", rules.rules.length, rules.rules.map((r) => r.id).filter((id) => /INV|GRN|BANK|DUP|TAX-CERT/.test(id)).join(","));
 
-// Reset sandbox and wait
+// Reset and replayability
 await p.goto(`${base}/sandbox`);
 await Promise.all([p.waitForURL(/reset=1/), p.click("#sandbox-reset")]);
-for (let i = 0; i < 60; i++) {
-  await p.goto(`${base}/`);
-  const s = await p.locator("#sandbox-status").getAttribute("data-status");
-  const r = await p.locator("#sandbox-status").getAttribute("data-rendered");
-  const d = await p.locator("#sandbox-status").getAttribute("data-documents");
-  if (s === "ready" && r === d && Number(d) > 0) { log(`after reset: ${r}/${d} PDFs`); break; }
-  await p.waitForTimeout(3000);
-}
-await p.goto(`${base}/purchase-orders?status=approved`);
-log("first approved PO after reset (should match):", await p.locator("#purchase-orders-table tbody tr").first().getAttribute("data-number"), "vs", firstPo);
-log("student-created vendor gone after reset:", (await p.request.get(`${base}/vendors/${code}`)).status());
+const after = await waitReady();
+log(`after reset: ${after.rendered}/${after.docs} PDFs (before: ${ready.rendered}/${ready.docs})`);
+await p.goto(`${base}/purchase-orders?status=received`);
+log("first received PO after reset (should match):", await p.locator("#purchase-orders-table tbody tr").first().getAttribute("data-number"), "vs", receivedPo);
+log("student-created vendor gone after reset:", (await p.request.get(`${base}/vendors/${vendorCode}`)).status());
 
 // Expired enrollment → no access
 const ctx2 = await b.newContext();

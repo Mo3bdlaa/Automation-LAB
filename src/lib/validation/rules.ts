@@ -366,5 +366,7 @@ export const poRules: Rule<PoContext>[] = [
   },
 ];
 
+import { grnRules, matchRules } from "./matching";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const ALL_RULES: Rule<any>[] = [...vendorRules, ...itemRules, ...poRules];
+export const ALL_RULES: Rule<any>[] = [...vendorRules, ...itemRules, ...poRules, ...matchRules, ...grnRules];

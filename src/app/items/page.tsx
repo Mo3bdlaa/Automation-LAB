@@ -3,7 +3,7 @@ import { ilike, or, sql } from "drizzle-orm";
 import { items } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { LinkButton, PAGE_SIZE, Page, Pager, parsePage } from "@/components/ui";
+import { LinkButton, ListFilter, PAGE_SIZE, Page, Pager, TableWrap, Toolbar, parsePage } from "@/components/ui";
 import { fmtNumber } from "@/lib/generator/money";
 
 export default async function ItemsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -26,13 +26,14 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
         </LinkButton>
       }
     >
-      <form id="items-filter" data-testid="items-filter" method="get" className="mb-3 flex gap-2">
-        <input id="items-filter-q" data-testid="items-filter-q" name="q" defaultValue={q} placeholder={t.common.search} className="al-input max-w-sm" />
-        <button id="items-filter-submit" data-testid="items-filter-submit" type="submit" className="al-btn secondary">
-          {t.common.filter}
-        </button>
-      </form>
-      <div className="overflow-x-auto">
+      <Toolbar
+        title={
+          <ListFilter entity="items" submitLabel={t.common.filter}>
+            <input id="items-filter-q" data-testid="items-filter-q" name="q" defaultValue={q} placeholder={t.common.search} className="al-input max-w-xs" />
+          </ListFilter>
+        }
+      />
+      <TableWrap>
         <table id="items-table" data-testid="items-table" className="al-table">
           <thead>
             <tr>
@@ -81,7 +82,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
             ))}
           </tbody>
         </table>
-      </div>
+      </TableWrap>
       <Pager entity="items" page={page} pageCount={pageCount} total={total} baseQuery={{ q }} labels={t.common} />
     </Page>
   );

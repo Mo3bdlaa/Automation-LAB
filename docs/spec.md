@@ -155,10 +155,16 @@ Chromium for PDF, sharp for degradation, S3-compatible blob. Dockerfile for port
 Every generated document watermarked `SPECIMEN - TRAINING ONLY`. `noindex` + robots
 deny — plausible fake IBANs and tax IDs must not be indexable.
 
+## Look and feel
+Enterprise-ERP styling (shell bar, launchpad tiles, object pages, toolbar tables) so the
+target application resembles the systems students automate at work. Colours and fonts
+live in one token block (`src/app/globals.css`) and can be re-branded without touching
+components.
+
 ## Phases
 - **P0** auth boundary, tenants, selector-stable nav/tables, vendor+item master,
-  shared corpus seeder, PO -> PDF, first rules, reset sandbox
-- **P1** full cycle, all document types, 3-way match, seeded defects, ground truth, downloads
+  shared corpus seeder, PO -> PDF, first rules, reset sandbox — done
+- **P1** full cycle, all document types, 3-way match, seeded defects, ground truth, downloads — done
 - **P2** queue views, REST API + Swagger, extraction grading, validation station, instructor dashboard
 - **P3** Arabic templates + RTL, degradation L3-L5, handwriting and stamps
 

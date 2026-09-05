@@ -1,9 +1,9 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { costCenters, deliveryLocations, documentFiles, documents, employees, items, purchaseOrderLines, purchaseOrders, vendors } from "@/db/schema";
+import { costCenters, deliveryLocations, deliveryNotes, documentFiles, documents, employees, grns, invoices, items, purchaseOrderLines, purchaseOrders, quotes, rfqs, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { Button, Dl, Flash, LinkButton, Page, Pill } from "@/components/ui";
+import { Button, DocumentCard, Dl, Flash, LinkButton, Page, Section, Status, TableWrap } from "@/components/ui";
 import { fmtNumber } from "@/lib/generator/money";
 import { approvePurchaseOrderAction } from "../actions";
 
@@ -31,10 +31,25 @@ export default async function PoDetailPage({ params, searchParams }: { params: P
   const item = (id: string | null) => its.find((i) => i.id === id);
   const readOnly = session.tdb.isReadOnlyRow(po);
   const tp = t.po;
+  const [rfq, dns, gs, invs] = await Promise.all([
+    session.tdb.one(rfqs, eq(rfqs.purchaseOrderId, po.id)),
+    session.tdb.list(deliveryNotes, { where: eq(deliveryNotes.purchaseOrderId, po.id) }),
+    session.tdb.list(grns, { where: eq(grns.purchaseOrderId, po.id) }),
+    session.tdb.list(invoices, { where: eq(invoices.purchaseOrderId, po.id) }),
+  ]);
+  const awardedQuote = rfq ? await session.tdb.one(quotes, and(eq(quotes.rfqId, rfq.id), eq(quotes.status, "awarded"))!) : null;
+  const related: { kind: string; label: string; href: string; status: string; testId: string }[] = [
+    ...(rfq ? [{ kind: "rfq", label: rfq.number, href: `/rfqs/${encodeURIComponent(rfq.number)}`, status: rfq.status, testId: `related-rfq-${rfq.number}` }] : []),
+    ...(awardedQuote ? [{ kind: "quote", label: awardedQuote.number, href: `/rfqs/${encodeURIComponent(rfq!.number)}`, status: awardedQuote.status, testId: `related-quote-${awardedQuote.id}` }] : []),
+    ...dns.map((d) => ({ kind: "delivery_note", label: d.number, href: `/deliveries/${d.id}`, status: d.status, testId: `related-delivery-${d.id}` })),
+    ...gs.map((g) => ({ kind: "grn", label: g.number, href: `/grns/${encodeURIComponent(g.number)}`, status: g.status, testId: `related-grn-${g.number}` })),
+    ...invs.map((i) => ({ kind: "invoice", label: `${i.internalNumber} · ${i.status === "pending_extraction" ? "…" : i.number}`, href: `/invoices/${encodeURIComponent(i.internalNumber)}`, status: i.status, testId: `related-invoice-${i.internalNumber}` })),
+  ];
 
   return (
     <Page
       title={`${po.number}`}
+      status={<Status status={po.status} testId={`po-status-${po.number}`} />}
       actions={
         <>
           {!readOnly && po.status === "draft" ? (
@@ -57,7 +72,7 @@ export default async function PoDetailPage({ params, searchParams }: { params: P
             code={po.number}
             rows={[
               { key: "number", label: tp.number, value: po.number },
-              { key: "status", label: tp.status, value: <Pill testId={`po-status-${po.number}`}>{po.status.replace(/_/g, " ")}</Pill> },
+              { key: "status", label: tp.status, value: po.status.replace(/_/g, " ") },
               { key: "vendor", label: tp.vendor, value: vendor ? <a href={`/vendors/${encodeURIComponent(vendor.code)}`}>{`${vendor.code} · ${vendor.name}`}</a> : t.common.none },
               { key: "currency", label: tp.currency, value: po.currency },
               { key: "orderDate", label: tp.orderDate, value: po.orderDate },
@@ -72,31 +87,30 @@ export default async function PoDetailPage({ params, searchParams }: { params: P
             ]}
           />
         </div>
-        <div className="al-card" id="po-document" data-testid="po-document" data-document-id={doc?.id ?? ""} data-rendered={file ? "1" : "0"}>
-          <h2 className="mb-2 font-semibold text-primary">{tp.document}</h2>
-          {!doc ? (
-            <p className="text-sm text-muted" id="po-document-none" data-testid="po-document-none">
-              {t.common.notRendered}
-            </p>
-          ) : file ? (
-            <>
-              <p className="mb-2 text-sm" id="po-document-filename" data-testid="po-document-filename">
-                {tp.filename}: <code>{file.filename}</code> · {file.pages}p · {Math.round(file.sizeBytes / 1024)} KB
-              </p>
-              <a id="po-download" data-testid="po-download" href={`/api/documents/${doc.id}/file`} className="al-btn" download={file.filename}>
-                {t.common.download}
-              </a>
-            </>
-          ) : (
-            <p className="text-sm text-muted" id="po-document-rendering" data-testid="po-document-rendering">
-              {t.common.rendering}
-            </p>
-          )}
+        <div>
+          <DocumentCard entity="po" documentId={doc?.id ?? null} file={file} labels={{ title: tp.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: tp.filename }} />
+          <div className="al-card mt-4" id="po-related" data-testid="po-related" data-count={related.length}>
+            <h2 className="mb-2">{t.cycle.relatedDocuments}</h2>
+            {related.length === 0 ? (
+              <p className="text-sm text-muted">{t.common.none}</p>
+            ) : (
+              <ul className="text-sm">
+                {related.map((r) => (
+                  <li key={r.testId} id={r.testId} data-testid={r.testId} data-kind={r.kind} className="flex items-center justify-between gap-2 border-b border-border py-1">
+                    <span>
+                      <span className="text-muted">{r.kind.replace(/_/g, " ")}</span> <a href={r.href}>{r.label}</a>
+                    </span>
+                    <Status status={r.status} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
 
-      <h2 className="mb-2 mt-5 text-lg font-semibold text-primary">{tp.lines}</h2>
-      <div className="overflow-x-auto">
+      <Section title={tp.lines}>
+      <TableWrap>
         <table id="po-lines-table" data-testid="po-lines-table" className="al-table">
           <thead>
             <tr>
@@ -165,7 +179,8 @@ export default async function PoDetailPage({ params, searchParams }: { params: P
             </tr>
           </tfoot>
         </table>
-      </div>
+      </TableWrap>
+      </Section>
     </Page>
   );
 }

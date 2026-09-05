@@ -1,10 +1,9 @@
-import Link from "next/link";
-import { eq } from "drizzle-orm";
-import { items, purchaseOrders, vendors } from "@/db/schema";
+import { and, eq, inArray } from "drizzle-orm";
+import { deliveryNotes, invoices, items, purchaseOrders, rfqs, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
 import { sandboxProgress } from "@/lib/sandbox/lifecycle";
-import { Page } from "@/components/ui";
+import { Page, Section, Tile } from "@/components/ui";
 import { COMPANY } from "@/lib/generator/vocab";
 
 export default async function DashboardPage() {
@@ -12,97 +11,78 @@ export default async function DashboardPage() {
   const session = await requireLab();
   const progress = await sandboxProgress(session.tenant);
   const provisioning = session.tenant.status === "provisioning";
-  const [vendorCount, itemCount, poCount] = await Promise.all([
-    session.tdb.count(vendors),
-    session.tdb.count(items),
-    session.tdb.count(purchaseOrders, eq(purchaseOrders.historical, false)),
+  const tdb = session.tdb;
+  const [vendorCount, pendingVendors, itemCount, poCount, openRfqs, pendingInvoices, exceptionInvoices, approvedInvoices, awaitingGrn] = await Promise.all([
+    tdb.count(vendors),
+    tdb.count(vendors, eq(vendors.status, "pending")),
+    tdb.count(items),
+    tdb.count(purchaseOrders, eq(purchaseOrders.historical, false)),
+    tdb.count(rfqs, inArray(rfqs.status, ["open", "quoted"])),
+    tdb.count(invoices, eq(invoices.status, "pending_extraction")),
+    tdb.count(invoices, eq(invoices.status, "exception")),
+    tdb.count(invoices, eq(invoices.status, "approved")),
+    tdb.count(deliveryNotes, and(eq(deliveryNotes.status, "delivered"))!),
   ]);
+  const posAwaitingInvoice = (await tdb.list(purchaseOrders, { where: and(eq(purchaseOrders.historical, false), inArray(purchaseOrders.status, ["received", "partially_received"]))! })).length;
   const td = t.dashboard;
   return (
-    <Page title={td.title}>
+    <Page title={td.title} subtitle={`${td.welcome}, ${session.principal.displayName} · ${td.company} ${locale === "ar" ? COMPANY.nameAr : COMPANY.name}`}>
       {provisioning ? <meta httpEquiv="refresh" content="3" /> : null}
-      <p className="mb-4 text-sm text-muted">
-        {td.welcome}, <span id="dashboard-user" data-testid="dashboard-user">{session.principal.displayName}</span>. {td.company} <strong>{locale === "ar" ? COMPANY.nameAr : COMPANY.name}</strong>.
-      </p>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <section className="al-card" id="sandbox-status" data-testid="sandbox-status" data-status={session.tenant.status} data-progress={session.tenant.progress} data-documents={progress.documents} data-rendered={progress.rendered}>
-          <h2 className="mb-2 font-semibold text-primary">{td.sandboxStatus}</h2>
-          {provisioning ? (
-            <>
-              <p className="text-sm">{td.provisioning}</p>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded bg-border">
-                <div className="h-2 bg-primary" style={{ width: `${session.tenant.progress}%` }} />
-              </div>
-              <p className="mt-1 text-xs text-muted" id="sandbox-status-message" data-testid="sandbox-status-message">
-                {session.tenant.statusMessage} · {session.tenant.progress}%
+      <section className="al-card mb-5" id="sandbox-status" data-testid="sandbox-status" data-status={session.tenant.status} data-progress={session.tenant.progress} data-documents={progress.documents} data-rendered={progress.rendered}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2>{td.sandboxStatus}</h2>
+            {provisioning ? (
+              <p className="text-sm" id="sandbox-status-message" data-testid="sandbox-status-message">
+                {td.provisioning} · {session.tenant.statusMessage} · {session.tenant.progress}%
               </p>
-            </>
-          ) : session.tenant.status === "failed" ? (
-            <p className="text-sm text-error" id="sandbox-status-message" data-testid="sandbox-status-message">
-              {td.failed}: {session.tenant.statusMessage}
-            </p>
-          ) : (
-            <>
+            ) : session.tenant.status === "failed" ? (
+              <p className="text-sm text-error" id="sandbox-status-message" data-testid="sandbox-status-message">
+                {td.failed}: {session.tenant.statusMessage}
+              </p>
+            ) : (
               <p className="text-sm text-success" id="sandbox-status-message" data-testid="sandbox-status-message">
                 {td.ready}
               </p>
-              <p className="mt-1 text-xs text-muted" id="sandbox-render-progress" data-testid="sandbox-render-progress">
-                PDFs: {progress.rendered}/{progress.documents}
-              </p>
-            </>
-          )}
-          <p className="mt-2 text-xs text-muted">
-            {td.seed}: <code id="sandbox-seed" data-testid="sandbox-seed">{session.tenant.seed}</code>
-          </p>
-        </section>
-        <section className="al-card" id="dashboard-counts" data-testid="dashboard-counts">
-          <h2 className="mb-2 font-semibold text-primary">{td.counts}</h2>
-          <dl className="text-sm">
-            <div className="flex justify-between border-b border-border py-1">
-              <dt>{t.nav.vendors}</dt>
-              <dd id="count-vendors" data-testid="count-vendors">{vendorCount}</dd>
+            )}
+          </div>
+          <div className="text-right text-xs text-muted">
+            <div id="sandbox-render-progress" data-testid="sandbox-render-progress">
+              PDFs {progress.rendered}/{progress.documents}
             </div>
-            <div className="flex justify-between border-b border-border py-1">
-              <dt>{t.nav.items}</dt>
-              <dd id="count-items" data-testid="count-items">{itemCount}</dd>
+            <div>
+              {td.seed}: <code id="sandbox-seed" data-testid="sandbox-seed">{session.tenant.seed}</code>
             </div>
-            <div className="flex justify-between py-1">
-              <dt>{t.nav.purchaseOrders}</dt>
-              <dd id="count-purchase-orders" data-testid="count-purchase-orders">{poCount}</dd>
-            </div>
-          </dl>
-        </section>
-        <section className="al-card" id="dashboard-links" data-testid="dashboard-links">
-          <h2 className="mb-2 font-semibold text-primary">{td.quickLinks}</h2>
-          <ul className="space-y-1 text-sm">
-            <li>
-              <Link id="link-vendors" data-testid="link-vendors" href="/vendors" className="underline">
-                {t.nav.vendors}
-              </Link>
-            </li>
-            <li>
-              <Link id="link-items" data-testid="link-items" href="/items" className="underline">
-                {t.nav.items}
-              </Link>
-            </li>
-            <li>
-              <Link id="link-purchase-orders" data-testid="link-purchase-orders" href="/purchase-orders" className="underline">
-                {t.nav.purchaseOrders}
-              </Link>
-            </li>
-            <li>
-              <Link id="link-rules" data-testid="link-rules" href="/rules" className="underline">
-                {t.nav.rules}
-              </Link>
-            </li>
-            <li>
-              <a id="link-api-sandbox" data-testid="link-api-sandbox" href="/api/sandbox" className="underline">
-                GET /api/sandbox
-              </a>
-            </li>
-          </ul>
-        </section>
-      </div>
+          </div>
+        </div>
+        {provisioning || progress.rendered < progress.documents ? (
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-border">
+            <div className="h-1.5 bg-primary" style={{ width: `${provisioning ? session.tenant.progress : Math.round((100 * progress.rendered) / Math.max(1, progress.documents))}%` }} />
+          </div>
+        ) : null}
+      </section>
+
+      <Section title="Work queues" testId="dashboard-queues">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Tile testId="tile-invoices-pending" href="/invoices?status=pending_extraction" title="Invoices" subtitle="Pending extraction" count={pendingInvoices} />
+          <Tile testId="tile-invoices-exception" href="/invoices?status=exception" title="Invoices" subtitle="Match exceptions" count={exceptionInvoices} />
+          <Tile testId="tile-invoices-approved" href="/invoices?status=approved" title="Invoices" subtitle="Approved, awaiting payment" count={approvedInvoices} />
+          <Tile testId="tile-pos-awaiting-invoice" href="/purchase-orders?status=received" title="Purchase orders" subtitle="Received, awaiting invoice" count={posAwaitingInvoice} />
+          <Tile testId="tile-deliveries-pending" href="/deliveries?status=delivered" title="Deliveries" subtitle="Awaiting goods receipt" count={awaitingGrn} />
+          <Tile testId="tile-rfqs-open" href="/rfqs?status=open" title="RFQs" subtitle="Open for award" count={openRfqs} />
+          <Tile testId="tile-vendors-pending" href="/vendors?status=pending" title="Vendor applications" subtitle="Pending approval" count={pendingVendors} />
+          <Tile testId="tile-rules" href="/rules" title="Validation rules" subtitle="Rule IDs your bot can branch on" />
+        </div>
+      </Section>
+
+      <Section title={td.counts} testId="dashboard-counts">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Tile testId="tile-vendors" href="/vendors" title={t.nav.vendors} subtitle="Shared corpus + your sandbox" count={vendorCount} />
+          <Tile testId="tile-items" href="/items" title={t.nav.items} subtitle="Catalogue" count={itemCount} />
+          <Tile testId="tile-purchase-orders" href="/purchase-orders" title={t.nav.purchaseOrders} subtitle="Your working set" count={poCount} />
+          <Tile testId="tile-api-sandbox" href="/api/sandbox" title="API" subtitle="GET /api/sandbox · /api/rules · /api/documents/{id}/file" />
+        </div>
+      </Section>
     </Page>
   );
 }

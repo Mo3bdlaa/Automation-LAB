@@ -3,7 +3,7 @@ import { and, eq, ilike, inArray, or } from "drizzle-orm";
 import { PO_STATUSES, purchaseOrders, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { LinkButton, PAGE_SIZE, Page, Pager, Pill, parsePage } from "@/components/ui";
+import { LinkButton, ListFilter, PAGE_SIZE, Page, Pager, Status, TableWrap, Toolbar, parsePage } from "@/components/ui";
 import { fmtNumber } from "@/lib/generator/money";
 
 export default async function PurchaseOrdersPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -37,25 +37,30 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
         </LinkButton>
       }
     >
-      <form id="purchase-orders-filter" data-testid="purchase-orders-filter" method="get" className="mb-3 flex flex-wrap gap-2">
-        <input id="purchase-orders-filter-q" data-testid="purchase-orders-filter-q" name="q" defaultValue={q} placeholder={tp.number} className="al-input max-w-xs" />
-        <select id="purchase-orders-filter-status" data-testid="purchase-orders-filter-status" name="status" defaultValue={status} className="al-input max-w-[12rem]">
-          <option value="">{tp.status}: —</option>
-          {PO_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
-        <select id="purchase-orders-filter-scope" data-testid="purchase-orders-filter-scope" name="scope" defaultValue={scope} className="al-input max-w-[12rem]">
-          <option value="mine">Working set</option>
-          <option value="all">Including history</option>
-        </select>
-        <button id="purchase-orders-filter-submit" data-testid="purchase-orders-filter-submit" type="submit" className="al-btn secondary">
-          {t.common.filter}
-        </button>
-      </form>
-      <div className="overflow-x-auto">
+      <Toolbar
+        title={
+          <ListFilter entity="purchase-orders" submitLabel={t.common.filter}>
+            <input id="purchase-orders-filter-q" data-testid="purchase-orders-filter-q" name="q" defaultValue={q} placeholder={tp.number} className="al-input max-w-xs" />
+            <select id="purchase-orders-filter-status" data-testid="purchase-orders-filter-status" name="status" defaultValue={status} className="al-input max-w-[12rem]">
+              <option value="">{tp.status}: —</option>
+              {PO_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+            <select id="purchase-orders-filter-scope" data-testid="purchase-orders-filter-scope" name="scope" defaultValue={scope} className="al-input max-w-[12rem]">
+              <option value="mine">Working set</option>
+              <option value="all">Including history</option>
+            </select>
+          </ListFilter>
+        }
+      >
+        <LinkButton testId="purchase-orders-download-awaiting" href="/api/queues/pos-awaiting-invoice/download" variant="secondary" download="pos-awaiting-invoice.zip">
+          {t.cycle.queueAll}
+        </LinkButton>
+      </Toolbar>
+      <TableWrap>
         <table id="purchase-orders-table" data-testid="purchase-orders-table" className="al-table">
           <thead>
             <tr>
@@ -79,7 +84,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
                   <td id={`purchase-orders-cell-${po.number}-orderDate`} data-testid={`purchase-orders-cell-${po.number}-orderDate`}>{po.orderDate}</td>
                   <td id={`purchase-orders-cell-${po.number}-vendor`} data-testid={`purchase-orders-cell-${po.number}-vendor`}>{v ? <bdi>{`${v.code} · ${v.name}`}</bdi> : t.common.none}</td>
                   <td id={`purchase-orders-cell-${po.number}-status`} data-testid={`purchase-orders-cell-${po.number}-status`}>
-                    <Pill>{po.status.replace(/_/g, " ")}</Pill>
+                    <Status status={po.status} />
                   </td>
                   <td id={`purchase-orders-cell-${po.number}-currency`} data-testid={`purchase-orders-cell-${po.number}-currency`}>{po.currency}</td>
                   <td className="num" id={`purchase-orders-cell-${po.number}-grandTotal`} data-testid={`purchase-orders-cell-${po.number}-grandTotal`}>
@@ -95,7 +100,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
             })}
           </tbody>
         </table>
-      </div>
+      </TableWrap>
       <Pager entity="purchase-orders" page={page} pageCount={pageCount} total={total} baseQuery={{ q, status, scope }} labels={t.common} />
     </Page>
   );

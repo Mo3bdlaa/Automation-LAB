@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { ilike, or, sql } from "drizzle-orm";
+import { and, eq, ilike, or, sql } from "drizzle-orm";
 import { vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { LinkButton, PAGE_SIZE, Page, Pager, Pill, parsePage } from "@/components/ui";
+import { LinkButton, ListFilter, PAGE_SIZE, Page, Pager, Status, TableWrap, Toolbar, parsePage } from "@/components/ui";
 
 export default async function VendorsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { t } = await i18n();
@@ -11,7 +11,11 @@ export default async function VendorsPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
   const page = parsePage(sp.page);
-  const where = q ? or(ilike(vendors.name, `%${q}%`), ilike(vendors.code, `%${q}%`), ilike(vendors.taxId, `%${q}%`), sql`${vendors.nameAr} ilike ${"%" + q + "%"}`) : undefined;
+  const status = typeof sp.status === "string" && ["active", "pending", "blocked"].includes(sp.status) ? (sp.status as "active" | "pending" | "blocked") : "";
+  const conds = [];
+  if (q) conds.push(or(ilike(vendors.name, `%${q}%`), ilike(vendors.code, `%${q}%`), ilike(vendors.taxId, `%${q}%`), sql`${vendors.nameAr} ilike ${"%" + q + "%"}`));
+  if (status) conds.push(eq(vendors.status, status));
+  const where = conds.length ? and(...conds) : undefined;
   const total = await session.tdb.count(vendors, where);
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const rows = await session.tdb.list(vendors, { where, orderBy: [{ column: vendors.code }], limit: PAGE_SIZE, offset: (Math.min(page, pageCount) - 1) * PAGE_SIZE });
@@ -25,13 +29,24 @@ export default async function VendorsPage({ searchParams }: { searchParams: Prom
         </LinkButton>
       }
     >
-      <form id="vendors-filter" data-testid="vendors-filter" method="get" className="mb-3 flex gap-2">
-        <input id="vendors-filter-q" data-testid="vendors-filter-q" name="q" defaultValue={q} placeholder={t.common.search} className="al-input max-w-sm" />
-        <button id="vendors-filter-submit" data-testid="vendors-filter-submit" type="submit" className="al-btn secondary">
-          {t.common.filter}
-        </button>
-      </form>
-      <div className="overflow-x-auto">
+      <Toolbar
+        title={
+          <ListFilter entity="vendors" submitLabel={t.common.filter}>
+            <input id="vendors-filter-q" data-testid="vendors-filter-q" name="q" defaultValue={q} placeholder={t.common.search} className="al-input max-w-xs" />
+            <select id="vendors-filter-status" data-testid="vendors-filter-status" name="status" defaultValue={status} className="al-input max-w-[11rem]">
+              <option value="">{tv.status}: —</option>
+              <option value="active">active</option>
+              <option value="pending">pending</option>
+              <option value="blocked">blocked</option>
+            </select>
+          </ListFilter>
+        }
+      >
+        <LinkButton testId="vendors-download-applications" href="/api/queues/vendor-applications/download" variant="secondary" download="vendor-applications.zip">
+          {t.cycle.queueAll}
+        </LinkButton>
+      </Toolbar>
+      <TableWrap>
         <table id="vendors-table" data-testid="vendors-table" className="al-table">
           <thead>
             <tr>
@@ -64,7 +79,7 @@ export default async function VendorsPage({ searchParams }: { searchParams: Prom
                 <td id={`vendors-cell-${v.code}-city`} data-testid={`vendors-cell-${v.code}-city`}>{v.city}</td>
                 <td id={`vendors-cell-${v.code}-currency`} data-testid={`vendors-cell-${v.code}-currency`}>{v.currency}</td>
                 <td id={`vendors-cell-${v.code}-status`} data-testid={`vendors-cell-${v.code}-status`}>
-                  <Pill>{v.status}</Pill>
+                  <Status status={v.status} />
                 </td>
                 <td>
                   <Link id={`vendors-action-view-${v.code}`} data-testid={`vendors-action-view-${v.code}`} href={`/vendors/${encodeURIComponent(v.code)}`} className="me-2 underline">
@@ -80,8 +95,8 @@ export default async function VendorsPage({ searchParams }: { searchParams: Prom
             ))}
           </tbody>
         </table>
-      </div>
-      <Pager entity="vendors" page={page} pageCount={pageCount} total={total} baseQuery={{ q }} labels={t.common} />
+      </TableWrap>
+      <Pager entity="vendors" page={page} pageCount={pageCount} total={total} baseQuery={{ q, status }} labels={t.common} />
     </Page>
   );
 }

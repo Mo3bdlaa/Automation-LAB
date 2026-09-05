@@ -13,7 +13,7 @@ knows every correct field value and can grade extraction accuracy automatically.
 Everything in the lab is fictitious. Every PDF is watermarked `SPECIMEN — TRAINING ONLY`,
 every response carries `X-Robots-Tag: noindex`, and `robots.txt` denies all crawlers.
 
-## What P0 contains
+## What P0 and P1 contain
 
 | Area | Where |
 |---|---|
@@ -29,6 +29,12 @@ every response carries `X-Robots-Tag: noindex`, and `robots.txt` denies all craw
 | Background job queue (Postgres, SKIP LOCKED) with worker, cron route and in-process kick | `src/lib/jobs/` |
 | i18n structure (EN/AR, RTL) | `src/i18n/` |
 | `noindex` everywhere | `next.config.ts`, `vercel.json`, `public/robots.txt` |
+| **P1** Full cycle generator: RFQ, quotes, delivery notes, GRNs, invoices, payments, receipts, vendor compliance documents; eleven labelled defect types | `src/lib/generator/cycle.ts`, `src/lib/generator/sandbox.ts` |
+| **P1** Templates for every document kind, vendor-specific letterheads | `src/lib/documents/templates/` |
+| **P1** Three-way match engine + GRN entry rules | `src/lib/validation/matching.ts` |
+| **P1** Invoice extraction screen, approve / reject / pay; GRN posting; quote award | `src/app/invoices`, `src/app/deliveries`, `src/app/rfqs` |
+| **P1** Bulk ZIP downloads per work queue, lazy render of vendor documents | `src/app/api/queues`, `src/app/api/documents` |
+| **P1** Enterprise-ERP styling (shell bar, tiles, object pages) | `src/app/globals.css`, `src/components/ui.tsx` |
 
 ## Running locally
 
@@ -53,8 +59,9 @@ Sign in with a development account from `config/local-users.json`:
 | `ta@lab.local` | `ta` | TA |
 | `instructor@lab.local` | `instructor` | instructor |
 
-On first login a sandbox is created and provisioned in the background (40 purchase
-orders, PDFs for the non-draft ones). The dashboard shows progress and refreshes itself.
+On first login a sandbox is created and provisioned in the background: 60 purchase
+orders with their RFQs, quotes, delivery notes, goods receipts, invoices, payments and
+receipts, about 250 PDFs. The dashboard shows progress and refreshes itself.
 
 Jobs run in-process right after they are enqueued, so `pnpm dev` alone is enough. For a
 dedicated worker (recommended when rendering many documents) run `pnpm worker` in a
@@ -67,6 +74,7 @@ pnpm test          # vitest unit tests (generators, checksums, rules, session, s
 pnpm typecheck
 pnpm lint
 pnpm render:po     # renders a sample PO to .data/sample-po.pdf without a database
+node scripts/e2e-smoke.mjs   # browser smoke test of the whole cycle against `pnpm dev`
 pnpm db:reset      # drops everything (dev only), then db:migrate + db:seed again
 ```
 
@@ -89,6 +97,14 @@ Chromium and stores the PDF in the blob store (`.data/blobs` locally). Download 
 filename (`PO-2026-05001_AL-FAISAL-TRADING-LLC.pdf`). A `409` with `Retry-After` means
 the render is still queued.
 
+**Invoices and the three-way match.** An invoice in `pending_extraction` shows only its PDF.
+The student (or bot) enters the fields in the extraction form; the submission is stored
+and the three-way match runs on the submitted values against the PO and posted GRNs.
+Violations render in `#validation-errors` with rule IDs (`PO-INV-PRICE`, `GRN-QTY`,
+`DUP-INV`, `BANK-CHANGE`, …). The invoice becomes `matched` or `exception`, then can be
+approved, rejected, or paid. Seeded defects are recorded per document and visible to
+instructors on the invoice page.
+
 **Validation.** Rules are plain objects with an `id`, `severity`, `description`, optional
 `params` and a `check`. The same engine runs on form save and API POST. Violations render
 inside `#validation-errors`, one `<li>` per violation with `data-rule-id` and
@@ -104,7 +120,8 @@ consumes `{ userId, email, roles, entitlements }` and nothing else. Adding WorkO
 |---|---|---|
 | GET | `/api/health` | liveness + DB check |
 | GET | `/api/sandbox` | sandbox status for bots: poll until `status: "ready"` and `rendered === documents` |
-| GET | `/api/documents/{id}/file?level=1` | download a rendered document |
+| GET | `/api/documents/{id}/file?level=1` | download a rendered document (vendor compliance documents render on first download) |
+| GET | `/api/queues/{queue}/download` | ZIP of a work queue: `invoices-pending`, `pos-awaiting-invoice`, `vendor-applications`, `kind:<document kind>` |
 | GET | `/api/rules` | validation rules as JSON |
 | POST | `/api/jobs/run` | process queued jobs (Vercel Cron; `Authorization: Bearer $CRON_SECRET`) |
 

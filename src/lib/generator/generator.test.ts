@@ -4,7 +4,8 @@ import { crCheckDigit, ibanCheckDigits, isLuhnValid, isValidCrNumber, isValidIba
 import { BANKS, makeIban } from "./iban";
 import { lineMoney, totals } from "./money";
 import { generateCorpus, generateVendors, assertCorpusCoherent, generateItems, generateEmployees, generatePo } from "./corpus";
-import { generateSandbox, purchaseOrderGroundTruth } from "./sandbox";
+import { assignInvoiceRegistrations, generateSandbox, purchaseOrderGroundTruth } from "./sandbox";
+import { generateVendorDocuments } from "./cycle";
 import { addDays, businessNumber, toWorkingDay } from "./dates";
 
 describe("Rng", () => {
@@ -122,14 +123,46 @@ describe("corpus", () => {
 
 describe("sandbox", () => {
   const rng = new Rng(3);
-  const ctx = { vendors: generateVendors(rng.fork("v"), 30), items: generateItems(rng.fork("i"), 150), employees: generateEmployees(rng.fork("e")) };
+  const ctx = { vendors: generateVendors(rng.fork("v"), 30), items: generateItems(rng.fork("i"), 150), employees: generateEmployees(rng.fork("e")), deliveryLocations: ["WH-RUH-01", "HQ-RUH"] };
   it("is reproducible from the seed and does not collide with history numbering", () => {
     const a = generateSandbox(seedForUser("u1"), ctx);
     const b = generateSandbox(seedForUser("u1"), ctx);
     expect(a).toEqual(b);
-    expect(a.purchaseOrders).toHaveLength(40);
-    for (const po of a.purchaseOrders) expect(Number(po.number.slice(-5))).toBeGreaterThan(5000);
+    expect(a.cycles).toHaveLength(60);
+    for (const c of a.cycles) expect(Number(c.po.number.slice(-5))).toBeGreaterThan(5000);
     expect(generateSandbox(seedForUser("u2"), ctx)).not.toEqual(a);
+  });
+  it("produces a coherent cycle with labelled defects", () => {
+    const a = generateSandbox(seedForUser("u1"), ctx);
+    const invoices = [...a.cycles.flatMap((c) => c.invoices), ...a.orphanInvoices];
+    expect(invoices.length).toBeGreaterThan(20);
+    const defects = invoices.flatMap((i) => i.defects);
+    expect(defects.length).toBeGreaterThan(5);
+    expect(new Set(defects.map((d) => d.type)).size).toBeGreaterThan(4);
+    for (const c of a.cycles) {
+      if (c.rfq) expect(c.quotes).toHaveLength(3);
+      for (const q of c.quotes) expect(q.quoteDate >= c.rfq!.issueDate).toBe(true);
+      for (const g of c.grns) for (const l of g.lines) expect(l.quantityAccepted + l.quantityRejected).toBe(l.quantityReceived);
+      for (const inv of c.invoices) {
+        if (!inv.defects.some((d) => d.type === "off_by_one_total")) {
+          const sub = inv.lines.reduce((s, l) => s + l.lineTotal, 0);
+          expect(Math.abs(sub - inv.subtotal)).toBeLessThan(0.02);
+        }
+        if (c.po.status === "closed") expect(inv.status).toBe("paid");
+      }
+      for (const p of c.payments) expect(c.invoices.some((i) => i.number === p.invoiceNumber)).toBe(true);
+    }
+    for (const o of a.orphanInvoices) expect(o.defects.some((d) => d.type === "invoice_no_po" || d.type === "vendor_not_in_master")).toBe(true);
+    const regs = assignInvoiceRegistrations(a);
+    expect(new Set(regs.values()).size).toBe(invoices.length);
+  });
+  it("vendor compliance documents are deterministic and consistent with the vendor", () => {
+    const v = ctx.vendors[0];
+    const d1 = generateVendorDocuments(new Rng(1).fork("x"), v);
+    const d2 = generateVendorDocuments(new Rng(1).fork("x"), v);
+    expect(d1).toEqual(d2);
+    expect(d1.find((d) => d.kind === "vendor_licence")!.number).toBe(v.crNumber);
+    expect(d1.find((d) => d.kind === "vendor_tax_card")!.expiryDate).toBe(v.taxCertExpiry);
   });
   it("ground truth covers header and every line", () => {
     const po = generatePo(rng.fork("po"), ctx, { number: "PO-2026-05001", orderDate: "2026-08-01", status: "approved", historical: false });

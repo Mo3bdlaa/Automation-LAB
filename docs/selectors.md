@@ -27,12 +27,20 @@ All lowercase, hyphen-separated. `id` and `data-testid` carry the same value.
 | One validation error | `validation-error-{RULE-ID}` | `validation-error-VEND-IBAN` |
 | Flash / status banner | `flash` | with `data-status="success\|error"` |
 | Row action link | `{entity}-action-{verb}-{code}` | `vendors-action-edit-V-00042` |
+| Object header status | `{entity}-status-{code}` with `data-status` | `invoice-status-INV-2026-05012` |
+| Document card | `{entity}-document` with `data-document-id`, `data-rendered` | `invoice-document` |
+| Download link | `{entity}-download` | `po-download` |
+| Launchpad tile | `tile-{queue}` with `data-count` | `tile-invoices-pending` |
+| Extraction form field | `extraction-field-{field}` / `extraction-field-line-{n}-{field}` | `extraction-field-line-1-unitPrice` |
+| Related document link | `related-{kind}-{code}` | `related-grn-GRN-2026-05003` |
 
 ## Rules
 
 - Tables are real `<table>` markup with `<thead>` and `<tbody>`. No virtualisation, no
   infinite scroll. Page size is fixed; pagination is by URL query (`?page=2`).
 - URLs are predictable: `/vendors/V-00042`, `/purchase-orders/PO-2026-00017`.
+- `#validation-errors` also carries `data-count` and `data-blocking` (`1` when any error or
+  critical violation is present), so a bot can decide without reading the list.
 - Validation errors always render inside `#validation-errors` as a list. Each `<li>` has
   `data-rule-id`, `data-severity`, and a stable `id`. Bots branch on `data-rule-id`, not text.
 - No shadow DOM, no canvas, no CAPTCHA. Session cookies last 30 days.

@@ -1,26 +1,89 @@
 /**
- * Small, selector-stable UI primitives. Every interactive element takes a
- * `testId` and renders it as both `id` and `data-testid` (docs/selectors.md).
+ * Small, selector-stable UI primitives with an ERP look. Every interactive
+ * element takes a `testId` and renders it as both `id` and `data-testid`
+ * (docs/selectors.md).
  */
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Violation } from "@/lib/validation/engine";
 
-export function Page({ title, titleId = "page-title", actions, children }: { title: string; titleId?: string; actions?: ReactNode; children: ReactNode }) {
+export function Page({ title, subtitle, titleId = "page-title", actions, children, status }: { title: string; subtitle?: ReactNode; titleId?: string; actions?: ReactNode; children: ReactNode; status?: ReactNode }) {
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 id={titleId} data-testid={titleId} className="text-2xl font-semibold text-primary">
-          {title}
-        </h1>
-        {actions ? <div className="flex gap-2">{actions}</div> : null}
+    <>
+      <div className="page-header">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div>
+            <h1 id={titleId} data-testid={titleId} className="flex items-center gap-3">
+              {title}
+              {status}
+            </h1>
+            {subtitle ? <div className="object-subtitle">{subtitle}</div> : null}
+          </div>
+          {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+        </div>
       </div>
-      {children}
-    </main>
+      <main className="mx-auto max-w-7xl px-4 py-5">{children}</main>
+    </>
   );
 }
 
-export function Button({ testId, children, variant = "primary", type = "submit", disabled, formAction, name, value }: { testId: string; children: ReactNode; variant?: "primary" | "secondary" | "danger"; type?: "submit" | "button"; disabled?: boolean; formAction?: (formData: FormData) => void | Promise<void>; name?: string; value?: string }) {
+/** Key facts strip under an object header (Fiori object page style). */
+export function Facts({ entity, code, facts }: { entity: string; code: string; facts: { key: string; label: string; value: ReactNode }[] }) {
+  return (
+    <dl className="facts al-card mb-4">
+      {facts.map((f) => (
+        <div key={f.key}>
+          <dt>{f.label}</dt>
+          <dd id={`${entity}-cell-${code}-${f.key}`} data-testid={`${entity}-cell-${code}-${f.key}`} data-field={f.key}>
+            {f.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+export function Section({ title, children, actions, testId }: { title: string; children: ReactNode; actions?: ReactNode; testId?: string }) {
+  return (
+    <section className="mb-5" id={testId} data-testid={testId}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h2 className="section-title">{title}</h2>
+        {actions ? <div className="flex gap-2">{actions}</div> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function Toolbar({ title, children }: { title?: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="toolbar">
+      {title ? <div className="toolbar-title">{title}</div> : null}
+      {children}
+    </div>
+  );
+}
+
+export function TableWrap({ children }: { children: ReactNode }) {
+  return <div className="table-wrap">{children}</div>;
+}
+
+export function Tile({ testId, href, title, subtitle, count, unit }: { testId: string; href: string; title: string; subtitle?: string; count?: number | string; unit?: string }) {
+  return (
+    <Link id={testId} data-testid={testId} href={href} className="tile" data-count={count}>
+      <div className="tile-title">{title}</div>
+      {subtitle ? <div className="tile-sub">{subtitle}</div> : null}
+      {count !== undefined ? (
+        <div className="tile-count">
+          {count}
+          {unit ? <small>{unit}</small> : null}
+        </div>
+      ) : null}
+    </Link>
+  );
+}
+
+export function Button({ testId, children, variant = "primary", type = "submit", disabled, formAction, name, value }: { testId: string; children: ReactNode; variant?: "primary" | "secondary" | "danger" | "accept"; type?: "submit" | "button"; disabled?: boolean; formAction?: (formData: FormData) => void | Promise<void>; name?: string; value?: string }) {
   return (
     <button id={testId} data-testid={testId} type={type} disabled={disabled} formAction={formAction} name={name} value={value} className={`al-btn ${variant === "primary" ? "" : variant}`}>
       {children}
@@ -28,7 +91,14 @@ export function Button({ testId, children, variant = "primary", type = "submit",
   );
 }
 
-export function LinkButton({ testId, href, children, variant = "primary" }: { testId: string; href: string; children: ReactNode; variant?: "primary" | "secondary" }) {
+export function LinkButton({ testId, href, children, variant = "primary", download }: { testId: string; href: string; children: ReactNode; variant?: "primary" | "secondary"; download?: string }) {
+  if (download) {
+    return (
+      <a id={testId} data-testid={testId} href={href} download={download} className={`al-btn ${variant === "primary" ? "" : variant}`}>
+        {children}
+      </a>
+    );
+  }
   return (
     <Link id={testId} data-testid={testId} href={href} className={`al-btn ${variant === "primary" ? "" : variant}`}>
       {children}
@@ -85,15 +155,17 @@ export function Checkbox({ testId, name, defaultChecked, label }: { testId: stri
  */
 export function ValidationErrors({ violations, emptyText, title }: { violations: Violation[]; emptyText: string; title: string }) {
   return (
-    <section id="validation-errors" data-testid="validation-errors" data-count={violations.length} aria-live="polite" className="mb-4">
+    <section id="validation-errors" data-testid="validation-errors" data-count={violations.length} data-blocking={violations.some((v) => v.severity !== "warning") ? "1" : "0"} aria-live="polite" className="mb-4">
       <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{title}</div>
       {violations.length === 0 ? (
-        <div id="validation-empty" data-testid="validation-empty">{emptyText}</div>
+        <div id="validation-empty" data-testid="validation-empty">
+          {emptyText}
+        </div>
       ) : (
         <ul>
           {violations.map((v, i) => (
             <li key={`${v.ruleId}-${i}`} id={`validation-error-${v.ruleId}${i ? `-${i}` : ""}`} data-testid={`validation-error-${v.ruleId}`} data-rule-id={v.ruleId} data-severity={v.severity} data-field={v.field ?? ""}>
-              <code>{v.ruleId}</code> {v.message}
+              <code>{v.ruleId}</code> <span>{v.message}</span>
             </li>
           ))}
         </ul>
@@ -105,7 +177,7 @@ export function ValidationErrors({ violations, emptyText, title }: { violations:
 export function Flash({ status, message }: { status: "success" | "error" | "info"; message: string | null | undefined }) {
   if (!message) return null;
   return (
-    <div id="flash" data-testid="flash" data-status={status} className={`mb-4 rounded border px-3 py-2 text-sm ${status === "success" ? "border-success text-success" : status === "error" ? "border-error text-error" : "border-border text-muted"}`}>
+    <div id="flash" data-testid="flash" data-status={status} className="flash mb-4">
       {message}
     </div>
   );
@@ -141,6 +213,21 @@ export function Pager({ entity, page, pageCount, total, baseQuery, labels }: { e
   );
 }
 
+const TONES: Record<string, "success" | "warning" | "error" | "info" | "neutral"> = {
+  active: "success", ready: "success", approved: "success", received: "success", closed: "neutral", posted: "success", paid: "success", matched: "success", awarded: "success", delivered: "success", done: "success",
+  pending: "warning", pending_extraction: "warning", extracted: "info", provisioning: "info", draft: "neutral", sent: "info", partially_received: "info", in_transit: "info", open: "info", quoted: "info", queued: "info", running: "info",
+  blocked: "error", rejected: "error", exception: "error", cancelled: "neutral", failed: "error", expired: "neutral",
+};
+
+/** Status badge. The visible text is the status itself so bots can read it; `data-status` carries the raw value. */
+export function Status({ status, testId }: { status: string; testId?: string }) {
+  return (
+    <span className="pill" id={testId} data-testid={testId} data-status={status} data-tone={TONES[status] ?? "neutral"}>
+      {status.replace(/_/g, " ")}
+    </span>
+  );
+}
+
 export function Pill({ children, testId }: { children: ReactNode; testId?: string }) {
   return (
     <span className="pill" id={testId} data-testid={testId}>
@@ -151,11 +238,11 @@ export function Pill({ children, testId }: { children: ReactNode; testId?: strin
 
 export function Dl({ rows, entity, code }: { rows: { key: string; label: string; value: ReactNode }[]; entity: string; code: string }) {
   return (
-    <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+    <dl className="kv-list sm:grid-cols-2 sm:gap-x-6" style={{ display: "grid" }}>
       {rows.map((r) => (
-        <div key={r.key} className="flex gap-2 border-b border-border py-1">
-          <dt className="w-44 shrink-0 text-muted">{r.label}</dt>
-          <dd id={`${entity}-cell-${code}-${r.key}`} data-testid={`${entity}-cell-${code}-${r.key}`} data-field={r.key} className="break-all">
+        <div key={r.key}>
+          <dt>{r.label}</dt>
+          <dd id={`${entity}-cell-${code}-${r.key}`} data-testid={`${entity}-cell-${code}-${r.key}`} data-field={r.key}>
             {r.value}
           </dd>
         </div>
@@ -164,9 +251,52 @@ export function Dl({ rows, entity, code }: { rows: { key: string; label: string;
   );
 }
 
+/** Download card for a document: link when rendered, waiting text otherwise. */
+export function DocumentCard({ entity, documentId, file, labels, lazy }: { entity: string; documentId: string | null; file: { filename: string; pages: number; sizeBytes: number } | null; labels: { title: string; download: string; rendering: string; notRendered: string; filename: string }; lazy?: boolean }) {
+  const href = documentId ? `/api/documents/${documentId}/file` : "#";
+  return (
+    <div className="al-card" id={`${entity}-document`} data-testid={`${entity}-document`} data-document-id={documentId ?? ""} data-rendered={file ? "1" : "0"}>
+      <h2 className="mb-2">{labels.title}</h2>
+      {!documentId ? (
+        <p id={`${entity}-document-none`} data-testid={`${entity}-document-none`} className="text-sm text-muted">
+          {labels.notRendered}
+        </p>
+      ) : file ? (
+        <>
+          <p id={`${entity}-document-filename`} data-testid={`${entity}-document-filename`} className="mb-2 text-sm">
+            {labels.filename}: <code>{file.filename}</code> · {file.pages}p · {Math.round(file.sizeBytes / 1024)} KB
+          </p>
+          <a id={`${entity}-download`} data-testid={`${entity}-download`} href={href} className="al-btn" download={file.filename}>
+            {labels.download}
+          </a>
+        </>
+      ) : lazy ? (
+        <a id={`${entity}-download`} data-testid={`${entity}-download`} href={href} className="al-btn" download>
+          {labels.download}
+        </a>
+      ) : (
+        <p id={`${entity}-document-rendering`} data-testid={`${entity}-document-rendering`} className="text-sm text-muted">
+          {labels.rendering}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export const PAGE_SIZE = 25;
 
 export function parsePage(raw: string | string[] | undefined): number {
   const n = Number(Array.isArray(raw) ? raw[0] : raw);
   return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+}
+
+export function ListFilter({ entity, children, submitLabel }: { entity: string; children: ReactNode; submitLabel: string }) {
+  return (
+    <form id={`${entity}-filter`} data-testid={`${entity}-filter`} method="get" className="flex flex-wrap items-center gap-2">
+      {children}
+      <button id={`${entity}-filter-submit`} data-testid={`${entity}-filter-submit`} type="submit" className="al-btn secondary">
+        {submitLabel}
+      </button>
+    </form>
+  );
 }

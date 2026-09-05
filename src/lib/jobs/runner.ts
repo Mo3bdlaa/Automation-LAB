@@ -39,14 +39,21 @@ let inFlight: Promise<unknown> | null = null;
 /**
  * Best-effort in-process processing after an enqueue. Local dev needs no
  * worker; on Vercel this piggybacks on the request's `after()` window and the
- * cron route picks up anything left. Set JOBS_KICK=0 to disable (e.g. when a
- * dedicated worker runs).
+ * cron route picks up anything left. Runs in rounds until the queue is empty
+ * or nothing was processed in a round. Set JOBS_KICK=0 to disable (e.g. when
+ * a dedicated worker runs).
  */
 export function kickJobs(): void {
   if (process.env.JOBS_KICK === "0") return;
   if (inFlight) return;
+  const budget = Number(process.env.JOBS_KICK_BUDGET_MS ?? 240_000);
   const run = () => {
-    inFlight = runJobs({ timeBudgetMs: Number(process.env.JOBS_KICK_BUDGET_MS ?? 120_000), log: (m) => console.log(`[jobs] ${m}`) })
+    inFlight = (async () => {
+      for (let round = 0; round < 50; round++) {
+        const r = await runJobs({ maxJobs: 500, timeBudgetMs: budget, log: (m) => console.log(`[jobs] ${m}`) });
+        if (r.processed + r.failed === 0) break;
+      }
+    })()
       .catch((e) => console.error("[jobs] kick failed", e))
       .finally(() => {
         inFlight = null;

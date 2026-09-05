@@ -274,18 +274,342 @@ export const purchaseOrderLines = pgTable(
   ],
 );
 
+
+// ---------------------------------------------------------------------------
+// Procurement cycle: RFQ -> quotes -> award -> PO -> delivery note -> GRN -> invoice -> payment
+// ---------------------------------------------------------------------------
+
+export const rfqs = pgTable(
+  "rfqs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    number: text("number").notNull(),
+    requesterId: uuid("requester_id").references(() => employees.id),
+    buyerId: uuid("buyer_id").references(() => employees.id),
+    costCenterId: uuid("cost_center_id").references(() => costCenters.id),
+    issueDate: date("issue_date").notNull(),
+    dueDate: date("due_date").notNull(),
+    status: text("status", { enum: ["open", "quoted", "awarded", "cancelled"] }).notNull().default("open"),
+    /** Filled when a quote is awarded and a PO is created from it. */
+    purchaseOrderId: uuid("purchase_order_id"),
+    notes: text("notes"),
+    ...timestamps(),
+  },
+  (t) => [uniqueIndex("rfqs_tenant_number_uq").on(t.tenantId, t.number)],
+);
+
+export const rfqLines = pgTable(
+  "rfq_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    rfqId: uuid("rfq_id")
+      .notNull()
+      .references(() => rfqs.id, { onDelete: "cascade" }),
+    lineNo: integer("line_no").notNull(),
+    itemId: uuid("item_id").references(() => items.id),
+    description: text("description").notNull(),
+    quantity: numeric("quantity", { precision: 14, scale: 3 }).notNull(),
+    uom: text("uom").notNull(),
+  },
+  (t) => [uniqueIndex("rfq_lines_rfq_line_uq").on(t.rfqId, t.lineNo)],
+);
+
+export const quotes = pgTable(
+  "quotes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    /** Vendor's own quotation number. */
+    number: text("number").notNull(),
+    rfqId: uuid("rfq_id")
+      .notNull()
+      .references(() => rfqs.id, { onDelete: "cascade" }),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendors.id),
+    quoteDate: date("quote_date").notNull(),
+    validUntil: date("valid_until").notNull(),
+    currency: text("currency").notNull(),
+    paymentTermsDays: integer("payment_terms_days").notNull(),
+    leadTimeDays: integer("lead_time_days").notNull(),
+    subtotal: numeric("subtotal", { precision: 14, scale: 2 }).notNull(),
+    taxTotal: numeric("tax_total", { precision: 14, scale: 2 }).notNull(),
+    grandTotal: numeric("grand_total", { precision: 14, scale: 2 }).notNull(),
+    status: text("status", { enum: ["received", "awarded", "rejected", "expired"] }).notNull().default("received"),
+    ...timestamps(),
+  },
+  (t) => [uniqueIndex("quotes_tenant_vendor_number_uq").on(t.tenantId, t.vendorId, t.number), index("quotes_rfq_idx").on(t.rfqId)],
+);
+
+export const quoteLines = pgTable(
+  "quote_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    quoteId: uuid("quote_id")
+      .notNull()
+      .references(() => quotes.id, { onDelete: "cascade" }),
+    lineNo: integer("line_no").notNull(),
+    itemId: uuid("item_id").references(() => items.id),
+    description: text("description").notNull(),
+    quantity: numeric("quantity", { precision: 14, scale: 3 }).notNull(),
+    uom: text("uom").notNull(),
+    unitPrice: numeric("unit_price", { precision: 14, scale: 4 }).notNull(),
+    taxCode: text("tax_code").notNull(),
+    taxAmount: numeric("tax_amount", { precision: 14, scale: 2 }).notNull(),
+    lineTotal: numeric("line_total", { precision: 14, scale: 2 }).notNull(),
+  },
+  (t) => [uniqueIndex("quote_lines_quote_line_uq").on(t.quoteId, t.lineNo)],
+);
+
+export const deliveryNotes = pgTable(
+  "delivery_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    /** Vendor's delivery note number. */
+    number: text("number").notNull(),
+    purchaseOrderId: uuid("purchase_order_id")
+      .notNull()
+      .references(() => purchaseOrders.id, { onDelete: "cascade" }),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendors.id),
+    deliveryDate: date("delivery_date").notNull(),
+    deliveryLocationId: uuid("delivery_location_id").references(() => deliveryLocations.id),
+    carrier: text("carrier"),
+    vehicle: text("vehicle"),
+    packages: integer("packages"),
+    status: text("status", { enum: ["in_transit", "delivered", "received"] }).notNull().default("delivered"),
+    ...timestamps(),
+  },
+  (t) => [uniqueIndex("delivery_notes_tenant_vendor_number_uq").on(t.tenantId, t.vendorId, t.number), index("delivery_notes_po_idx").on(t.purchaseOrderId)],
+);
+
+export const deliveryNoteLines = pgTable(
+  "delivery_note_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    deliveryNoteId: uuid("delivery_note_id")
+      .notNull()
+      .references(() => deliveryNotes.id, { onDelete: "cascade" }),
+    lineNo: integer("line_no").notNull(),
+    purchaseOrderLineId: uuid("purchase_order_line_id").references(() => purchaseOrderLines.id),
+    itemId: uuid("item_id").references(() => items.id),
+    description: text("description").notNull(),
+    quantity: numeric("quantity", { precision: 14, scale: 3 }).notNull(),
+    uom: text("uom").notNull(),
+  },
+  (t) => [uniqueIndex("dn_lines_dn_line_uq").on(t.deliveryNoteId, t.lineNo)],
+);
+
+export const grns = pgTable(
+  "grns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    number: text("number").notNull(),
+    purchaseOrderId: uuid("purchase_order_id")
+      .notNull()
+      .references(() => purchaseOrders.id, { onDelete: "cascade" }),
+    deliveryNoteId: uuid("delivery_note_id").references(() => deliveryNotes.id),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendors.id),
+    receivedDate: date("received_date").notNull(),
+    deliveryLocationId: uuid("delivery_location_id").references(() => deliveryLocations.id),
+    receivedById: uuid("received_by_id").references(() => employees.id),
+    status: text("status", { enum: ["posted", "cancelled"] }).notNull().default("posted"),
+    notes: text("notes"),
+    ...timestamps(),
+  },
+  (t) => [uniqueIndex("grns_tenant_number_uq").on(t.tenantId, t.number), index("grns_po_idx").on(t.purchaseOrderId)],
+);
+
+export const grnLines = pgTable(
+  "grn_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    grnId: uuid("grn_id")
+      .notNull()
+      .references(() => grns.id, { onDelete: "cascade" }),
+    lineNo: integer("line_no").notNull(),
+    purchaseOrderLineId: uuid("purchase_order_line_id").references(() => purchaseOrderLines.id),
+    itemId: uuid("item_id").references(() => items.id),
+    description: text("description").notNull(),
+    quantityReceived: numeric("quantity_received", { precision: 14, scale: 3 }).notNull(),
+    quantityAccepted: numeric("quantity_accepted", { precision: 14, scale: 3 }).notNull(),
+    quantityRejected: numeric("quantity_rejected", { precision: 14, scale: 3 }).notNull().default("0"),
+    uom: text("uom").notNull(),
+    rejectionReason: text("rejection_reason"),
+  },
+  (t) => [uniqueIndex("grn_lines_grn_line_uq").on(t.grnId, t.lineNo)],
+);
+
+export const INVOICE_STATUSES = ["pending_extraction", "extracted", "matched", "exception", "approved", "rejected", "paid"] as const;
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    /** Vendor's invoice number as printed. */
+    number: text("number").notNull(),
+    /** Internal registration number for the AP queue: INV-YYYY-NNNNN. */
+    internalNumber: text("internal_number").notNull(),
+    /** Null when the invoice arrived without a PO (INV-NO-PO). */
+    purchaseOrderId: uuid("purchase_order_id").references(() => purchaseOrders.id, { onDelete: "set null" }),
+    /** Null when the issuing vendor is not in the master (INV-VENDOR-MASTER). */
+    vendorId: uuid("vendor_id").references(() => vendors.id),
+    /** Vendor details as printed, kept even when the vendor is in the master so changes can be detected. */
+    printedVendorName: text("printed_vendor_name").notNull(),
+    printedVendorTaxId: text("printed_vendor_tax_id").notNull(),
+    printedIban: text("printed_iban").notNull(),
+    printedBankName: text("printed_bank_name").notNull(),
+    printedPoNumber: text("printed_po_number"),
+    invoiceDate: date("invoice_date").notNull(),
+    dueDate: date("due_date").notNull(),
+    currency: text("currency").notNull(),
+    subtotal: numeric("subtotal", { precision: 14, scale: 2 }).notNull(),
+    taxTotal: numeric("tax_total", { precision: 14, scale: 2 }).notNull(),
+    grandTotal: numeric("grand_total", { precision: 14, scale: 2 }).notNull(),
+    status: text("status", { enum: INVOICE_STATUSES }).notNull().default("pending_extraction"),
+    receivedDate: date("received_date").notNull(),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("invoices_tenant_internal_uq").on(t.tenantId, t.internalNumber),
+    index("invoices_tenant_status_idx").on(t.tenantId, t.status),
+    index("invoices_tenant_vendor_number_idx").on(t.tenantId, t.vendorId, t.number),
+  ],
+);
+
+export const invoiceLines = pgTable(
+  "invoice_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "cascade" }),
+    lineNo: integer("line_no").notNull(),
+    purchaseOrderLineId: uuid("purchase_order_line_id").references(() => purchaseOrderLines.id),
+    itemId: uuid("item_id").references(() => items.id),
+    description: text("description").notNull(),
+    quantity: numeric("quantity", { precision: 14, scale: 3 }).notNull(),
+    uom: text("uom").notNull(),
+    unitPrice: numeric("unit_price", { precision: 14, scale: 4 }).notNull(),
+    discountPct: numeric("discount_pct", { precision: 5, scale: 2 }).notNull().default("0"),
+    taxCode: text("tax_code").notNull(),
+    taxRate: numeric("tax_rate", { precision: 5, scale: 4 }).notNull(),
+    taxAmount: numeric("tax_amount", { precision: 14, scale: 2 }).notNull(),
+    lineTotal: numeric("line_total", { precision: 14, scale: 2 }).notNull(),
+  },
+  (t) => [uniqueIndex("invoice_lines_inv_line_uq").on(t.invoiceId, t.lineNo)],
+);
+
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    number: text("number").notNull(),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "cascade" }),
+    vendorId: uuid("vendor_id").references(() => vendors.id),
+    paidDate: date("paid_date").notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    currency: text("currency").notNull(),
+    method: text("method", { enum: ["bank_transfer", "cheque"] }).notNull().default("bank_transfer"),
+    reference: text("reference").notNull(),
+    ibanPaidTo: text("iban_paid_to").notNull(),
+    ...timestamps(),
+  },
+  (t) => [uniqueIndex("payments_tenant_number_uq").on(t.tenantId, t.number)],
+);
+
+export const receipts = pgTable(
+  "receipts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    /** Vendor's receipt number. */
+    number: text("number").notNull(),
+    paymentId: uuid("payment_id")
+      .notNull()
+      .references(() => payments.id, { onDelete: "cascade" }),
+    vendorId: uuid("vendor_id").references(() => vendors.id),
+    receiptDate: date("receipt_date").notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    currency: text("currency").notNull(),
+    ...timestamps(),
+  },
+  (t) => [uniqueIndex("receipts_tenant_payment_uq").on(t.tenantId, t.paymentId)],
+);
+
+/** Vendor compliance documents (commercial licence, tax card, bank letter, trade licence). PDFs render on first download. */
+export const vendorDocuments = pgTable(
+  "vendor_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendors.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["vendor_licence", "vendor_tax_card", "vendor_bank_letter", "vendor_trade_licence"] }).notNull(),
+    number: text("number").notNull(),
+    issuedDate: date("issued_date").notNull(),
+    expiryDate: date("expiry_date").notNull(),
+    issuer: text("issuer").notNull(),
+    /** Free-form attributes printed on the document (activities, capital, branch...). */
+    attributes: jsonb("attributes").$type<Record<string, string>>().notNull().default(sql`'{}'::jsonb`),
+  },
+  (t) => [uniqueIndex("vendor_documents_vendor_kind_uq").on(t.vendorId, t.kind)],
+);
+
+/** A student's (or bot's) extraction of a document, scored against ground truth in P2. */
+export const extractions = pgTable(
+  "extractions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    userId: text("user_id"),
+    source: text("source", { enum: ["ui", "api"] }).notNull().default("ui"),
+    fields: jsonb("fields").$type<Record<string, string>>().notNull(),
+    /** Field-level score 0..1 once graded. */
+    score: numeric("score", { precision: 5, scale: 4 }),
+    fieldResults: jsonb("field_results").$type<Record<string, { expected: string; actual: string; match: boolean }>>(),
+    matchResult: jsonb("match_result").$type<{ ok: boolean; violations: { ruleId: string; severity: string; message: string; field?: string }[] }>(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("extractions_doc_idx").on(t.documentId)],
+);
+
 // ---------------------------------------------------------------------------
 // Documents, files, ground truth
 // ---------------------------------------------------------------------------
 
 export const DOCUMENT_KINDS = [
+  "rfq",
+  "quote",
   "purchase_order",
   "delivery_note",
   "grn",
   "invoice",
   "receipt",
-  "quote",
   "vendor_licence",
+  "vendor_tax_card",
+  "vendor_bank_letter",
+  "vendor_trade_licence",
 ] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
@@ -304,8 +628,10 @@ export const documents = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("documents_tenant_kind_number_uq").on(t.tenantId, t.kind, t.number),
-    index("documents_tenant_source_idx").on(t.tenantId, t.sourceId),
+    // Uniqueness is by source row: vendor-assigned numbers can repeat across vendors, and the
+    // duplicate-invoice defect repeats one on purpose. Invoice documents carry the internal AP number.
+    uniqueIndex("documents_tenant_kind_source_uq").on(t.tenantId, t.kind, t.sourceId),
+    index("documents_tenant_number_idx").on(t.tenantId, t.number),
   ],
 );
 
@@ -414,6 +740,20 @@ export const tenantTables = {
   employees,
   purchaseOrders,
   purchaseOrderLines,
+  rfqs,
+  rfqLines,
+  quotes,
+  quoteLines,
+  deliveryNotes,
+  deliveryNoteLines,
+  grns,
+  grnLines,
+  invoices,
+  invoiceLines,
+  payments,
+  receipts,
+  vendorDocuments,
+  extractions,
   documents,
   documentFiles,
   groundTruth,
@@ -432,6 +772,16 @@ export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 export type NewPurchaseOrder = typeof purchaseOrders.$inferInsert;
 export type PurchaseOrderLine = typeof purchaseOrderLines.$inferSelect;
 export type NewPurchaseOrderLine = typeof purchaseOrderLines.$inferInsert;
+export type Rfq = typeof rfqs.$inferSelect;
+export type Quote = typeof quotes.$inferSelect;
+export type DeliveryNote = typeof deliveryNotes.$inferSelect;
+export type Grn = typeof grns.$inferSelect;
+export type Invoice = typeof invoices.$inferSelect;
+export type InvoiceLine = typeof invoiceLines.$inferSelect;
+export type Payment = typeof payments.$inferSelect;
+export type Receipt = typeof receipts.$inferSelect;
+export type VendorDocument = typeof vendorDocuments.$inferSelect;
+export type Extraction = typeof extractions.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type DocumentFile = typeof documentFiles.$inferSelect;
 export type Tenant = typeof tenants.$inferSelect;

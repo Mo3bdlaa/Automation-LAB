@@ -1,9 +1,10 @@
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { vendors } from "@/db/schema";
+import { documentFiles, documents, vendorDocuments, vendors } from "@/db/schema";
+import { inArray } from "drizzle-orm";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { Dl, Flash, LinkButton, Page, Pill } from "@/components/ui";
+import { Dl, Flash, LinkButton, Page, Section, Status, TableWrap } from "@/components/ui";
 import { formatIban } from "@/lib/generator/iban";
 
 export default async function VendorDetailPage({ params, searchParams }: { params: Promise<{ code: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -15,9 +16,12 @@ export default async function VendorDetailPage({ params, searchParams }: { param
   if (!v) notFound();
   const readOnly = session.tdb.isReadOnlyRow(v);
   const tv = t.vendors;
+  const vdocs = await session.tdb.list(vendorDocuments, { where: eq(vendorDocuments.vendorId, v.id) });
+  const docRows = vdocs.length ? await session.tdb.list(documents, { where: inArray(documents.sourceId, vdocs.map((d) => d.id)) }) : [];
+  const files = docRows.length ? await session.tdb.list(documentFiles, { where: inArray(documentFiles.documentId, docRows.map((d) => d.id)) }) : [];
   const rows = [
     { key: "code", label: tv.code, value: v.code },
-    { key: "status", label: tv.status, value: <Pill testId={`vendor-status-${v.code}`}>{v.status}</Pill> },
+    { key: "status", label: tv.status, value: <Status status={v.status} testId={`vendor-status-${v.code}`} /> },
     { key: "name", label: tv.name, value: v.name },
     { key: "nameAr", label: tv.nameAr, value: <span dir="rtl">{v.nameAr ?? t.common.none}</span> },
     { key: "legalForm", label: tv.legalForm, value: v.legalForm },
@@ -64,6 +68,48 @@ export default async function VendorDetailPage({ params, searchParams }: { param
       ) : null}
       <div className="al-card" id={`vendor-detail-${v.code}`} data-testid={`vendor-detail-${v.code}`} data-shared={readOnly ? "1" : "0"}>
         <Dl rows={rows} entity="vendor" code={v.code} />
+      </div>
+      <div className="mt-5">
+        <Section title={t.cycle.complianceDocuments} testId="vendor-compliance-documents">
+          <TableWrap>
+            <table id="vendor-documents-table" data-testid="vendor-documents-table" className="al-table">
+              <thead>
+                <tr>
+                  <th>Kind</th>
+                  <th>{t.cycle.number}</th>
+                  <th>{t.cycle.issueDate}</th>
+                  <th>Expiry</th>
+                  <th>Issuer</th>
+                  <th>{t.po.document}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vdocs.map((d) => {
+                  const doc = docRows.find((x) => x.sourceId === d.id);
+                  const f = doc ? files.find((x) => x.documentId === doc.id) : null;
+                  return (
+                    <tr key={d.id} id={`vendor-documents-row-${d.kind}`} data-testid={`vendor-documents-row-${d.kind}`} data-kind={d.kind} data-document-id={doc?.id ?? ""} data-expired={d.expiryDate < "2026-09-01" ? "1" : "0"}>
+                      <td>{d.kind.replace("vendor_", "").replace(/_/g, " ")}</td>
+                      <td id={`vendor-documents-cell-${d.kind}-number`} data-testid={`vendor-documents-cell-${d.kind}-number`}>{d.number}</td>
+                      <td>{d.issuedDate}</td>
+                      <td id={`vendor-documents-cell-${d.kind}-expiry`} data-testid={`vendor-documents-cell-${d.kind}-expiry`}>{d.expiryDate}</td>
+                      <td>{d.issuer}</td>
+                      <td>
+                        {doc ? (
+                          <a id={`vendor-documents-download-${d.kind}`} data-testid={`vendor-documents-download-${d.kind}`} href={`/api/documents/${doc.id}/file`} download={f?.filename ?? true} className="underline">
+                            {t.common.download}
+                          </a>
+                        ) : (
+                          t.common.none
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </TableWrap>
+        </Section>
       </div>
     </Page>
   );

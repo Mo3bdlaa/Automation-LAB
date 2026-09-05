@@ -1,7 +1,7 @@
 # Automation Lab — handoff
 
 **Date:** 2026-09-04
-**Status:** Design complete. P0 scaffold in this repository.
+**Status:** P0 and P1 implemented in this repository. P2 (queues API, grading, instructor dashboard) next.
 **Owner:** Mohammed Shaker
 **Companion document:** `docs/spec.md` — the full design spec. Read it second.
 
@@ -112,8 +112,8 @@ module (`src/lib/identity`). **This does not block anything.**
    system rather than an approximation reconstructed from rendered CSS. If he prefers not to
    share it, the fallback is to name two or three pages and match from the served stylesheets.
 2. **Vercel authorization.** The Vercel connector was not authorized in the design session,
-   so no project could be created and nothing could be deployed. Either connect it in
-   claude.ai connector settings, or go the git-push route with a one-time manual deploy.
+   so no project could be created and nothing could be deployed. Either authorize the
+   Vercel integration, or go the git-push route with a one-time manual deploy.
 
 Neither blocks local scaffolding. P0 runs on `localhost:3000`.
 
@@ -143,6 +143,32 @@ Roughly in dependency order. Status reflects this repository.
 
 **Set up at P0 even though they are used later:** the i18n structure (EN/AR) and the
 Chromium render pipeline. Both are in.
+
+## 7b. P1 — done in this repository
+
+- Full cycle as data and PDFs: RFQ → three quotes → award (creates a draft PO) → PO →
+  delivery note → goods receipt → tax invoice → payment → receipt. Every student
+  sandbox gets 60 purchase orders with the documents their status implies (~250 PDFs).
+- Vendor compliance documents (commercial registration, tax card, bank letter, trade
+  licence) for all 250 vendors in the shared corpus. Rows and ground truth are seeded;
+  the PDFs render on first download and are then cached, per the storage strategy.
+- Eleven seeded defect types, each labelled in `seeded_defects` with the rule ID that
+  should catch it. Roughly 30 % of non-paid invoices carry one or two defects. Six
+  stand-alone invoices per sandbox have no PO or come from a vendor not in the master.
+- Three-way match engine (`src/lib/validation/matching.ts`) with the rule IDs from the
+  spec (`PO-INV-PRICE`, `GRN-QTY`, `DUP-INV`, `BANK-CHANGE`, `TAX-CERT-EXP`, …). A unit
+  test asserts every generated defect type is caught by its rule.
+- Invoice extraction screen: pending invoices show only the PDF; the student enters the
+  fields, the match runs on what they typed, and the result renders in
+  `#validation-errors`. Submissions are stored in `extractions` for P2 grading.
+- Hands-on flows with a starting point in every sandbox: post a goods receipt from a
+  delivered note (with over-receipt rules), award one of four open RFQs (creates a draft
+  PO), approve / reject / pay an invoice.
+- Downloads: per-document attachment URLs plus bulk ZIPs per work queue
+  (`/api/queues/{invoices-pending|pos-awaiting-invoice|vendor-applications|kind:<kind>}/download`).
+- UI restyled to an enterprise-ERP look (shell bar, launchpad tiles, object pages,
+  toolbar tables) so the target app resembles what students automate at work. Tokens
+  live in one CSS block for re-branding.
 
 ---
 

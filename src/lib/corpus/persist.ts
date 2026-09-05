@@ -6,7 +6,9 @@
 import { eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db/client";
 import { generateCorpus, assertCorpusCoherent, type Corpus } from "../generator/corpus";
-import { SHARED_CORPUS_SEED } from "../generator/rng";
+import { Rng, SHARED_CORPUS_SEED } from "../generator/rng";
+import { generateVendorDocuments } from "../generator/cycle";
+import { vendorDocumentGroundTruth } from "../generator/sandbox";
 
 export const SHARED_TENANT_SLUG = "shared";
 
@@ -97,6 +99,24 @@ export async function seedSharedCorpus(opts: { force?: boolean; log?: (m: string
     }
     const vendorByCode = new Map(vendorRows.map((v) => [v.code, v.id]));
     counts.vendors = vendorRows.length;
+
+    log("Inserting vendor compliance documents (PDFs render on first download)…");
+    let vendorDocCount = 0;
+    for (const v of corpus.vendors) {
+      const docs = generateVendorDocuments(new Rng(SHARED_CORPUS_SEED).fork(`vendor-docs:${v.code}`), v);
+      const rows = await tx
+        .insert(schema.vendorDocuments)
+        .values(docs.map((d) => ({ tenantId, vendorId: vendorByCode.get(v.code)!, kind: d.kind, number: d.number, issuedDate: d.issuedDate, expiryDate: d.expiryDate, issuer: d.issuer, attributes: d.attributes })))
+        .returning({ id: schema.vendorDocuments.id, kind: schema.vendorDocuments.kind });
+      const docRows = await tx
+        .insert(schema.documents)
+        .values(rows.map((r) => ({ tenantId, kind: r.kind, number: docs.find((d) => d.kind === r.kind)!.number, sourceId: r.id, vendorId: vendorByCode.get(v.code)!, language: "bilingual" as const })))
+        .returning({ id: schema.documents.id, kind: schema.documents.kind });
+      const gt = docRows.flatMap((dr) => vendorDocumentGroundTruth(v, docs.find((d) => d.kind === dr.kind)!).map((g) => ({ tenantId, documentId: dr.id, field: g.field, value: g.value })));
+      for (const batch of chunks(gt, 500)) await tx.insert(schema.groundTruth).values(batch);
+      vendorDocCount += rows.length;
+    }
+    counts.vendorDocuments = vendorDocCount;
 
     log(`Inserting ${corpus.items.length} items…`);
     const itemRows: { code: string; id: string }[] = [];
@@ -196,7 +216,16 @@ export async function clearTenantRows(tenantId: string): Promise<void> {
   await db.transaction(async (tx) => {
     // Children first. document_files/ground_truth/seeded_defects cascade from documents; lines cascade from POs.
     await tx.delete(schema.documents).where(eq(schema.documents.tenantId, tenantId));
+    await tx.delete(schema.extractions).where(eq(schema.extractions.tenantId, tenantId));
+    await tx.delete(schema.receipts).where(eq(schema.receipts.tenantId, tenantId));
+    await tx.delete(schema.payments).where(eq(schema.payments.tenantId, tenantId));
+    await tx.delete(schema.invoices).where(eq(schema.invoices.tenantId, tenantId));
+    await tx.delete(schema.grns).where(eq(schema.grns.tenantId, tenantId));
+    await tx.delete(schema.deliveryNotes).where(eq(schema.deliveryNotes.tenantId, tenantId));
+    await tx.delete(schema.quotes).where(eq(schema.quotes.tenantId, tenantId));
+    await tx.delete(schema.rfqs).where(eq(schema.rfqs.tenantId, tenantId));
     await tx.delete(schema.purchaseOrders).where(eq(schema.purchaseOrders.tenantId, tenantId));
+    await tx.delete(schema.vendorDocuments).where(eq(schema.vendorDocuments.tenantId, tenantId));
     await tx.delete(schema.itemPriceHistory).where(eq(schema.itemPriceHistory.tenantId, tenantId));
     await tx.delete(schema.items).where(eq(schema.items.tenantId, tenantId));
     await tx.delete(schema.vendors).where(eq(schema.vendors.tenantId, tenantId));
