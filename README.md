@@ -9,6 +9,7 @@ knows every correct field value and can grade extraction accuracy automatically.
 - Handoff and decisions: [`docs/handoff.md`](docs/handoff.md)
 - Selector convention for bots: [`docs/selectors.md`](docs/selectors.md)
 - Identifier formats (IBAN, tax ID, CR number): [`docs/data-formats.md`](docs/data-formats.md)
+- Process Definition Document (AS-IS, TO-BE, P2/P3/P4 roadmap): [`docs/pdd.md`](docs/pdd.md), Word version via `pnpm pdd`
 
 Everything in the lab is fictitious. Every PDF is watermarked `SPECIMEN — TRAINING ONLY`,
 every response carries `X-Robots-Tag: noindex`, and `robots.txt` denies all crawlers.
@@ -75,6 +76,7 @@ pnpm typecheck
 pnpm lint
 pnpm render:po     # renders a sample PO to .data/sample-po.pdf without a database
 node scripts/e2e-smoke.mjs   # browser smoke test of the whole cycle against `pnpm dev`
+pnpm pdd           # regenerates docs/pdd.md and .data/Automation-Lab-PDD.docx from scripts/build-pdd.ts
 pnpm db:reset      # drops everything (dev only), then db:migrate + db:seed again
 ```
 

@@ -1,9 +1,9 @@
 # Automation Lab — handoff
 
 **Date:** 2026-09-04
-**Status:** P0 and P1 implemented in this repository. P2 (queues API, grading, instructor dashboard) next.
+**Status:** P0 and P1 implemented in this repository. P2, P3 and P4 are specified in `docs/pdd.md` section 4.
 **Owner:** Mohammed Shaker
-**Companion document:** `docs/spec.md` — the full design spec. Read it second.
+**Companion documents:** `docs/spec.md` — the full design spec. Read it second. `docs/pdd.md` — the Process Definition Document: AS-IS and TO-BE processes students automate, and the P2/P3/P4 roadmap with acceptance criteria.
 
 ---
 
