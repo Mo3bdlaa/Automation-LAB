@@ -33,6 +33,12 @@ All lowercase, hyphen-separated. `id` and `data-testid` carry the same value.
 | Launchpad tile | `tile-{queue}` with `data-count` | `tile-invoices-pending` |
 | Extraction form field | `extraction-field-{field}` / `extraction-field-line-{n}-{field}` | `extraction-field-line-1-unitPrice` |
 | Related document link | `related-{kind}-{code}` | `related-grn-GRN-2026-05003` |
+| Validation station form | `validation-station-form` | with `#validation-document`, `#validation-fields`, `#validation-lines` |
+| Validation station field group | `validate-field-{field}-group` with `data-low-confidence` | `validate-field-invoiceNumber-group` |
+| Validation station line row | `validation-line-{n}` | `validation-line-1` |
+| API token row | `tokens-row-{id}` with `data-revoked` | inside `#tokens-table` |
+| Instructor row | `instructor-row-{userId}` | inside `#instructor-table` |
+| Instructor stat tile | `instructor-stat-{key}` with `data-value` | `instructor-stat-averageScore` |
 
 ## Rules
 
@@ -44,5 +50,8 @@ All lowercase, hyphen-separated. `id` and `data-testid` carry the same value.
 - Validation errors always render inside `#validation-errors` as a list. Each `<li>` has
   `data-rule-id`, `data-severity`, and a stable `id`. Bots branch on `data-rule-id`, not text.
 - No shadow DOM, no canvas, no CAPTCHA. Session cookies last 30 days.
+- On the validation station (`/invoices/{internalNumber}/validate`), every field group carries
+  `data-low-confidence="1"` when the confidence the bot submitted for that field is below
+  0.85, so an attended workflow can jump straight to the fields that need a human.
 - `?classic=1` on any page requests the plain server-rendered variant with no client-side
   JavaScript hydration beyond what forms need. (P0: all pages are already server-rendered.)

@@ -51,6 +51,19 @@ export async function GET(_req: Request, ctx: { params: Promise<{ queue: string 
     entries.push({ name, data });
   }
   if (entries.length === 0) return Response.json({ error: "not_rendered", documents: docIds.length }, { status: 409, headers: { "Retry-After": "10" } });
+  // A manifest lets an offline extraction exercise map each file back to its document.
+  const docs = await s.tdb.list(documents, { where: inArray(documents.id, docIds) });
+  const manifest = {
+    queue,
+    generatedAt: new Date().toISOString(),
+    files: files
+      .map((f) => {
+        const doc = docs.find((d) => d.id === f.documentId);
+        return doc ? { filename: entries.find((e) => e.name.startsWith(f.filename.replace(/\.pdf$/, "")))?.name ?? f.filename, documentId: doc.id, kind: doc.kind, number: doc.number, pages: f.pages, sizeBytes: f.sizeBytes, downloadUrl: `/api/documents/${doc.id}/file` } : null;
+      })
+      .filter(Boolean),
+  };
+  entries.unshift({ name: "manifest.json", data: new TextEncoder().encode(JSON.stringify(manifest, null, 2)) });
   const zip = buildZip(entries);
   return new Response(zip as BodyInit, {
     headers: {

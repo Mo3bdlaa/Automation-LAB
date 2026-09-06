@@ -10,7 +10,7 @@ import { fmtNumber } from "@/lib/generator/money";
 import type { Violation } from "@/lib/validation/engine";
 import { decideInvoiceAction, rematchAction } from "../actions";
 import { ExtractionForm } from "../extraction-form";
-import { extractionToInvoice } from "../extraction";
+import { extractionToInvoice } from "@/lib/services/extraction";
 
 export default async function InvoiceDetailPage({ params, searchParams }: { params: Promise<{ internalNumber: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { t } = await i18n();
@@ -51,6 +51,11 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
       subtitle={hidden ? tc.noExtraction : `${view.printedVendorName} · ${tc.number} ${view.number}${truthLabel}`}
       actions={
         <>
+          {lastExtraction && lastExtraction.fields.number !== undefined ? (
+            <LinkButton testId="invoice-validate" href={`/invoices/${encodeURIComponent(inv.internalNumber)}/validate`} variant="secondary">
+              {tc.openValidationStation}
+            </LinkButton>
+          ) : null}
           {!hidden ? (
             <form action={rematchAction}>
               <input type="hidden" name="internalNumber" value={inv.internalNumber} />

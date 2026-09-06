@@ -9,12 +9,12 @@ knows every correct field value and can grade extraction accuracy automatically.
 - Handoff and decisions: [`docs/handoff.md`](docs/handoff.md)
 - Selector convention for bots: [`docs/selectors.md`](docs/selectors.md)
 - Identifier formats (IBAN, tax ID, CR number): [`docs/data-formats.md`](docs/data-formats.md)
-- Process Definition Document (AS-IS, TO-BE, P2/P3/P4 roadmap, 14 annotated screenshots): [`docs/pdd.md`](docs/pdd.md), Word and PDF versions via `pnpm pdd`
+- Process Definition Document (AS-IS, TO-BE, phase roadmap, 14 annotated screenshots): [`docs/pdd.md`](docs/pdd.md), Word and PDF versions via `pnpm pdd`
 
 Everything in the lab is fictitious. Every PDF is watermarked `SPECIMEN — TRAINING ONLY`,
 every response carries `X-Robots-Tag: noindex`, and `robots.txt` denies all crawlers.
 
-## What P0 and P1 contain
+## What P0, P1 and P2 contain
 
 | Area | Where |
 |---|---|
@@ -36,6 +36,16 @@ every response carries `X-Robots-Tag: noindex`, and `robots.txt` denies all craw
 | **P1** Invoice extraction screen, approve / reject / pay; GRN posting; quote award | `src/app/invoices`, `src/app/deliveries`, `src/app/rfqs` |
 | **P1** Bulk ZIP downloads per work queue, lazy render of vendor documents | `src/app/api/queues`, `src/app/api/documents` |
 | **P1** Enterprise-ERP styling (shell bar, tiles, object pages) | `src/app/globals.css`, `src/components/ui.tsx` |
+| **P2** Personal API tokens (SHA-256 at rest, revocable), bearer auth beside the session cookie | `src/lib/api/tokens.ts`, `src/app/api/tokens` |
+| **P2** Full REST API over the whole cycle: vendors, items, POs, RFQs, deliveries, GRNs, invoices, extractions, payments, documents | `src/app/api/` |
+| **P2** Work queues with Orchestrator semantics: claim with a lease, complete, fail with retry, defer | `src/lib/api/work-items.ts`, `src/app/api/work-items` |
+| **P2** OpenAPI 3.1 document + Swagger UI, guarded by a test that route files and paths stay in step | `src/lib/api/openapi.ts`, `src/app/api/docs` |
+| **P2** Extraction grading against ground truth: per-field normalisation, weighted score, line alignment | `src/lib/grading/` |
+| **P2** Defect grading: seeded rule IDs versus the rule IDs the student's match reported | `src/lib/grading/score.ts` |
+| **P2** Validation Station: PDF beside the fields, low-confidence highlighting, correct and resubmit | `src/app/invoices/[internalNumber]/validate/` |
+| **P2** Instructor dashboard with cohort stats, drill-down and CSV export | `src/app/instructor/` |
+| **P2** HMAC-signed webhooks delivered from the job queue | `src/lib/webhooks/`, `src/app/api/webhooks` |
+| **P2** Domain services shared by the UI actions and the API, so both paths validate identically | `src/lib/services/` |
 
 ## Running locally
 
@@ -76,6 +86,8 @@ pnpm typecheck
 pnpm lint
 pnpm render:po     # renders a sample PO to .data/sample-po.pdf without a database
 node scripts/e2e-smoke.mjs   # browser smoke test of the whole cycle against `pnpm dev`
+pnpm serve:prod 3000         # assembles the standalone build and serves it (frees the port first)
+pnpm api:smoke               # mints a token, then drives the whole REST API with bearer auth
 pnpm pdd:figures   # re-captures the annotated screenshots in docs/pdd-assets (needs `pnpm dev` running)
 pnpm pdd           # regenerates docs/pdd.md, .data/Automation-Lab-PDD.docx and .pdf from scripts/build-pdd.ts
 pnpm db:reset      # drops everything (dev only), then db:migrate + db:seed again
@@ -117,19 +129,72 @@ inside `#validation-errors`, one `<li>` per violation with `data-rule-id` and
 consumes `{ userId, email, roles, entitlements }` and nothing else. Adding WorkOS / Clerk
 / Auth0 or LTI 1.3 is a new module beside `local.ts` plus one `case`.
 
-## API (P0 subset)
+## REST API
+
+The API covers the whole cycle, so exercise 4 (the same processes without the UI) needs no
+screen scraping. Interactive documentation is at **`/api/docs`** (Swagger UI over the
+OpenAPI 3.1 document at `/api/openapi`).
+
+**Authentication.** Either the session cookie (UI bots log in through the form once and
+reuse it) or a personal bearer token. Students mint tokens on `/sandbox`; the token is
+shown once, stored as a SHA-256 hash, and revocable:
+
+```bash
+curl -H "Authorization: Bearer al_..." http://localhost:3000/api/me
+```
+
+**Conventions.** JSON in, JSON out. Lists take `?limit=&cursor=` and answer
+`{ items, page: { limit, total, nextCursor } }`; the cursor is opaque, and a `null`
+`nextCursor` means the end. Single resources carry a weak `ETag` and honour
+`If-None-Match`. Errors answer `{ error, message, ... }` where `error` is a stable machine
+code: `400 bad_request`, `401 unauthenticated`, `403 no_lab_access` / `no_sandbox` /
+`read_only` (a shared-corpus row), `404 not_found`, `409 conflict` (paying a paid invoice, a PDF still
+rendering — with `Retry-After`), and `422` carrying `violations` with the rule IDs when a
+validation rule blocks the write.
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | liveness + DB check |
-| GET | `/api/sandbox` | sandbox status for bots: poll until `status: "ready"` and `rendered === documents` |
-| GET | `/api/documents/{id}/file?level=1` | download a rendered document (vendor compliance documents render on first download) |
-| GET | `/api/queues/{queue}/download` | ZIP of a work queue: `invoices-pending`, `pos-awaiting-invoice`, `vendor-applications`, `kind:<document kind>` |
+| GET | `/api/me` | principal, entitlements, sandbox progress, running score |
+| GET | `/api/sandbox` | sandbox status: poll until `status: "ready"` and `rendered === documents` |
+| GET, POST | `/api/tokens`, DELETE `/api/tokens/{id}` | list, mint and revoke personal tokens |
+| GET | `/api/queues` | the five queues with their descriptions and pending counts |
+| GET | `/api/work-items?queue=` | dispatcher read: materialises the queue, then lists items |
+| POST | `/api/work-items/claim` | performer claim: one item, leased, `FOR UPDATE SKIP LOCKED` |
+| POST | `/api/work-items/{id}/complete`, `/fail` | close an item; `fail` can retry or abandon |
+| GET, POST | `/api/vendors`, GET/PATCH `/api/vendors/{code}` | vendor master data |
+| GET, POST | `/api/items`, GET/PATCH `/api/items/{code}` | item master data |
+| GET, POST | `/api/purchase-orders`, POST `/{number}/approve` | create and approve POs |
+| GET | `/api/rfqs`, `/api/rfqs/{number}`, POST `/{number}/award` | quotations and award → PO |
+| GET | `/api/deliveries`, `/api/deliveries/{id}` | delivery notes |
+| GET, POST | `/api/grns`, GET `/api/grns/{number}` | post a goods receipt against a delivery note |
+| GET | `/api/invoices`, `/api/invoices/{internalNumber}` | AP inbox; a pending invoice hides its printed values |
+| POST | `/api/extractions` | submit extracted fields; graded against ground truth |
+| POST | `/api/invoices/{internalNumber}/match`, `/approve`, `/reject`, `/pay` | three-way match and the AP decisions |
+| GET | `/api/payments`, `/api/payments/{number}` | payments and receipts |
+| GET | `/api/documents/{id}`, `/api/documents/{id}/file?level=1` | metadata and the PDF |
+| GET | `/api/queues/{queue}/download` | ZIP of a queue's documents with a JSON manifest |
+| GET, POST | `/api/webhooks`, DELETE `/api/webhooks/{id}` | HMAC-signed event delivery |
 | GET | `/api/rules` | validation rules as JSON |
 | POST | `/api/jobs/run` | process queued jobs (Vercel Cron; `Authorization: Bearer $CRON_SECRET`) |
 
-Authentication for the API is the same session cookie as the UI. Bots log in through the
-form once and reuse the cookie (30-day lifetime).
+**Queues.** `invoices-pending`, `pos-awaiting-invoice`, `vendor-applications`,
+`deliveries-awaiting-grn`, `rfqs-open`. Items are keyed by `(tenant, queue, reference)`, so
+re-running a dispatcher never duplicates work and an item a performer already completed
+stays completed; an item whose source condition disappeared is abandoned with a reason.
+`claim` takes a lease, so two performers on the same queue never take the same item.
+
+**Grading.** `POST /api/extractions` stores the submission, compares every field with the
+ground truth (`src/lib/grading/normalise.ts`: numbers to 2 dp, ISO dates, Arabic-Indic
+digits folded to Western, identifiers stripped of separators, descriptions matched at a
+0.9 similarity threshold), weights header fields 2 and line fields 1, and returns
+`score`, `fieldResults` and the defect grade (`caught`, `missed`, `falsePositives`,
+`recall`, `precision`). A bot may send a per-field `confidence` map; anything below 0.85
+is highlighted on the Validation Station at `/invoices/{internalNumber}/validate` for a
+human to correct and resubmit.
+
+**Instructor view.** `/instructor` (staff only) lists the cohort with sandbox status,
+documents processed, average score and defects caught; `/instructor/export.csv` exports it.
 
 ## Deploying to Vercel
 

@@ -1,9 +1,12 @@
-/** Pure helpers shared by the extraction action and the invoice page. */
+/**
+ * Pure helpers shared by the extraction form, the invoice page and the REST
+ * API, so a bot and a student produce exactly the same match input.
+ */
 import type { invoices } from "@/db/schema";
 import type { MatchContext } from "@/lib/validation/matching";
 import { num, str } from "@/lib/forms";
 import { TAX_CODES, round2 } from "@/lib/generator/money";
-import { INVOICE_FORM_LINES } from "./constants";
+import { INVOICE_FORM_LINES } from "@/app/invoices/constants";
 
 type Inv = typeof invoices.$inferSelect;
 
@@ -47,3 +50,47 @@ export function extractionToInvoice(inv: Inv, fields: Record<string, string>): {
   return { asStored, lines };
 }
 
+
+/** Line as accepted by POST /api/extractions. */
+export interface ApiExtractionLine {
+  poLineNo?: number | null;
+  itemCode?: string | null;
+  description?: string | null;
+  quantity: number;
+  uom: string;
+  unitPrice: number;
+  taxRate: number;
+  taxAmount?: number | null;
+  lineTotal?: number | null;
+}
+
+export interface ApiExtractionBody {
+  fields: Record<string, string | number | null | undefined>;
+  lines: ApiExtractionLine[];
+}
+
+/**
+ * Flattens an API submission into the same flat record the form produces, so
+ * grading, matching and the stored extraction have one representation.
+ */
+export function flattenApiExtraction(body: ApiExtractionBody): Record<string, string> {
+  const out: Record<string, string> = {};
+  const put = (k: string, v: unknown) => {
+    if (v === null || v === undefined || v === "") return;
+    out[k] = String(v);
+  };
+  for (const key of EXTRACTION_HEADER_FIELDS) put(key, body.fields[key]);
+  body.lines.slice(0, INVOICE_FORM_LINES).forEach((l, i) => {
+    const n = i + 1;
+    put(`line${n}PoLine`, l.poLineNo);
+    put(`line${n}ItemCode`, l.itemCode);
+    put(`line${n}Description`, l.description);
+    put(`line${n}Quantity`, l.quantity);
+    put(`line${n}Uom`, l.uom);
+    put(`line${n}UnitPrice`, l.unitPrice);
+    put(`line${n}TaxRate`, l.taxRate);
+    put(`line${n}TaxAmount`, l.taxAmount);
+    put(`line${n}LineTotal`, l.lineTotal);
+  });
+  return out;
+}

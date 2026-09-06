@@ -3,13 +3,17 @@ import { requireLab } from "@/lib/auth/server";
 import { recentJobs } from "@/lib/jobs/queue";
 import { sandboxProgress } from "@/lib/sandbox/lifecycle";
 import { Button, Dl, Flash, Page, Pill } from "@/components/ui";
-import { resetSandboxAction } from "./actions";
+import { createTokenAction, resetSandboxAction, revokeTokenAction } from "./actions";
+import { listApiTokens } from "@/lib/api/tokens";
+import { LinkButton, Input, Section, TableWrap } from "@/components/ui";
 
 export default async function SandboxPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { t } = await i18n();
   const session = await requireLab();
   const sp = await searchParams;
-  const [progress, jobs] = await Promise.all([sandboxProgress(session.tenant), recentJobs(session.tenant.id, 15)]);
+  const [progress, jobs, tokens] = await Promise.all([sandboxProgress(session.tenant), recentJobs(session.tenant.id, 15), listApiTokens(session.principal.userId)]);
+  const newToken = typeof sp.token === "string" ? sp.token : null;
+  const tt = t.tokens;
   const ts = t.sandbox;
   const busy = session.tenant.status === "provisioning";
   return (
@@ -38,6 +42,79 @@ export default async function SandboxPage({ searchParams }: { searchParams: Prom
           </Button>
         </form>
       </div>
+      <Section
+        title={tt.title}
+        testId="api-tokens"
+        actions={
+          <LinkButton testId="api-docs-link" href="/api/docs" variant="secondary">
+            {tt.docs}
+          </LinkButton>
+        }
+      >
+        <p className="mb-2 max-w-3xl text-sm text-muted">{tt.intro}</p>
+        {newToken ? (
+          <div id="new-token" data-testid="new-token" className="flash mb-3" data-status="success">
+            <div className="mb-1 font-semibold">{tt.plaintextWarning}</div>
+            <code id="new-token-value" data-testid="new-token-value" className="break-all">
+              {newToken}
+            </code>
+          </div>
+        ) : null}
+        <form action={createTokenAction} className="mb-3 flex flex-wrap items-end gap-2">
+          <div className="w-64">
+            <label htmlFor="token-name" className="al-label">
+              {tt.name}
+            </label>
+            <Input testId="token-name" name="name" placeholder="UiPath performer" />
+          </div>
+          <Button testId="token-create">{tt.create}</Button>
+        </form>
+        <TableWrap>
+          <table id="tokens-table" data-testid="tokens-table" className="al-table">
+            <thead>
+              <tr>
+                <th>{tt.name}</th>
+                <th>{tt.prefix}</th>
+                <th>{tt.created}</th>
+                <th>{tt.lastUsed}</th>
+                <th>{t.common.actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tokens.map((tok) => (
+                <tr key={tok.id} id={`tokens-row-${tok.id}`} data-testid={`tokens-row-${tok.id}`} data-revoked={tok.revokedAt ? "1" : "0"}>
+                  <td>{tok.name}</td>
+                  <td>
+                    <code>al_{tok.prefix}…</code>
+                  </td>
+                  <td>{tok.createdAt.toISOString().slice(0, 16).replace("T", " ")}</td>
+                  <td>{tok.lastUsedAt ? tok.lastUsedAt.toISOString().slice(0, 16).replace("T", " ") : t.common.none}</td>
+                  <td>
+                    {tok.revokedAt ? (
+                      <span className="text-muted">{tt.revoked}</span>
+                    ) : (
+                      <form action={revokeTokenAction}>
+                        <input type="hidden" name="id" value={tok.id} />
+                        <Button testId={`token-revoke-${tok.id}`} variant="danger">
+                          {tt.revoke}
+                        </Button>
+                      </form>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {tokens.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-muted" data-testid="tokens-empty">
+                    {tt.none}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </TableWrap>
+      </Section>
+
       <h2 className="mb-2 font-semibold text-primary">{ts.jobs}</h2>
       <div className="overflow-x-auto">
         <table id="jobs-table" data-testid="jobs-table" className="al-table">

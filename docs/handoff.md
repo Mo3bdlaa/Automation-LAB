@@ -1,7 +1,7 @@
 # Automation Lab — handoff
 
-**Date:** 2026-09-04
-**Status:** P0 and P1 implemented in this repository. P2, P3 and P4 are specified in `docs/pdd.md` section 4.
+**Date:** 2026-09-06
+**Status:** P0, P1 and P2 implemented in this repository. P3 and P4 are specified in `docs/pdd.md` section 4.
 **Owner:** Mohammed Shaker
 **Companion documents:** `docs/spec.md` — the full design spec. Read it second. `docs/pdd.md` — the Process Definition Document: AS-IS and TO-BE processes students automate, annotated screenshots of every screen and document, and the P2/P3/P4 roadmap with acceptance criteria.
 
@@ -38,8 +38,11 @@ two different hosting platforms are in play and it is easy to conflate them.
 
 ## 3. Current state
 
-This repository holds the P0 scaffold. See `README.md` for what is implemented and how to
-run it. Not yet done: Vercel project, DNS record, production database, real identity provider.
+This repository holds P0, P1 and P2: the foundation, the full document cycle, and the REST
+API with grading, the Validation Station and the instructor dashboard. See `README.md` for
+what is implemented and how to run it. Not yet done: P3 (Arabic-first templates, degraded
+scan levels 2–5), P4 (production identity, Vercel project, DNS record, production database,
+blob store, flaky mode, gradebook export).
 
 ---
 
@@ -169,6 +172,45 @@ Chromium render pipeline. Both are in.
 - UI restyled to an enterprise-ERP look (shell bar, launchpad tiles, object pages,
   toolbar tables) so the target app resembles what students automate at work. Tokens
   live in one CSS block for re-branding.
+
+---
+
+## 7c. P2 — done in this repository
+
+- **Personal API tokens.** Minted on `/sandbox`, shown once, stored as a SHA-256 hash,
+  revocable. `apiSession()` accepts either the token or the session cookie, so a bot can
+  use whichever suits it (`src/lib/api/tokens.ts`).
+- **REST API over the whole cycle** — vendors, items, purchase orders, RFQs, deliveries,
+  goods receipts, invoices, extractions, payments, documents, queues, webhooks. Cursor
+  pagination, weak ETags, `409` for state conflicts, `422` carrying the violated rule IDs.
+- **Domain services** (`src/lib/services/`). The UI server actions and the API routes are
+  both thin wrappers over the same service functions, so a rule can never apply on one
+  path and not the other. This was the main structural change of P2.
+- **Work queues with Orchestrator semantics** (`src/lib/api/work-items.ts`). A dispatcher
+  read materialises the queue from current domain state, keyed by `(tenant, queue,
+  reference)`; a performer claims one item under a lease with `FOR UPDATE SKIP LOCKED`,
+  then completes or fails it. Re-running a dispatcher never duplicates work; an item whose
+  source condition disappeared is abandoned with a reason rather than handed out stale.
+- **OpenAPI 3.1 + Swagger UI** at `/api/docs`. `src/lib/api/openapi.test.ts` fails the
+  build if a route file has no documented path or a documented path has no route file, so
+  the document cannot silently drift from the code.
+- **Grading.** `src/lib/grading/normalise.ts` compares by field kind (numbers to 2 dp, ISO
+  dates, Arabic-Indic digits folded to Western, identifiers stripped of separators, text at
+  a 0.9 similarity threshold); `score.ts` weights header fields 2 and line fields 1 and
+  aligns submitted lines to ground-truth lines by item code, then description and quantity.
+  Defect grading compares the seeded rule IDs with the rule IDs the student's match
+  reported and returns caught / missed / false positives with recall and precision.
+- **Validation Station** at `/invoices/{internalNumber}/validate`: the PDF beside the
+  fields, every field group carrying `data-low-confidence` when the confidence the bot
+  submitted is below 0.85, correct and resubmit. Mirrors UiPath's screen as a teaching one.
+- **Instructor dashboard** at `/instructor` (staff only) with cohort stats, per-student
+  drill-down and CSV export.
+- **Webhooks.** Student-registered endpoints, HMAC-signed, delivered by a job so a slow or
+  dead endpoint never blocks a request.
+- **Build shape.** The document renderer and the job handlers are loaded dynamically, and
+  the sandbox module is split into `lifecycle.ts` (request side) and `provision.ts` (job
+  side), so `playwright-core` stays out of the page bundles and the standalone build runs
+  without it.
 
 ---
 

@@ -46,11 +46,15 @@ let inFlight: Promise<unknown> | null = null;
 export function kickJobs(): void {
   if (process.env.JOBS_KICK === "0") return;
   if (inFlight) return;
-  const budget = Number(process.env.JOBS_KICK_BUDGET_MS ?? 240_000);
+  // Bounded on purpose: a web process must not grind through an unbounded
+  // backlog. Whatever is left is picked up by the next kick or by the cron
+  // route (/api/jobs/run), which is what runs on a deployed lab.
+  const budget = Number(process.env.JOBS_KICK_BUDGET_MS ?? 60_000);
+  const rounds = Number(process.env.JOBS_KICK_ROUNDS ?? 6);
   const run = () => {
     inFlight = (async () => {
-      for (let round = 0; round < 50; round++) {
-        const r = await runJobs({ maxJobs: 500, timeBudgetMs: budget, log: (m) => console.log(`[jobs] ${m}`) });
+      for (let round = 0; round < rounds; round++) {
+        const r = await runJobs({ maxJobs: 100, timeBudgetMs: budget, log: (m) => console.log(`[jobs] ${m}`) });
         if (r.processed + r.failed === 0) break;
       }
     })()

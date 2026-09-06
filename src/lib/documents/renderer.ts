@@ -8,9 +8,18 @@
  */
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { chromium, type Browser } from "playwright-core";
+import type { Browser } from "playwright-core";
 
 let browserPromise: Promise<Browser> | null = null;
+
+/**
+ * Playwright is loaded only when a document is actually rendered. Importing it
+ * at module scope would pull the browser driver into every page's server
+ * bundle, which breaks standalone builds and slows serverless cold starts.
+ */
+async function playwright() {
+  return (await import("playwright-core")).chromium;
+}
 
 export async function resolveChromiumExecutable(): Promise<string> {
   const fromEnv = process.env.CHROMIUM_EXECUTABLE_PATH;
@@ -35,7 +44,7 @@ export async function resolveChromiumExecutable(): Promise<string> {
   ].filter(Boolean) as string[];
   for (const c of candidates) if (existsSync(c)) return c;
   try {
-    const p = chromium.executablePath();
+    const p = (await playwright()).executablePath();
     if (p && existsSync(p)) return p;
   } catch {
     /* no registry */
@@ -47,6 +56,7 @@ async function getBrowser(): Promise<Browser> {
   if (!browserPromise) {
     browserPromise = (async () => {
       const executablePath = await resolveChromiumExecutable();
+      const chromium = await playwright();
       const b = await chromium.launch({
         executablePath,
         headless: true,

@@ -4,7 +4,7 @@
  * and a TenantDb already scoped to it.
  */
 import { cache } from "react";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db, schema } from "@/db/client";
 import { forTenant, type TenantDb } from "@/db/tenant";
@@ -50,13 +50,29 @@ export async function requireLab(): Promise<LabSession> {
   return s;
 }
 
-/** Bearer-token / cookie auth for API routes: returns 401/403 responses instead of redirecting. */
+/** Principal from an `Authorization: Bearer` API token, or null. */
+const getTokenPrincipal = cache(async (): Promise<Principal | null> => {
+  const auth = (await headers()).get("authorization") ?? "";
+  const m = auth.match(/^Bearer\s+(\S+)$/i);
+  if (!m) return null;
+  const { userIdForToken } = await import("../api/tokens");
+  const userId = await userIdForToken(m[1]);
+  return userId ? identityProvider().resolve(userId) : null;
+});
+
+/**
+ * Auth for API routes: an API token takes precedence over the session cookie,
+ * so a bot and a browser can hold different identities in the same client.
+ * Returns a 401 or 403 response instead of redirecting.
+ */
 export async function apiSession(): Promise<LabSession | Response> {
-  const s = await getLabSession();
-  if (s) return s;
-  const p = await getPrincipal();
-  const status = p ? 403 : 401;
-  return Response.json({ error: p ? "no_lab_access" : "unauthenticated" }, { status, headers: { "Cache-Control": "no-store" } });
+  const principal = (await getTokenPrincipal()) ?? (await getPrincipal());
+  const unauth = (status: number, error: string) => Response.json({ error }, { status, headers: { "Cache-Control": "no-store", "WWW-Authenticate": status === 401 ? 'Bearer realm="Automation Lab"' : "" } });
+  if (!principal) return unauth(401, "unauthenticated");
+  if (!hasLabAccess(principal)) return unauth(403, "no_lab_access");
+  const tenant = await ensureTenantForPrincipal(principal);
+  if (!tenant) return unauth(403, "no_sandbox");
+  return { principal, tenant, tdb: forTenant(await tenantContext(tenant)) };
 }
 
 export async function establishSession(principal: Principal): Promise<void> {

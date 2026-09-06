@@ -13,6 +13,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Read `docs/handoff.md` (decisions and rationale) and `docs/spec.md` (design) before changing architecture.
 - Every interactive element gets both `id` and `data-testid` per `docs/selectors.md`. Rule IDs in `src/lib/validation/rules.ts` and `src/lib/validation/matching.ts` are a public contract: never rename one.
 - Never import `@/db/client` from pages, components or route handlers. Use `TenantDb` (`src/db/tenant.ts`); `src/db/scoping.test.ts` enforces this.
+- Business logic lives in `src/lib/services/`. UI server actions and API routes are thin wrappers over it: never implement a rule in one path only.
+- Every API route needs a path in `src/lib/api/openapi.ts`; `src/lib/api/openapi.test.ts` fails when the two drift.
+- Nothing reachable from a page or route module may import `playwright-core` statically. The renderer and the job handlers load it dynamically; a static import breaks the standalone build.
 - Generation must stay deterministic: use `Rng` from `src/lib/generator/rng.ts`, never `Math.random`.
 - PDFs are HTML/CSS rendered by Chromium in a background job. Do not add `@react-pdf/renderer`.
 - Nothing in this repo touches mohammedshaker.com or the share-know.com VPS.

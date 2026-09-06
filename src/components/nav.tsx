@@ -16,7 +16,9 @@ const links: { key: keyof Dictionary["nav"]; href: string; id: string }[] = [
   { key: "sandbox", href: "/sandbox", id: "nav-sandbox" },
 ];
 
-export function Nav({ t, locale, principal }: { t: Dictionary; locale: Locale; principal: Principal | null }) {
+const staffLinks: { key: keyof Dictionary["nav"]; href: string; id: string }[] = [{ key: "instructor", href: "/instructor", id: "nav-instructor" }];
+
+export function Nav({ t, locale, principal, staff = false }: { t: Dictionary; locale: Locale; principal: Principal | null; staff?: boolean }) {
   return (
     <header className="shell">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-2">
@@ -28,11 +30,14 @@ export function Nav({ t, locale, principal }: { t: Dictionary; locale: Locale; p
         </Link>
         {principal ? (
           <nav id="nav-main" data-testid="nav-main" className="flex flex-wrap gap-0.5">
-            {links.map((l) => (
+            {[...links, ...(staff ? staffLinks : [])].map((l) => (
               <Link key={l.id} id={l.id} data-testid={l.id} href={l.href}>
                 {t.nav[l.key]}
               </Link>
             ))}
+            <a id="nav-api-docs" data-testid="nav-api-docs" href="/api/docs">
+              {t.nav.apiDocs}
+            </a>
           </nav>
         ) : null}
         <div className="ms-auto flex items-center gap-3 shell-meta">

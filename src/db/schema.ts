@@ -585,10 +585,17 @@ export const extractions = pgTable(
     userId: text("user_id"),
     source: text("source", { enum: ["ui", "api"] }).notNull().default("ui"),
     fields: jsonb("fields").$type<Record<string, string>>().notNull(),
+    /** Optional per-field confidence from the extractor, used by the validation station. */
+    confidence: jsonb("confidence").$type<Record<string, number>>(),
     /** Field-level score 0..1 once graded. */
     score: numeric("score", { precision: 5, scale: 4 }),
     fieldResults: jsonb("field_results").$type<Record<string, { expected: string; actual: string; match: boolean }>>(),
-    matchResult: jsonb("match_result").$type<{ ok: boolean; violations: { ruleId: string; severity: string; message: string; field?: string }[] }>(),
+    matchResult: jsonb("match_result").$type<{
+      ok: boolean;
+      violations: { ruleId: string; severity: string; message: string; field?: string }[];
+      /** Defect grade: which seeded defects the submission caught. */
+      defects?: { caught: { defectType: string; ruleId: string }[]; missed: { defectType: string; ruleId: string }[]; falsePositives: string[] };
+    }>(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("extractions_doc_idx").on(t.documentId)],
@@ -687,11 +694,113 @@ export const seededDefects = pgTable(
   (t) => [index("seeded_defects_doc_idx").on(t.documentId)],
 );
 
+
+// ---------------------------------------------------------------------------
+// P2: API access, work queues, webhooks
+// ---------------------------------------------------------------------------
+
+/**
+ * Personal API tokens. Only the SHA-256 hash is stored; the plaintext is shown
+ * once at creation. `prefix` is the visible part, so a student can tell tokens
+ * apart without revealing the secret.
+ */
+export const apiTokens = pgTable(
+  "api_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    name: text("name").notNull(),
+    prefix: text("prefix").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("api_tokens_hash_uq").on(t.tokenHash), index("api_tokens_user_idx").on(t.userId)],
+);
+
+export const WORK_ITEM_QUEUES = ["invoices-pending", "pos-awaiting-invoice", "vendor-applications", "deliveries-awaiting-grn", "rfqs-open"] as const;
+export type WorkItemQueue = (typeof WORK_ITEM_QUEUES)[number];
+export const WORK_ITEM_STATUSES = ["new", "in_progress", "successful", "failed", "abandoned"] as const;
+export type WorkItemStatus = (typeof WORK_ITEM_STATUSES)[number];
+
+/**
+ * Orchestrator-like queue items. They are materialised from the current domain
+ * state on every dispatcher read and keyed by (tenant, queue, reference), so
+ * re-running a dispatcher never creates duplicates.
+ */
+export const workItems = pgTable(
+  "work_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    queue: text("queue", { enum: WORK_ITEM_QUEUES }).notNull(),
+    /** Unique business key inside the queue, e.g. INV-2026-05012. */
+    reference: text("reference").notNull(),
+    specificContent: jsonb("specific_content").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    status: text("status", { enum: WORK_ITEM_STATUSES }).notNull().default("new"),
+    priority: text("priority", { enum: ["low", "normal", "high"] }).notNull().default("normal"),
+    attempts: integer("attempts").notNull().default(0),
+    /** Set while a performer holds the item; expires so a crashed robot does not block the queue. */
+    leaseUntil: timestamp("lease_until", { withTimezone: true }),
+    leaseOwner: text("lease_owner"),
+    deferUntil: timestamp("defer_until", { withTimezone: true }),
+    lastError: text("last_error"),
+    /** Business exception rule IDs recorded by the performer. */
+    outcome: jsonb("outcome").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("work_items_tenant_queue_ref_uq").on(t.tenantId, t.queue, t.reference),
+    index("work_items_tenant_queue_status_idx").on(t.tenantId, t.queue, t.status),
+  ],
+);
+
+export const WEBHOOK_EVENTS = ["invoice.status_changed", "document.rendered", "sandbox.ready", "work_item.added"] as const;
+export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
+
+export const webhookEndpoints = pgTable(
+  "webhook_endpoints",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    url: text("url").notNull(),
+    /** Shared secret for the X-Automation-Lab-Signature HMAC header. */
+    secret: text("secret").notNull(),
+    events: jsonb("events").$type<WebhookEvent[]>().notNull().default(sql`'[]'::jsonb`),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("webhook_endpoints_tenant_idx").on(t.tenantId)],
+);
+
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    endpointId: uuid("endpoint_id")
+      .notNull()
+      .references(() => webhookEndpoints.id, { onDelete: "cascade" }),
+    event: text("event", { enum: WEBHOOK_EVENTS }).notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: text("status", { enum: ["queued", "delivered", "failed"] }).notNull().default("queued"),
+    responseCode: integer("response_code"),
+    attempts: integer("attempts").notNull().default(0),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  },
+  (t) => [index("webhook_deliveries_endpoint_idx").on(t.endpointId, t.createdAt)],
+);
+
 // ---------------------------------------------------------------------------
 // Background jobs and audit
 // ---------------------------------------------------------------------------
 
-export const JOB_KINDS = ["provision_sandbox", "reset_sandbox", "render_document"] as const;
+export const JOB_KINDS = ["provision_sandbox", "reset_sandbox", "render_document", "deliver_webhook"] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 export const jobs = pgTable(
@@ -754,6 +863,9 @@ export const tenantTables = {
   receipts,
   vendorDocuments,
   extractions,
+  workItems,
+  webhookEndpoints,
+  webhookDeliveries,
   documents,
   documentFiles,
   groundTruth,
@@ -782,6 +894,9 @@ export type Payment = typeof payments.$inferSelect;
 export type Receipt = typeof receipts.$inferSelect;
 export type VendorDocument = typeof vendorDocuments.$inferSelect;
 export type Extraction = typeof extractions.$inferSelect;
+export type ApiToken = typeof apiTokens.$inferSelect;
+export type WorkItem = typeof workItems.$inferSelect;
+export type WebhookEndpoint = typeof webhookEndpoints.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type DocumentFile = typeof documentFiles.$inferSelect;
 export type Tenant = typeof tenants.$inferSelect;

@@ -13,6 +13,7 @@ import { renderPurchaseOrderHtml } from "./templates/purchase-order";
 import { renderDeliveryNoteHtml, renderInvoiceHtml, renderQuoteHtml, renderReceiptHtml, renderVendorComplianceHtml, type VendorParty } from "./templates/vendor-documents";
 import { renderGrnHtml, renderRfqHtml } from "./templates/internal-documents";
 import { ensureSharedTenant } from "../corpus/persist";
+import { emitWebhook } from "../webhooks/emit";
 
 export function documentFilename(number: string, vendorName: string, ext = "pdf"): string {
   const slug = vendorName
@@ -26,8 +27,7 @@ export function documentFilename(number: string, vendorName: string, ext = "pdf"
   return `${number.replace(/[^\w.-]+/g, "-")}_${slug || "VENDOR"}.${ext}`;
 }
 
-/** Document kinds rendered eagerly at provisioning time. Vendor compliance documents render on first download. */
-export const EAGER_KINDS = new Set<Document["kind"]>(["rfq", "quote", "purchase_order", "delivery_note", "grn", "invoice", "receipt"]);
+export { EAGER_KINDS } from "./kinds";
 
 async function vendorParty(vendorId: string | null, fallback?: Partial<VendorParty>): Promise<VendorParty> {
   const [v] = vendorId ? await db.select().from(schema.vendors).where(eq(schema.vendors.id, vendorId)) : [];
@@ -217,14 +217,6 @@ export async function renderDocument(documentId: string, log: (m: string) => voi
       target: [schema.documentFiles.documentId, schema.documentFiles.level],
       set: { pages, blobKey: key, sizeBytes: size, filename, renderedAt: new Date() },
     });
+  await emitWebhook({ tenant: { id: doc.tenantId } }, "document.rendered", { documentId: doc.id, kind: doc.kind, number: doc.number, level, filename });
   log(`rendered ${doc.kind} ${doc.number} L${level} (${pages}p, ${size} bytes)`);
-}
-
-/** Render synchronously if the file does not exist yet (used for lazily rendered kinds on first download). */
-export async function ensureRendered(documentId: string, level = 1) {
-  const [existing] = await db.select().from(schema.documentFiles).where(and(eq(schema.documentFiles.documentId, documentId), eq(schema.documentFiles.level, level)));
-  if (existing) return existing;
-  await renderDocument(documentId, () => {}, level);
-  const [file] = await db.select().from(schema.documentFiles).where(and(eq(schema.documentFiles.documentId, documentId), eq(schema.documentFiles.level, level)));
-  return file;
 }

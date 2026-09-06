@@ -14,6 +14,14 @@ const ALLOWED = [
   "src/lib/jobs/",
   "src/lib/auth/server.ts",
   "src/lib/documents/service.ts",
+  // Infrastructure that owns its own scoping: tokens are per user, queues and
+  // webhooks are written with an explicit tenant id from the session.
+  "src/lib/api/tokens.ts",
+  "src/lib/api/work-items.ts",
+  "src/lib/webhooks/emit.ts",
+  // The instructor views read across every student tenant on purpose. They are
+  // gated on the staff role, which the test below asserts.
+  "src/app/instructor/",
   "src/app/api/health/route.ts",
 ];
 
@@ -26,6 +34,8 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+const STAFF_GATED = ["src/app/instructor/page.tsx", "src/app/instructor/export.csv/route.ts"];
+
 describe("tenant scoping", () => {
   it("only whitelisted modules import the raw db client", () => {
     const root = path.resolve(__dirname, "../..");
@@ -35,5 +45,13 @@ describe("tenant scoping", () => {
       .filter((rel) => !ALLOWED.some((a) => rel.startsWith(a)))
       .filter((rel) => /from\s+["'](@\/db\/client|\.{1,2}\/(?:\.\.\/)*db\/client|\.\/client)["']/.test(readFileSync(path.join(root, rel), "utf8")));
     expect(offenders).toEqual([]);
+  });
+
+  it("every cross-tenant view checks for the staff role", () => {
+    const root = path.resolve(__dirname, "../..");
+    for (const rel of STAFF_GATED) {
+      const src = readFileSync(path.join(root, rel), "utf8");
+      expect(src, `${rel} must gate on isStaff`).toContain("isStaff(");
+    }
   });
 });

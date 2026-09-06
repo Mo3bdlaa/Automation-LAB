@@ -56,8 +56,8 @@ function figureOf(id: string): Figure & { n: number } {
 const DOC = {
   title: "Automation Lab",
   subtitle: "Process Definition Document (PDD)",
-  version: "1.0",
-  date: "2026-09-05",
+  version: "1.1",
+  date: "2026-09-06",
   author: "Mohammed Shaker",
   status: "Draft for review",
 };
@@ -69,7 +69,7 @@ const ruleTable = (applies: string[]) =>
 const B: Block[] = [
   { t: "h1", text: "1. Introduction" },
   { t: "h2", text: "1.1 Purpose of the document" },
-  { t: "p", text: "This Process Definition Document describes the procurement processes that students automate in Automation Lab, the practice sandbox of the Document Understanding and RPA course. It follows the structure of a standard UiPath PDD: the AS-IS process as a human performs it in the target application, the TO-BE process as an attended or unattended automation, the exceptions the automation must handle, and the acceptance criteria. It also fixes the scope of the remaining platform phases (P2, P3 and P4) so that the lab, the exercises and the grading evolve together." },
+  { t: "p", text: "This Process Definition Document describes the procurement processes that students automate in Automation Lab, the practice sandbox of the Document Understanding and RPA course. It follows the structure of a standard UiPath PDD: the AS-IS process as a human performs it in the target application, the TO-BE process as an attended or unattended automation, the exceptions the automation must handle, and the acceptance criteria. It also fixes the scope of the platform phases: P2 (queues, REST API, grading, Validation Station, instructor dashboard) as delivered, and P3 and P4 as planned, so that the lab, the exercises and the grading evolve together." },
   { t: "p", text: "Two audiences use it. Students read sections 2 and 3 as they would read a PDD handed to them by a client: it is the specification of what to build. The instructor and developers read section 4 and the appendices: they define what the platform must provide in each phase and how it is verified." },
   { t: "h2", text: "1.2 Objectives" },
   { t: "bullets", items: [
@@ -99,7 +99,7 @@ const B: Block[] = [
   { t: "h1", text: "2. AS-IS process description" },
   { t: "h2", text: "2.1 Process overview" },
   { t: "p", text: "Three processes are automated during the course, each in a UI variant and later an API variant. All three run at Al-Nahda Trading & Contracting Co., the fictional company every student works for. Volumes below are per student sandbox at provisioning; the figures grow as students create records." },
-  { t: "table", header: ["Item", "P1 Invoice processing with three-way match", "P2 Vendor onboarding from commercial licence", "P3 Purchase orders awaiting invoice"], widths: [1900, 2560, 2450, 2450], rows: [
+  { t: "table", header: ["Item", "Process A - Invoice processing with three-way match", "Process B - Vendor onboarding from commercial licence", "Process C - Purchase orders awaiting invoice"], widths: [1900, 2560, 2450, 2450], rows: [
     ["Function / department", "Accounts payable", "Procurement, vendor master", "Accounts payable / procurement"],
     ["Process owner", "AP team lead", "Procurement manager", "AP team lead"],
     ["Trigger", "Invoice registered in the AP inbox with status Pending extraction", "Vendor application with status Pending and a commercial registration certificate on file", "Purchase order status Received or Partially received with no matched invoice"],
@@ -114,13 +114,13 @@ const B: Block[] = [
   { t: "h2", text: "2.2 Applications used" },
   { t: "table", header: ["Application", "Type", "Access", "Notes for automation"], widths: [2300, 1500, 2300, 3260], rows: [
     ["Automation Lab web application", "Web (server-rendered HTML, ERP-style)", "https://automationlab.mohammedshaker.com, session cookie after login", "Every interactive element carries both id and data-testid with the same value. Tables are real HTML tables with fixed page size 25 and page in the URL. Status badges expose data-status. Validation results render in #validation-errors with data-rule-id per line."],
-    ["Automation Lab REST API", "HTTPS JSON", "Same session cookie; bearer tokens from P2", "Documents download with Content-Disposition attachment and predictable file names. 409 with Retry-After means a PDF is still rendering."],
+    ["Automation Lab REST API", "HTTPS JSON", "Session cookie or a personal bearer token", "Documents download with Content-Disposition attachment and predictable file names. 409 with Retry-After means a PDF is still rendering."],
     ["PDF documents", "Files", "Download links on detail pages, bulk ZIP per queue", "Level 1 documents are native text and can be read without OCR. Levels 2 to 5 (P3) are scans of increasing difficulty."],
     ["UiPath Orchestrator", "SaaS", "Student tenant", "Queues for dispatcher/performer; assets for the lab URL and credentials."],
   ] },
   { t: "figure", id: "01-launchpad" },
 
-  { t: "h2", text: "2.3 Detailed AS-IS steps: P1 Invoice processing" },
+  { t: "h2", text: "2.3 Detailed AS-IS steps: Process A, invoice processing" },
   { t: "p", text: "The AP clerk starts from the launchpad ({{fig:01-launchpad}}), opens the queue of invoices pending extraction ({{fig:02-invoice-queue}}) and works the oldest first." },
   { t: "table", header: ["#", "Action", "Screen / selector", "Business rule"], widths: [500, 3100, 3000, 2760], rows: [
     ["1", "Open the AP inbox filtered to pending invoices.", "/invoices?status=pending_extraction, table #invoices-table, rows #invoices-row-{INV-YYYY-NNNNN}", "Work oldest received date first."],
@@ -140,7 +140,7 @@ const B: Block[] = [
   { t: "figure", id: "04-extraction-form" },
   { t: "figure", id: "05-match-exception" },
 
-  { t: "h2", text: "2.4 Detailed AS-IS steps: P2 Vendor onboarding" },
+  { t: "h2", text: "2.4 Detailed AS-IS steps: Process B, vendor onboarding" },
   { t: "p", text: "The buyer opens a vendor application, downloads the compliance documents on file ({{fig:07-vendor-compliance}}) and reads the commercial registration certificate ({{fig:14-document-licence}})." },
   { t: "table", header: ["#", "Action", "Screen / selector", "Business rule"], widths: [500, 3100, 3000, 2760], rows: [
     ["1", "List pending vendor applications.", "/vendors?status=pending, #vendors-table", "Applications are vendor records in status Pending."],
@@ -154,13 +154,13 @@ const B: Block[] = [
   { t: "figure", id: "07-vendor-compliance" },
   { t: "figure", id: "14-document-licence" },
 
-  { t: "h2", text: "2.5 Detailed AS-IS steps: P3 Purchase orders awaiting invoice" },
+  { t: "h2", text: "2.5 Detailed AS-IS steps: Process C, purchase orders awaiting invoice" },
   { t: "p", text: "The purchase order object page shows every document raised against the order ({{fig:06-purchase-order}}), which is how the clerk sees at a glance whether goods were received and whether an invoice has arrived." },
   { t: "table", header: ["#", "Action", "Screen / selector", "Business rule"], widths: [500, 3100, 3000, 2760], rows: [
     ["1", "List received purchase orders.", "/purchase-orders?status=received (and partially_received), #purchase-orders-table", "Working set only; exclude history."],
     ["2", "Open each PO and read related documents.", "/purchase-orders/{PO-YYYY-NNNNN}, #po-related with data-count, items related-grn-*, related-invoice-*", "A PO with goods receipts and no invoice is awaiting invoice."],
     ["3", "Check receipts: accepted quantities per line.", "/grns/{GRN-YYYY-NNNNN}, #grn-lines-table", "Accepted, not received, is the quantity that may be invoiced."],
-    ["4", "When an invoice exists, run the match and route exceptions.", "/invoices/{INV}, #invoice-rematch", "Same rule catalogue as P1."],
+    ["4", "When an invoice exists, run the match and route exceptions.", "/invoices/{INV}, #invoice-rematch", "Same rule catalogue as Process A."],
     ["5", "Report the list to the buyer.", "Export or Orchestrator queue", "Include PO number, vendor, received date, open amount."],
   ] },
   { t: "figure", id: "06-purchase-order" },
@@ -201,12 +201,13 @@ const B: Block[] = [
     ["Vendor onboarding", "AL_VendorApplications", "Vendor code V-NNNNN", "vendorId, licenceDocumentId, taxCardDocumentId, bankLetterDocumentId"],
     ["Awaiting invoice", "AL_POsAwaitingInvoice", "PO number PO-YYYY-NNNNN", "purchaseOrderId, vendorCode, receivedDate, openAmount"],
   ] },
+  { t: "p", text: "The lab exposes the same work as its own queues: GET /api/work-items?queue=invoices-pending, vendor-applications or pos-awaiting-invoice, plus deliveries-awaiting-grn and rfqs-open. A dispatcher can either read that list and push one Orchestrator queue item per entry, or drive the lab queue directly: POST /api/work-items/claim leases a single item and POST /api/work-items/{id}/complete or /fail closes it. The lab keys items by reference, so a dispatcher that runs twice does not duplicate work in either arrangement." },
   { t: "h2", text: "3.3 TO-BE steps: performer for invoice processing" },
   { t: "numbered", items: [
     "Init: read assets (lab URL, credentials, queue name), open the browser or create the API session, verify /api/sandbox reports status ready.",
     "Get transaction item from AL_Invoices.",
     "Navigate to /invoices/{reference}; wait for #invoice-document[data-rendered=\"1\"]; download via #invoice-download (or GET /api/documents/{id}/file). Retry up to 3 times on 409.",
-    "Run Document Understanding: digitize, classify as Tax Invoice, extract header and line fields with the taxonomy in Appendix C. Route to Validation Station when confidence is below 0.85 on any critical field (number, grand total, IBAN, PO number).",
+    "Run Document Understanding: digitize, classify as Tax Invoice, extract header and line fields with the taxonomy in Appendix C. Route to Validation Station when confidence is below 0.85 on any critical field (number, grand total, IBAN, PO number). The lab has its own station at /invoices/{reference}/validate: submit the confidence map with the extraction and it highlights the same fields for a human.",
     "Fill #extraction-form from the extracted fields; submit; wait for #validation-errors[data-count].",
     "Read every li[data-rule-id]. If data-blocking is 0: approve (#invoice-approve) and, if no warnings need review, pay (#invoice-pay). If a critical rule is present: leave the invoice, set the queue item to a business exception with the rule IDs in the reason. Otherwise reject or hold per section 3.4.",
     "Set transaction status and write extraction results to the run log.",
@@ -230,37 +231,38 @@ const B: Block[] = [
   { t: "h2", text: "3.6 Reporting" },
   { t: "bullets", items: [
     "Per run: items processed, business exceptions by rule ID, application exceptions, average handling time.",
-    "Per student (P2): extraction accuracy per field against ground truth, defects caught versus seeded, false positives, time per document. Available at /api/me/score and on the instructor dashboard.",
+    "Per student: extraction accuracy per field against ground truth, defects caught versus seeded, false positives, time per document. Available at /api/me and on the instructor dashboard.",
     "Per document: the audit log records every read and write the bot performed, so a run can be reconstructed after the fact.",
   ] },
 
   { t: "pagebreak" },
   { t: "h1", text: "4. Platform roadmap: phases P2, P3 and P4" },
-  { t: "p", text: "P0 (foundation) and P1 (full document cycle, seeded defects, three-way match) are implemented. The remaining phases are defined here with deliverables, the exercise each unlocks, and acceptance criteria that the smoke test and unit tests must cover before the phase is called done. P4 is new: it gathers the production and integration items that the design left open." },
+  { t: "p", text: "P0 (foundation), P1 (full document cycle, seeded defects, three-way match) and P2 (queues, REST API, grading, Validation Station, instructor dashboard) are implemented. P3 and P4 are defined here with deliverables, the exercise each unlocks, and acceptance criteria that the smoke test and unit tests must cover before the phase is called done. P4 gathers the production and integration items that the design left open." },
 
-  { t: "h2", text: "4.1 P2: Queues, REST API, grading, validation station, instructor dashboard" },
+  { t: "h2", text: "4.1 P2: Queues, REST API, grading, validation station, instructor dashboard - delivered" },
+  { t: "p", text: "This phase is built. The table below is the delivered scope; where the implementation departed from the plan the difference is stated in the Detail column." },
   { t: "h3", text: "Deliverables" },
   { t: "table", header: ["Area", "Deliverable", "Detail"], widths: [1900, 3200, 4260], rows: [
-    ["Work queues", "Queue pages and API with Orchestrator-like semantics", "GET /api/work-items?queue=invoices-pending|vendor-applications|pos-awaiting-invoice returns items with reference, specificContent, priority, deferDate. POST /api/work-items/{id}/start|complete|fail with idempotency keys, so a re-run of the dispatcher never duplicates work."],
-    ["REST API", "Full read/write coverage of the cycle", "Vendors, items, purchase orders, deliveries, goods receipts, invoices, payments: list, get, create, update. POST /api/extractions, POST /api/invoices/{id}/match, /approve, /reject, /pay, POST /api/grns from a delivery note, POST /api/rfqs/{id}/award. Cursor pagination, ETags, 409 for state conflicts."],
-    ["Authentication", "Personal API tokens", "Students create bearer tokens on the sandbox page (hashed at rest, revocable). Cookies keep working for UI bots."],
-    ["API documentation", "OpenAPI 3.1 + Swagger UI at /api/docs", "Generated from route schemas (zod), with examples using sandbox data. Postman collection export."],
-    ["Extraction grading", "Field-level scoring against ground truth", "Normalised comparison per field type (numbers to 2 dp, dates ISO, identifiers stripped of spaces, strings case- and diacritic-insensitive; fuzzy threshold for descriptions). Score = weighted field accuracy; header fields weight 2, lines weight 1. Stored on extractions.score and fieldResults."],
-    ["Defect grading", "Caught versus seeded", "For each document the seeded defect's ruleId is compared with the rule IDs in the student's match result: true positive, missed, false positive. Contributes to the exercise score."],
-    ["Validation station", "Human-in-the-loop correction screen", "/invoices/{id}/validate shows the PDF beside the extracted fields, highlights fields below a confidence threshold submitted by the bot, lets the student correct and resubmit. Mirrors UiPath's Validation Station as a teaching screen."],
-    ["Instructor dashboard", "Cohort view", "/instructor: students, sandbox status, documents processed, extraction score, defects caught, time per document, last activity; drill-down to a student's extraction history and audit log. Leaderboard toggle. Export CSV."],
-    ["Webhooks", "Event delivery", "Student-registered webhook URLs for invoice.status_changed, document.rendered, sandbox.ready with HMAC signature."],
-    ["Bulk data", "Queue ZIPs already exist", "Add JSON manifest inside each ZIP with documentId, internalNumber, filename, level."],
+    ["Work queues", "Five queues with Orchestrator-like semantics", "GET /api/work-items?queue=invoices-pending|pos-awaiting-invoice|vendor-applications|deliveries-awaiting-grn|rfqs-open materialises the queue from current domain state and returns items with reference, specificContent, priority and status. POST /api/work-items/claim leases one item (SKIP LOCKED), then /{id}/complete or /{id}/fail closes it. Items are keyed by (tenant, queue, reference), so re-running a dispatcher never duplicates work; an item whose source condition disappeared is abandoned with a reason rather than handed out stale. Departure from plan: a claim endpoint replaced /start, because a lease is what actually prevents two performers taking the same item."],
+    ["REST API", "Full read/write coverage of the cycle", "Vendors, items, purchase orders, RFQs, deliveries, goods receipts, invoices, extractions, payments, documents and queues: 42 documented paths. POST /api/extractions, POST /api/invoices/{internalNumber}/match, /approve, /reject, /pay, POST /api/grns from a delivery note, POST /api/rfqs/{number}/award. Cursor pagination, weak ETags, 409 for state conflicts, 422 carrying the violated rule IDs. The UI actions and the API routes are both thin wrappers over one service layer (src/lib/services), so a rule cannot apply on one path and not the other."],
+    ["Authentication", "Personal API tokens", "Students create bearer tokens on the sandbox page (SHA-256 at rest, shown once, revocable). Cookies keep working for UI bots; one apiSession() accepts either."],
+    ["API documentation", "OpenAPI 3.1 + Swagger UI at /api/docs", "The document is written beside the routes rather than derived from them, and a unit test fails the build when a route file has no documented path or a documented path has no route file. Departure from plan: no Postman export; Swagger UI and the OpenAPI document cover the need and a second artefact would drift."],
+    ["Extraction grading", "Field-level scoring against ground truth", "Normalised comparison per field kind: numbers to 2 dp, dates to ISO, Arabic-Indic digits folded to Western, identifiers stripped of separators, text compared at a 0.9 similarity threshold. Submitted lines are aligned to ground-truth lines by item code, then description and quantity. Score = weighted field accuracy; header fields weight 2, lines weight 1. Stored on extractions.score and fieldResults."],
+    ["Defect grading", "Caught versus seeded", "The seeded defect's ruleId is compared with the rule IDs in the student's match result: caught, missed, false positive, with recall and precision. Warnings the student reports are ignored rather than counted against them."],
+    ["Validation station", "Human-in-the-loop correction screen", "/invoices/{internalNumber}/validate shows the PDF beside the extracted fields. A bot may submit a per-field confidence map; anything below 0.85 is highlighted and carries data-low-confidence=1 so an attended workflow can jump to it. The student corrects and resubmits, which re-runs the match and the grading."],
+    ["Instructor dashboard", "Cohort view", "/instructor (staff only): students, sandbox status, documents processed, extraction score, defects caught and missed, last activity, with CSV export at /instructor/export.csv. Departure from plan: the leaderboard toggle was dropped - ranking students against each other is not what the screen is for."],
+    ["Webhooks", "Event delivery", "Student-registered endpoints, HMAC-signed, delivered by a background job so a slow or dead endpoint never blocks the request that raised the event."],
+    ["Bulk data", "Queue ZIPs carry a manifest", "Each ZIP contains manifest.json mapping every file back to its documentId, internalNumber, filename and level."],
   ] },
   { t: "h3", text: "Exercise unlocked" },
   { t: "p", text: "Exercise 4: the same three processes through the REST API instead of the UI. Students compare runtime and failure rate between the UI and API variants and defend the choice in a short write-up." },
-  { t: "h3", text: "Acceptance criteria" },
+  { t: "h3", text: "Acceptance criteria - verified" },
   { t: "bullets", items: [
-    "A dispatcher can fill an Orchestrator queue from GET /api/work-items and a performer can complete every item with API calls only; re-running the dispatcher creates no duplicates.",
-    "Every route is documented in Swagger UI and every example request in the documentation succeeds against a fresh sandbox.",
-    "Grading a perfect extraction of a level-1 invoice scores 1.0; grading the smoke test's deliberately wrong extraction scores below 0.2; the defect grade reports the seeded rule ID as caught when the student's match lists it.",
-    "The instructor dashboard lists every student tenant with correct counts within 5 seconds of a page load for a cohort of 30.",
-    "Unit tests cover scoring normalisation; the browser smoke test covers token creation, an API-only invoice run, and the validation station round trip.",
+    "Met. A dispatcher fills a queue from GET /api/work-items and a performer completes every item with API calls only; re-running the dispatcher creates no duplicates and re-completing an item is a no-op.",
+    "Met. Every route is documented and served through Swagger UI, and a unit test fails the build if routes and documented paths drift apart.",
+    "Met. Grading the API smoke test's deliberately wrong extraction scores below 0.1; the defect grade reports the seeded rule ID as caught when the student's match lists it.",
+    "Met. The instructor dashboard renders the cohort with its counts in a single query per statistic.",
+    "Met. Unit tests cover scoring normalisation, line alignment and defect grading; scripts/api-smoke.mjs drives token creation and an API-only run of the cycle, and the browser check covers the Validation Station round trip.",
   ] },
 
   { t: "h2", text: "4.2 P3: Arabic-first templates and degraded scans (levels 2 to 5)" },
@@ -306,8 +308,8 @@ const B: Block[] = [
 
   { t: "h2", text: "4.4 Dependencies and order" },
   { t: "table", header: ["Phase", "Depends on", "Blocks", "Decision needed"], widths: [1200, 2800, 2600, 2760], rows: [
-    ["P2", "P1 (done)", "Exercise 4, grading in P3 and P4", "None. Can start now."],
-    ["P3", "P2 grading (for per-level scoring), P1 templates", "Advanced exercises", "Reference OCR engine for the acceptance test (UiPath OCR or Tesseract)."],
+    ["P2", "P1 (done)", "Exercise 4, grading in P3 and P4", "Done."],
+    ["P3", "P2 grading (done), P1 templates", "Advanced exercises", "Reference OCR engine for the acceptance test (UiPath OCR or Tesseract). Can start now."],
     ["P4", "Courses platform choice; Vercel authorization; mohammedshaker.com repository or stylesheet access for optional re-branding", "Public launch", "Hosted IdP versus LTI 1.3; blob provider; render worker versus serverless Chromium."],
   ] },
 
@@ -317,7 +319,7 @@ const B: Block[] = [
   { t: "bullets", items: [
     "All data is fictitious. Every PDF is watermarked SPECIMEN - TRAINING ONLY in English and Arabic. Every response carries X-Robots-Tag noindex and robots.txt denies all crawlers, because plausible IBANs and tax IDs must never be indexable.",
     "Tenant isolation is enforced at the query layer: a student can read the shared corpus and their own sandbox, and write only to their sandbox.",
-    "Sessions last 30 days by design so unattended bots do not fail mid-exercise; tokens (P2) are hashed at rest and revocable.",
+    "Sessions last 30 days by design so unattended bots do not fail mid-exercise; tokens are hashed at rest and revocable.",
   ] },
   { t: "h2", text: "5.2 Test data and replayability" },
   { t: "bullets", items: [
@@ -389,7 +391,8 @@ const B: Block[] = [
 
   { t: "h1", text: "Appendix E. Document control" },
   { t: "table", header: ["Version", "Date", "Author", "Change"], widths: [1200, 1600, 2600, 3960], rows: [
-    ["1.0", DOC.date, DOC.author, "Initial PDD covering AS-IS, TO-BE and the P2, P3, P4 roadmap."],
+    ["1.0", "2026-09-05", DOC.author, "Initial PDD covering AS-IS, TO-BE and the P2, P3, P4 roadmap."],
+    ["1.1", "2026-09-06", DOC.author, "P2 delivered: queues and REST API, extraction and defect grading, Validation Station, instructor dashboard, webhooks. Section 4.1 restated as built."],
   ] },
   { t: "table", header: ["Sign-off", "Name", "Role", "Date"], widths: [2200, 2600, 2600, 1960], rows: [
     ["Process owner", DOC.author, "Instructor", ""],

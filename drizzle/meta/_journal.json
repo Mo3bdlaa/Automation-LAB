@@ -22,6 +22,20 @@
       "when": 1788597577872,
       "tag": "0002_documents_unique_by_source",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788651396508,
+      "tag": "0003_p2_api",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788652417648,
+      "tag": "0004_extraction_confidence",
+      "breakpoints": true
     }
   ]
 }

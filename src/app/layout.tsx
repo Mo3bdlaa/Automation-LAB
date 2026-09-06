@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { i18n } from "@/i18n/server";
 import { getPrincipal } from "@/lib/auth/server";
+import { isStaff } from "@/lib/identity";
 import { Nav } from "@/components/nav";
 
 export const metadata: Metadata = {
@@ -18,7 +19,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} dir={dir}>
       <body className="min-h-screen bg-bg text-ink">
-        <Nav t={t} locale={locale} principal={principal} />
+        <Nav t={t} locale={locale} principal={principal} staff={principal ? isStaff(principal) : false} />
         {children}
       </body>
     </html>
