@@ -3,6 +3,9 @@ import { documentFiles, documents, invoices, purchaseOrders, vendors, type Docum
 import { apiSession } from "@/lib/auth/server";
 import { blobStore } from "@/lib/blob";
 import { buildZip } from "@/lib/zip";
+import { isLevel, LEVELS, LEVEL_SPECS } from "@/lib/documents/levels";
+import { enqueue } from "@/lib/jobs/queue";
+import { kickJobs } from "@/lib/jobs/runner";
 
 /**
  * Bulk ZIP of a work queue's PDFs, for offline extraction training.
@@ -11,10 +14,12 @@ import { buildZip } from "@/lib/zip";
  *   vendor-applications   commercial licences of vendors pending approval
  *   kind:<document kind>  every rendered document of a kind (e.g. kind:quote)
  */
-export async function GET(_req: Request, ctx: { params: Promise<{ queue: string }> }) {
+export async function GET(req: Request, ctx: { params: Promise<{ queue: string }> }) {
   const s = await apiSession();
   if (s instanceof Response) return s;
   const { queue } = await ctx.params;
+  const level = Number(new URL(req.url).searchParams.get("level") ?? "1") || 1;
+  if (!isLevel(level)) return Response.json({ error: "bad_level", message: `Level must be one of ${LEVELS.join(", ")}.`, levels: LEVELS }, { status: 400 });
   let docIds: string[] = [];
   if (queue === "invoices-pending") {
     const inv = await s.tdb.list(invoices, { where: eq(invoices.status, "pending_extraction") });
@@ -38,7 +43,14 @@ export async function GET(_req: Request, ctx: { params: Promise<{ queue: string 
     return Response.json({ error: "unknown_queue" }, { status: 404 });
   }
   if (docIds.length === 0) return Response.json({ error: "empty_queue" }, { status: 404 });
-  const files = await s.tdb.list(documentFiles, { where: and(inArray(documentFiles.documentId, docIds), eq(documentFiles.level, 1))! });
+  const files = await s.tdb.list(documentFiles, { where: and(inArray(documentFiles.documentId, docIds), eq(documentFiles.level, level))! });
+  // A level above 1 is produced on demand: queue whatever this ZIP is missing so
+  // the next request finds it, and say so in the manifest.
+  const pending = docIds.filter((id) => !files.some((f) => f.documentId === id));
+  if (level > 1 && pending.length) {
+    for (const id of pending.slice(0, 200)) await enqueue("degrade_document", { documentId: id, level }, { tenantId: s.tenant.id, priority: 6 });
+    kickJobs();
+  }
   const store = blobStore();
   const entries: { name: string; data: Uint8Array }[] = [];
   const seen = new Set<string>();
@@ -50,18 +62,28 @@ export async function GET(_req: Request, ctx: { params: Promise<{ queue: string 
     seen.add(name);
     entries.push({ name, data });
   }
-  if (entries.length === 0) return Response.json({ error: "not_rendered", documents: docIds.length }, { status: 409, headers: { "Retry-After": "10" } });
+  if (entries.length === 0) {
+    return Response.json(
+      { error: "not_rendered", documents: docIds.length, level, message: `The ${LEVEL_SPECS[level].label} files are being produced. Retry after a few seconds.` },
+      { status: 409, headers: { "Retry-After": level > 1 ? "20" : "10" } },
+    );
+  }
   // A manifest lets an offline extraction exercise map each file back to its document.
   const docs = await s.tdb.list(documents, { where: inArray(documents.id, docIds) });
   const manifest = {
     queue,
+    level,
+    levelLabel: LEVEL_SPECS[level].label,
+    textLayer: LEVEL_SPECS[level].textLayer,
     generatedAt: new Date().toISOString(),
     files: files
       .map((f) => {
         const doc = docs.find((d) => d.id === f.documentId);
-        return doc ? { filename: entries.find((e) => e.name.startsWith(f.filename.replace(/\.pdf$/, "")))?.name ?? f.filename, documentId: doc.id, kind: doc.kind, number: doc.number, pages: f.pages, sizeBytes: f.sizeBytes, downloadUrl: `/api/documents/${doc.id}/file` } : null;
+        return doc ? { filename: entries.find((e) => e.name.startsWith(f.filename.replace(/\.pdf$/, "")))?.name ?? f.filename, documentId: doc.id, kind: doc.kind, number: doc.number, level, pages: f.pages, sizeBytes: f.sizeBytes, downloadUrl: `/api/documents/${doc.id}/file?level=${level}` } : null;
       })
       .filter(Boolean),
+    // Documents whose file at this level was not ready; they are being produced.
+    pending: pending.map((id) => ({ documentId: id, downloadUrl: `/api/documents/${id}/file?level=${level}` })),
   };
   entries.unshift({ name: "manifest.json", data: new TextEncoder().encode(JSON.stringify(manifest, null, 2)) });
   const zip = buildZip(entries);
@@ -69,9 +91,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ queue: string 
     headers: {
       "Content-Type": "application/zip",
       "Content-Length": String(zip.byteLength),
-      "Content-Disposition": `attachment; filename="${queue.replace(/[^\w-]+/g, "-")}.zip"`,
+      "Content-Disposition": `attachment; filename="${queue.replace(/[^\w-]+/g, "-")}${level > 1 ? `_L${level}` : ""}.zip"`,
       "Cache-Control": "private, no-store",
       "X-Document-Count": String(entries.length),
+      "X-Document-Level": String(level),
     },
   });
 }

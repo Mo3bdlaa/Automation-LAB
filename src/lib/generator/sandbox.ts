@@ -14,6 +14,12 @@ export const SANDBOX_SIZES = { activePos: 60, orphanInvoices: 6, openRfqs: 4 } a
 export interface GroundTruthField {
   field: string;
   value: string;
+  /**
+   * Equally correct readings of the same field, filled in where a document
+   * prints the value in more than one script. A submission matching any of
+   * them scores as correct.
+   */
+  alternates?: string[];
 }
 
 export interface SandboxSet {

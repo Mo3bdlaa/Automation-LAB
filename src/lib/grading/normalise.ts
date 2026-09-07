@@ -112,6 +112,24 @@ export interface Comparison {
 /** Text similarity at or above this counts as a match for descriptions and names. */
 export const TEXT_MATCH_THRESHOLD = 0.9;
 
+/**
+ * Compares against every correct reading of a field and keeps the best one.
+ * A bilingual document prints a name in two scripts and either is right, so a
+ * student who read the Arabic name of a vendor scores the same as one who read
+ * the English name.
+ */
+export function compareBest(field: string, expected: string, alternates: readonly string[], actual: string): Comparison {
+  let best = compareField(field, expected, actual);
+  for (const alt of alternates) {
+    if (best.match) break;
+    const cmp = compareField(field, alt, actual);
+    // Report against the alternate only when it is genuinely a better reading;
+    // the primary value stays the one shown as "expected" otherwise.
+    if (cmp.match || cmp.similarity > best.similarity) best = cmp;
+  }
+  return best;
+}
+
 export function compareField(field: string, expected: string, actual: string): Comparison {
   const kind = fieldKind(field);
   const blank = (actual ?? "").trim() === "";

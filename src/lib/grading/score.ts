@@ -6,7 +6,7 @@
  * than line fields because getting the invoice total wrong matters more than
  * mis-typing one description.
  */
-import { compareField, type Comparison } from "./normalise";
+import { compareBest, compareField, type Comparison } from "./normalise";
 
 export const HEADER_WEIGHT = 2;
 export const LINE_WEIGHT = 1;
@@ -124,7 +124,13 @@ function alignLines(truth: { index: number; values: Record<string, string> }[], 
  * Scores one invoice extraction. `truth` is the ground-truth map for the
  * document; `fields` is what the student or bot submitted.
  */
-export function scoreInvoiceExtraction(truth: Map<string, string>, fields: Record<string, string>, maxLines = 8): ExtractionScore {
+export function scoreInvoiceExtraction(
+  truth: Map<string, string>,
+  fields: Record<string, string>,
+  opts: { maxLines?: number; alternates?: Map<string, string[]> } = {},
+): ExtractionScore {
+  const maxLines = opts.maxLines ?? 8;
+  const alt = (key: string) => opts.alternates?.get(key) ?? [];
   const results: Record<string, FieldResult> = {};
   let weighted = 0;
   let weightTotal = 0;
@@ -133,7 +139,7 @@ export function scoreInvoiceExtraction(truth: Map<string, string>, fields: Recor
     if (!truth.has(truthKey)) continue;
     const expected = truth.get(truthKey)!;
     const actual = (fields[formKey] ?? "").trim();
-    const cmp = compareField(truthKey, expected, actual);
+    const cmp = compareBest(truthKey, expected, alt(truthKey), actual);
     results[truthKey] = { field: truthKey, expected, actual, weight: HEADER_WEIGHT, ...cmp };
     weightTotal += HEADER_WEIGHT;
     if (cmp.match) weighted += HEADER_WEIGHT;
@@ -164,7 +170,7 @@ export function scoreInvoiceExtraction(truth: Map<string, string>, fields: Recor
       if (!truth.has(truthKey)) continue;
       const expected = t.values[leaf] ?? "";
       const actual = sub ? (sub.values[suffix] ?? "").trim() : "";
-      const cmp = compareField(truthKey, expected, actual);
+      const cmp = compareBest(truthKey, expected, alt(truthKey), actual);
       results[truthKey] = { field: truthKey, expected, actual, weight: LINE_WEIGHT, ...cmp };
       weightTotal += LINE_WEIGHT;
       if (cmp.match) weighted += LINE_WEIGHT;

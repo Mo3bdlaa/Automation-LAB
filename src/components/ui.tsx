@@ -251,12 +251,51 @@ export function Dl({ rows, entity, code }: { rows: { key: string; label: string;
   );
 }
 
-/** Download card for a document: link when rendered, waiting text otherwise. */
-export function DocumentCard({ entity, documentId, file, labels, lazy }: { entity: string; documentId: string | null; file: { filename: string; pages: number; sizeBytes: number } | null; labels: { title: string; download: string; rendering: string; notRendered: string; filename: string }; lazy?: boolean }) {
-  const href = documentId ? `/api/documents/${documentId}/file` : "#";
+/**
+ * Download card for a document: link when rendered, waiting text otherwise.
+ * `levels` renders the difficulty ladder, so a student can pick up the same
+ * document as a clean scan, an office scan or a phone photo.
+ */
+export function DocumentCard({
+  entity,
+  documentId,
+  file,
+  labels,
+  lazy,
+  level = 1,
+  levels,
+  levelHref,
+}: {
+  entity: string;
+  documentId: string | null;
+  file: { filename: string; pages: number; sizeBytes: number } | null;
+  labels: { title: string; download: string; rendering: string; notRendered: string; filename: string; levels?: string };
+  lazy?: boolean;
+  level?: number;
+  levels?: { level: number; label: string }[];
+  levelHref?: (level: number) => string;
+}) {
+  const href = documentId ? `/api/documents/${documentId}/file${level > 1 ? `?level=${level}` : ""}` : "#";
   return (
-    <div className="al-card" id={`${entity}-document`} data-testid={`${entity}-document`} data-document-id={documentId ?? ""} data-rendered={file ? "1" : "0"}>
+    <div className="al-card" id={`${entity}-document`} data-testid={`${entity}-document`} data-document-id={documentId ?? ""} data-rendered={file ? "1" : "0"} data-level={level}>
       <h2 className="mb-2">{labels.title}</h2>
+      {documentId && levels && levelHref ? (
+        <p id={`${entity}-levels`} data-testid={`${entity}-levels`} className="mb-2 text-sm">
+          {labels.levels ? <span className="text-muted">{labels.levels}: </span> : null}
+          {levels.map((l) => (
+            <a
+              key={l.level}
+              id={`${entity}-level-${l.level}`}
+              data-testid={`${entity}-level-${l.level}`}
+              data-current={l.level === level ? "1" : "0"}
+              href={levelHref(l.level)}
+              className={l.level === level ? "mr-2 font-semibold" : "mr-2"}
+            >
+              L{l.level} {l.label}
+            </a>
+          ))}
+        </p>
+      ) : null}
       {!documentId ? (
         <p id={`${entity}-document-none`} data-testid={`${entity}-document-none`} className="text-sm text-muted">
           {labels.notRendered}
@@ -270,7 +309,7 @@ export function DocumentCard({ entity, documentId, file, labels, lazy }: { entit
             {labels.download}
           </a>
         </>
-      ) : lazy ? (
+      ) : lazy || level > 1 ? (
         <a id={`${entity}-download`} data-testid={`${entity}-download`} href={href} className="al-btn" download>
           {labels.download}
         </a>

@@ -15,6 +15,8 @@ import {
 
 export interface GenVendor {
   code: string; name: string; nameAr: string; legalForm: string; category: string;
+  /** The script this vendor prints its own documents in. */
+  documentLanguage: "en" | "ar" | "bilingual";
   crNumber: string; crExpiry: string; taxId: string; taxCertExpiry: string;
   iban: string; bankName: string; swift: string; currency: string; paymentTermsDays: number;
   contactName: string; email: string; phone: string; addressLine: string; city: string; country: string;
@@ -91,6 +93,10 @@ export function generateVendors(rng: Rng, n: number = CORPUS_SIZES.vendors): Gen
       code: `V-${String(i).padStart(5, "0")}`,
       name: name + dedupSuffix,
       nameAr: `${first[1]} ${second[1]} ${legal[1]}${dedupSuffix}`,
+      // A vendor in the region prints bilingual paperwork more often than not,
+      // but a third print Arabic only and a fifth English only. The mix is what
+      // makes extraction interesting: the same field arrives in three shapes.
+      documentLanguage: r.weighted([["bilingual", 5] as const, ["ar", 3] as const, ["en", 2] as const]),
       legalForm: legal[0],
       category: r.pick(VENDOR_CATEGORIES),
       crNumber: makeCrNumber(String(r.int(1, 9)) + r.digits(8)),

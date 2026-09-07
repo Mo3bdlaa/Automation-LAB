@@ -24,7 +24,9 @@ export async function submitExtractionAction(internalNumber: string, _prev: Form
   const { asStored, lines } = extractionToInvoice(inv, fields);
   if (lines.length === 0) return failedState([{ ruleId: "INV-LINE-MIN", severity: "error", message: "Enter at least one line." }], values);
 
-  await submitExtraction(session, inv, fields, asStored, lines, "ui");
+  // The form carries the difficulty level the student was reading from.
+  const level = Number(str(values, "level")) || 1;
+  await submitExtraction(session, inv, fields, asStored, lines, "ui", { level });
   redirect(`/invoices/${encodeURIComponent(inv.internalNumber)}?extracted=1`);
 }
 
@@ -40,7 +42,7 @@ export async function rematchAction(formData: FormData): Promise<void> {
     : null;
   if (last) {
     const { asStored, lines } = extractionToInvoice(inv, last.fields);
-    await submitExtraction(session, inv, last.fields, asStored, lines, "ui");
+    await submitExtraction(session, inv, last.fields, asStored, lines, "ui", { level: last.level });
   } else {
     const result = await matchStoredInvoice(session, inv);
     if (doc) await session.tdb.insert(extractions, { documentId: doc.id, userId: session.principal.userId, source: "ui", fields: { rematch: "1" }, matchResult: { ok: result.ok, violations: result.violations } });

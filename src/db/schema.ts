@@ -84,6 +84,8 @@ export const vendors = pgTable(
     code: text("code").notNull(),
     name: text("name").notNull(),
     nameAr: text("name_ar"),
+    /** Which script this vendor prints its own documents in (P3). */
+    documentLanguage: text("document_language", { enum: ["en", "ar", "bilingual"] }).notNull().default("bilingual"),
     legalForm: text("legal_form").notNull(),
     category: text("category").notNull(),
     /** Commercial registration number (10 digits, mod-11 check). */
@@ -584,6 +586,8 @@ export const extractions = pgTable(
       .references(() => documents.id, { onDelete: "cascade" }),
     userId: text("user_id"),
     source: text("source", { enum: ["ui", "api"] }).notNull().default("ui"),
+    /** Difficulty level of the file the submission was read from (1..5). */
+    level: integer("level").notNull().default(1),
     fields: jsonb("fields").$type<Record<string, string>>().notNull(),
     /** Optional per-field confidence from the extractor, used by the validation station. */
     confidence: jsonb("confidence").$type<Record<string, number>>(),
@@ -673,10 +677,39 @@ export const groundTruth = pgTable(
     /** Dotted field path, e.g. `vendor.taxId` or `lines[2].quantity`. */
     field: text("field").notNull(),
     value: text("value").notNull(),
-    /** Normalised page-relative box {page,x,y,w,h} once layout capture lands (P1). */
-    bbox: jsonb("bbox").$type<{ page: number; x: number; y: number; w: number; h: number } | null>(),
+    /**
+     * Equally correct renderings of the same value: the Arabic form of a name a
+     * document printed in Arabic, a date the vendor printed in another format.
+     * A submission matching any of them is correct (P3).
+     */
+    alternates: jsonb("alternates").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   },
   (t) => [uniqueIndex("ground_truth_doc_field_uq").on(t.documentId, t.field)],
+);
+
+/**
+ * Where a ground-truth field sits on the page, per difficulty level. Level 1 is
+ * measured from the print layout; levels 2 to 5 are those boxes carried through
+ * the degradation geometry, so a highlight lands on the right place on a scan.
+ */
+export const documentFieldBoxes = pgTable(
+  "document_field_boxes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    level: integer("level").notNull().default(1),
+    field: text("field").notNull(),
+    page: integer("page").notNull().default(1),
+    /** Page-relative, 0..1 from the top-left corner. */
+    x: numeric("x", { precision: 8, scale: 6 }).notNull(),
+    y: numeric("y", { precision: 8, scale: 6 }).notNull(),
+    w: numeric("w", { precision: 8, scale: 6 }).notNull(),
+    h: numeric("h", { precision: 8, scale: 6 }).notNull(),
+  },
+  (t) => [uniqueIndex("document_field_boxes_uq").on(t.documentId, t.level, t.field), index("document_field_boxes_doc_idx").on(t.documentId)],
 );
 
 export const seededDefects = pgTable(
@@ -800,7 +833,18 @@ export const webhookDeliveries = pgTable(
 // Background jobs and audit
 // ---------------------------------------------------------------------------
 
-export const JOB_KINDS = ["provision_sandbox", "reset_sandbox", "render_document", "deliver_webhook"] as const;
+/**
+ * Instructor-set knobs that apply to the whole lab rather than one sandbox.
+ * Kept as one small key/value table so a new knob does not need a migration.
+ */
+export const labSettings = pgTable("lab_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").$type<Record<string, unknown>>().notNull(),
+  updatedBy: text("updated_by"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const JOB_KINDS = ["provision_sandbox", "reset_sandbox", "render_document", "degrade_document", "deliver_webhook"] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 export const jobs = pgTable(
@@ -868,6 +912,7 @@ export const tenantTables = {
   webhookDeliveries,
   documents,
   documentFiles,
+  documentFieldBoxes,
   groundTruth,
   seededDefects,
 } as const;
@@ -899,5 +944,8 @@ export type WorkItem = typeof workItems.$inferSelect;
 export type WebhookEndpoint = typeof webhookEndpoints.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type DocumentFile = typeof documentFiles.$inferSelect;
+export type DocumentFieldBox = typeof documentFieldBoxes.$inferSelect;
+export type GroundTruth = typeof groundTruth.$inferSelect;
+export type LabSetting = typeof labSettings.$inferSelect;
 export type Tenant = typeof tenants.$inferSelect;
 export type Job = typeof jobs.$inferSelect;

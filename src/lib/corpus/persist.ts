@@ -110,9 +110,18 @@ export async function seedSharedCorpus(opts: { force?: boolean; log?: (m: string
         .returning({ id: schema.vendorDocuments.id, kind: schema.vendorDocuments.kind });
       const docRows = await tx
         .insert(schema.documents)
-        .values(rows.map((r) => ({ tenantId, kind: r.kind, number: docs.find((d) => d.kind === r.kind)!.number, sourceId: r.id, vendorId: vendorByCode.get(v.code)!, language: "bilingual" as const })))
+        .values(rows.map((r) => ({ tenantId, kind: r.kind, number: docs.find((d) => d.kind === r.kind)!.number, sourceId: r.id, vendorId: vendorByCode.get(v.code)!, language: v.documentLanguage })))
         .returning({ id: schema.documents.id, kind: schema.documents.kind });
-      const gt = docRows.flatMap((dr) => vendorDocumentGroundTruth(v, docs.find((d) => d.kind === dr.kind)!).map((g) => ({ tenantId, documentId: dr.id, field: g.field, value: g.value })));
+      // The certificate prints the vendor's name in both scripts, so either is a correct reading.
+      const gt = docRows.flatMap((dr) =>
+        vendorDocumentGroundTruth(v, docs.find((d) => d.kind === dr.kind)!).map((g) => ({
+          tenantId,
+          documentId: dr.id,
+          field: g.field,
+          value: g.value,
+          alternates: g.field === "vendor.name" && v.nameAr ? [v.nameAr] : [],
+        })),
+      );
       for (const batch of chunks(gt, 500)) await tx.insert(schema.groundTruth).values(batch);
       vendorDocCount += rows.length;
     }

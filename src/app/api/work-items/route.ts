@@ -2,6 +2,8 @@ import { apiSession } from "@/lib/auth/server";
 import { badRequest, ok, page, pageParams } from "@/lib/api/http";
 import { listWorkItems, refreshQueue, serialiseWorkItem } from "@/lib/api/work-items";
 import { WORK_ITEM_QUEUES, WORK_ITEM_STATUSES, type WorkItemQueue, type WorkItemStatus } from "@/db/schema";
+import { defaultLevel } from "@/lib/lab-settings";
+import { isLevel, LEVELS, LEVEL_SPECS } from "@/lib/documents/levels";
 
 /**
  * Dispatcher endpoint. Materialises the queue from the current domain state,
@@ -20,10 +22,14 @@ export async function GET(req: Request) {
   if (statusParam && !(WORK_ITEM_STATUSES as readonly string[]).includes(statusParam)) {
     return badRequest(`Unknown status. Use one of: ${WORK_ITEM_STATUSES.join(", ")}.`);
   }
+  // The exercise level the instructor set, unless the caller asks for another.
+  const requested = url.searchParams.get("level");
+  const level = requested === null ? await defaultLevel() : Number(requested);
+  if (!isLevel(level)) return badRequest(`Level must be one of ${LEVELS.join(", ")}.`, { levels: LEVELS });
   // `refresh` reports what the materialisation did, so a dispatcher can log how
   // many items are current and how many it retired.
-  const refresh = url.searchParams.get("refresh") === "0" ? null : await refreshQueue(s, queue);
+  const refresh = url.searchParams.get("refresh") === "0" ? null : await refreshQueue(s, queue, level);
   const params = pageParams(url);
   const { items, total } = await listWorkItems(s, queue, { status: (statusParam as WorkItemStatus) ?? undefined, limit: params.limit, offset: params.offset });
-  return ok({ queue, refresh, ...page(items.map(serialiseWorkItem), params, total) });
+  return ok({ queue, level, levelLabel: LEVEL_SPECS[level].label, textLayer: LEVEL_SPECS[level].textLayer, refresh, ...page(items.map(serialiseWorkItem), params, total) });
 }

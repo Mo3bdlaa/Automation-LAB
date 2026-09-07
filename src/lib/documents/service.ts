@@ -4,11 +4,12 @@
  * uses the raw client scoped by the document's own tenant id rather than a
  * request principal.
  */
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db/client";
 import type { Document } from "@/db/schema";
 import { blobStore, documentBlobKey } from "../blob";
-import { renderHtmlToPdf } from "./renderer";
+import { renderHtmlToPdf, type FieldBox } from "./renderer";
+import { isLevel } from "./levels";
 import { renderPurchaseOrderHtml } from "./templates/purchase-order";
 import { renderDeliveryNoteHtml, renderInvoiceHtml, renderQuoteHtml, renderReceiptHtml, renderVendorComplianceHtml, type VendorParty } from "./templates/vendor-documents";
 import { renderGrnHtml, renderRfqHtml } from "./templates/internal-documents";
@@ -35,9 +36,10 @@ async function vendorParty(vendorId: string | null, fallback?: Partial<VendorPar
     return {
       code: null, name: fallback?.name ?? "Unknown vendor", nameAr: fallback?.nameAr ?? null, addressLine: fallback?.addressLine ?? "", city: fallback?.city ?? "", country: fallback?.country ?? "",
       taxId: fallback?.taxId ?? "", crNumber: fallback?.crNumber ?? "", iban: fallback?.iban ?? "", bankName: fallback?.bankName ?? "", swift: null, contactName: null, email: null, phone: null,
+      documentLanguage: fallback?.documentLanguage ?? "bilingual",
     };
   }
-  return { code: v.code, name: v.name, nameAr: v.nameAr, addressLine: v.addressLine, city: v.city, country: v.country, taxId: v.taxId, crNumber: v.crNumber, iban: v.iban, bankName: v.bankName, swift: v.swift, contactName: v.contactName, email: v.email, phone: v.phone };
+  return { code: v.code, name: v.name, nameAr: v.nameAr, addressLine: v.addressLine, city: v.city, country: v.country, taxId: v.taxId, crNumber: v.crNumber, iban: v.iban, bankName: v.bankName, swift: v.swift, contactName: v.contactName, email: v.email, phone: v.phone, documentLanguage: v.documentLanguage };
 }
 
 async function itemsById(ids: (string | null)[]) {
@@ -78,6 +80,10 @@ export async function loadPurchaseOrderTemplateData(purchaseOrderId: string, ten
 async function htmlFor(doc: Document): Promise<{ html: string; vendorName: string }> {
   const shared = await ensureSharedTenant();
   const tenantIds = [doc.tenantId, shared];
+  // The document row records the script it was issued in; the template follows
+  // that rather than the vendor's current setting, so a rerender of an old
+  // document does not silently change language.
+  const inDocLanguage = <T extends VendorParty>(v: T): T => ({ ...v, documentLanguage: doc.language });
   switch (doc.kind) {
     case "purchase_order": {
       const d = await loadPurchaseOrderTemplateData(doc.sourceId, tenantIds);
@@ -108,7 +114,7 @@ async function htmlFor(doc: Document): Promise<{ html: string; vendorName: strin
       const [rfq] = await db.select().from(schema.rfqs).where(eq(schema.rfqs.id, q.rfqId));
       const lines = await db.select().from(schema.quoteLines).where(eq(schema.quoteLines.quoteId, q.id)).orderBy(asc(schema.quoteLines.lineNo));
       const items = await itemsById(lines.map((l) => l.itemId));
-      const vendor = await vendorParty(q.vendorId);
+      const vendor = inDocLanguage(await vendorParty(q.vendorId));
       return {
         html: renderQuoteHtml({
           number: q.number, rfqNumber: rfq?.number ?? "", quoteDate: q.quoteDate, validUntil: q.validUntil, currency: q.currency, paymentTermsDays: q.paymentTermsDays, leadTimeDays: q.leadTimeDays,
@@ -125,7 +131,7 @@ async function htmlFor(doc: Document): Promise<{ html: string; vendorName: strin
       const lines = await db.select().from(schema.deliveryNoteLines).where(eq(schema.deliveryNoteLines.deliveryNoteId, dn.id)).orderBy(asc(schema.deliveryNoteLines.lineNo));
       const poLines = await db.select().from(schema.purchaseOrderLines).where(eq(schema.purchaseOrderLines.purchaseOrderId, dn.purchaseOrderId));
       const items = await itemsById(lines.map((l) => l.itemId));
-      const vendor = await vendorParty(dn.vendorId);
+      const vendor = inDocLanguage(await vendorParty(dn.vendorId));
       const [dl] = dn.deliveryLocationId ? await db.select().from(schema.deliveryLocations).where(eq(schema.deliveryLocations.id, dn.deliveryLocationId)) : [];
       return {
         html: renderDeliveryNoteHtml({
@@ -167,7 +173,7 @@ async function htmlFor(doc: Document): Promise<{ html: string; vendorName: strin
       // A ghost vendor (not in master) keeps its printed identity in the seeded defect details.
       const defects = await db.select().from(schema.seededDefects).where(and(eq(schema.seededDefects.documentId, doc.id), eq(schema.seededDefects.defectType, "vendor_not_in_master")));
       const ghost = (defects[0]?.details as { ghost?: Partial<VendorParty> } | undefined)?.ghost ?? {};
-      const vendor: VendorParty = { ...base, name: inv.printedVendorName, taxId: inv.printedVendorTaxId, ...ghost };
+      const vendor: VendorParty = inDocLanguage({ ...base, name: inv.printedVendorName, taxId: inv.printedVendorTaxId, ...ghost });
       return {
         html: renderInvoiceHtml({
           number: inv.number, invoiceDate: inv.invoiceDate, dueDate: inv.dueDate, poNumber: inv.printedPoNumber, currency: inv.currency,
@@ -182,7 +188,7 @@ async function htmlFor(doc: Document): Promise<{ html: string; vendorName: strin
       if (!rc) throw new Error("Receipt not found");
       const [pay] = await db.select().from(schema.payments).where(eq(schema.payments.id, rc.paymentId));
       const [inv] = pay ? await db.select().from(schema.invoices).where(eq(schema.invoices.id, pay.invoiceId)) : [];
-      const vendor = await vendorParty(rc.vendorId);
+      const vendor = inDocLanguage(await vendorParty(rc.vendorId));
       return {
         html: renderReceiptHtml({ number: rc.number, receiptDate: rc.receiptDate, amount: rc.amount, currency: rc.currency, invoiceNumber: inv?.number ?? "", paymentReference: pay?.reference ?? "", method: pay?.method ?? "bank_transfer", vendor }),
         vendorName: vendor.name,
@@ -194,22 +200,34 @@ async function htmlFor(doc: Document): Promise<{ html: string; vendorName: strin
     case "vendor_trade_licence": {
       const [vd] = await db.select().from(schema.vendorDocuments).where(eq(schema.vendorDocuments.id, doc.sourceId));
       if (!vd) throw new Error("Vendor document not found");
-      const vendor = await vendorParty(vd.vendorId);
+      const vendor = inDocLanguage(await vendorParty(vd.vendorId));
       return { html: renderVendorComplianceHtml({ kind: vd.kind, number: vd.number, issuedDate: vd.issuedDate, expiryDate: vd.expiryDate, issuer: vd.issuer, attributes: vd.attributes, vendor }), vendorName: vendor.name };
     }
   }
 }
 
-/** Render level-1 (native text) PDF for a document and record the file. Idempotent per (document, level). */
-export async function renderDocument(documentId: string, log: (m: string) => void = () => {}, level = 1): Promise<void> {
-  const [doc] = await db.select().from(schema.documents).where(eq(schema.documents.id, documentId));
-  if (!doc) throw new Error(`Document ${documentId} not found`);
-  const { html, vendorName } = await htmlFor(doc);
-  const { pdf, pages } = await renderHtmlToPdf(html);
+const FILENAME_PREFIX: Partial<Record<Document["kind"], string>> = {
+  vendor_licence: "CR",
+  vendor_tax_card: "TAX",
+  vendor_bank_letter: "BANK",
+  vendor_trade_licence: "TL",
+  quote: "QUO",
+  delivery_note: "DN",
+  receipt: "RCPT",
+};
+
+function fileNameFor(doc: Document, vendorName: string, level: number): string {
+  const p = FILENAME_PREFIX[doc.kind];
+  const base = documentFilename(p ? `${p}-${doc.number}` : doc.number, vendorName);
+  // The level is part of the name so a bot that downloads several levels of the
+  // same document does not overwrite its own file.
+  return level === 1 ? base : base.replace(/\.pdf$/, `_L${level}.pdf`);
+}
+
+/** Records a rendered file and, when given, where its fields sit on the page. */
+async function storeFile(doc: Document, level: number, pdf: Uint8Array, pages: number, filename: string, boxes: FieldBox[] | undefined) {
   const key = documentBlobKey(doc.tenantId, doc.id, level);
   const { size } = await blobStore().put(key, pdf, "application/pdf");
-  const prefix: Partial<Record<Document["kind"], string>> = { vendor_licence: "CR", vendor_tax_card: "TAX", vendor_bank_letter: "BANK", vendor_trade_licence: "TL", quote: "QUO", delivery_note: "DN", receipt: "RCPT" };
-  const filename = documentFilename(prefix[doc.kind] ? `${prefix[doc.kind]}-${doc.number}` : doc.number, vendorName);
   await db
     .insert(schema.documentFiles)
     .values({ tenantId: doc.tenantId, documentId: doc.id, level, mime: "application/pdf", pages, blobKey: key, sizeBytes: size, filename })
@@ -217,6 +235,50 @@ export async function renderDocument(documentId: string, log: (m: string) => voi
       target: [schema.documentFiles.documentId, schema.documentFiles.level],
       set: { pages, blobKey: key, sizeBytes: size, filename, renderedAt: new Date() },
     });
+  if (boxes?.length) {
+    await db
+      .insert(schema.documentFieldBoxes)
+      .values(boxes.map((b) => ({ tenantId: doc.tenantId, documentId: doc.id, level, field: b.field, page: b.page, x: b.x.toFixed(6), y: b.y.toFixed(6), w: b.w.toFixed(6), h: b.h.toFixed(6) })))
+      .onConflictDoUpdate({
+        target: [schema.documentFieldBoxes.documentId, schema.documentFieldBoxes.level, schema.documentFieldBoxes.field],
+        set: { page: sql`excluded.page`, x: sql`excluded.x`, y: sql`excluded.y`, w: sql`excluded.w`, h: sql`excluded.h` },
+      });
+  }
   await emitWebhook({ tenant: { id: doc.tenantId } }, "document.rendered", { documentId: doc.id, kind: doc.kind, number: doc.number, level, filename });
-  log(`rendered ${doc.kind} ${doc.number} L${level} (${pages}p, ${size} bytes)`);
+  return size;
+}
+
+/** Render the level-1 (native text) PDF for a document. Idempotent per document. */
+export async function renderDocument(documentId: string, log: (m: string) => void = () => {}): Promise<void> {
+  const [doc] = await db.select().from(schema.documents).where(eq(schema.documents.id, documentId));
+  if (!doc) throw new Error(`Document ${documentId} not found`);
+  const { html, vendorName } = await htmlFor(doc);
+  const { pdf, pages, boxes } = await renderHtmlToPdf(html, { captureFields: true });
+  const filename = fileNameFor(doc, vendorName, 1);
+  const size = await storeFile(doc, 1, pdf, pages, filename, boxes);
+  log(`rendered ${doc.kind} ${doc.number} L1 (${pages}p, ${size} bytes, ${boxes?.length ?? 0} boxes)`);
+}
+
+/**
+ * Produce a degraded scan (levels 2 to 5) from the level-1 PDF, rendering that
+ * first if it does not exist yet. Idempotent per (document, level): the same
+ * document at the same level always degrades to the same image.
+ */
+export async function degradeDocument(documentId: string, level: number, log: (m: string) => void = () => {}): Promise<void> {
+  if (!isLevel(level) || level === 1) throw new Error(`degradeDocument needs a level between 2 and 5, got ${level}`);
+  const [doc] = await db.select().from(schema.documents).where(eq(schema.documents.id, documentId));
+  if (!doc) throw new Error(`Document ${documentId} not found`);
+  let [base] = await db.select().from(schema.documentFiles).where(and(eq(schema.documentFiles.documentId, doc.id), eq(schema.documentFiles.level, 1)));
+  if (!base) {
+    await renderDocument(documentId, log);
+    [base] = await db.select().from(schema.documentFiles).where(and(eq(schema.documentFiles.documentId, doc.id), eq(schema.documentFiles.level, 1)));
+  }
+  const source = await blobStore().get(base.blobKey);
+  if (!source) throw new Error(`Level 1 blob missing for document ${documentId}`);
+  const baseBoxes = await db.select().from(schema.documentFieldBoxes).where(and(eq(schema.documentFieldBoxes.documentId, doc.id), eq(schema.documentFieldBoxes.level, 1)));
+  const { degradePdf } = await import("./degrade");
+  const result = await degradePdf(doc.id, level, source, baseBoxes.map((b) => ({ field: b.field, page: b.page, x: Number(b.x), y: Number(b.y), w: Number(b.w), h: Number(b.h) })));
+  const filename = base.filename.replace(/\.pdf$/, `_L${level}.pdf`);
+  const size = await storeFile(doc, level, result.pdf, result.pages, filename, result.boxes);
+  log(`degraded ${doc.kind} ${doc.number} to L${level} (${result.pages}p, ${size} bytes)`);
 }

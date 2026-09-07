@@ -62,9 +62,34 @@ export async function provisionSandbox(tenantId: string, log: (m: string) => voi
 
   const eagerDocumentIds: string[] = [];
 
-  const addDocument = async (tx: Tx, kind: DocumentKind, number: string, sourceId: string, vendorId: string | null, gt: GroundTruthField[], defects: { type: string; severity: "warning" | "error" | "critical"; details: Record<string, unknown> }[] = []) => {
-    const [doc] = await tx.insert(schema.documents).values({ tenantId, kind, number, sourceId, vendorId, language: "bilingual" }).returning({ id: schema.documents.id });
-    if (gt.length) await tx.insert(schema.groundTruth).values(gt.map((g) => ({ tenantId, documentId: doc.id, field: g.field, value: g.value })));
+  const vendorById = new Map(vendors.map((v) => [v.id, v]));
+  const itemNameArByCode = new Map(items.filter((i) => i.nameAr).map((i) => [i.code, i.nameAr!]));
+
+  // A vendor prints its own paperwork in its own script; anything Al-Nahda
+  // issues (RFQ, purchase order, goods receipt) stays bilingual.
+  const VENDOR_ISSUED: ReadonlySet<DocumentKind> = new Set(["quote", "delivery_note", "invoice", "receipt", "vendor_licence", "vendor_tax_card", "vendor_bank_letter", "vendor_trade_licence"]);
+
+  /**
+   * A document that prints a name or a description in both scripts is correct
+   * whichever one the student read, so both go into the ground truth.
+   */
+  const withAlternates = (gt: GroundTruthField[], vendorId: string | null, lines?: { itemCode?: string | null }[]): GroundTruthField[] => {
+    const v = vendorId ? vendorById.get(vendorId) : null;
+    const byField = new Map<string, string[]>();
+    if (v?.nameAr) byField.set("vendor.name", [v.nameAr]);
+    lines?.forEach((l, i) => {
+      const ar = l.itemCode ? itemNameArByCode.get(l.itemCode) : null;
+      if (ar) byField.set(`lines[${i}].description`, [ar]);
+    });
+    return gt.map((g) => (byField.has(g.field) ? { ...g, alternates: byField.get(g.field) } : g));
+  };
+
+  const addDocument: AddDocument = async (tx, kind, number, sourceId, vendorId, rawGt, opts = {}) => {
+    const defects = opts.defects ?? [];
+    const language = (VENDOR_ISSUED.has(kind) && vendorId ? vendorById.get(vendorId)?.documentLanguage : null) ?? "bilingual";
+    const gt = withAlternates(rawGt, vendorId, opts.lines);
+    const [doc] = await tx.insert(schema.documents).values({ tenantId, kind, number, sourceId, vendorId, language }).returning({ id: schema.documents.id });
+    if (gt.length) await tx.insert(schema.groundTruth).values(gt.map((g) => ({ tenantId, documentId: doc.id, field: g.field, value: g.value, alternates: g.alternates ?? [] })));
     if (defects.length) await tx.insert(schema.seededDefects).values(defects.map((d) => ({ tenantId, documentId: doc.id, defectType: d.type, severity: d.severity, details: d.details })));
     eagerDocumentIds.push(doc.id);
     return doc.id;
@@ -94,7 +119,7 @@ export async function provisionSandbox(tenantId: string, log: (m: string) => voi
         )
         .returning({ id: schema.purchaseOrderLines.id, lineNo: schema.purchaseOrderLines.lineNo });
       const poLineId = new Map(poLineRows.map((r) => [r.lineNo, r.id]));
-      if (po.status !== "draft") await addDocument(tx, "purchase_order", po.number, poRow.id, vendor.id, purchaseOrderGroundTruth(po, vendor));
+      if (po.status !== "draft") await addDocument(tx, "purchase_order", po.number, poRow.id, vendor.id, purchaseOrderGroundTruth(po, vendor), { lines: po.lines });
 
       // RFQ + quotes
       if (cycle.rfq) {
@@ -112,7 +137,7 @@ export async function provisionSandbox(tenantId: string, log: (m: string) => voi
             .values({ tenantId, number: q.number, rfqId: rfqRow.id, vendorId: qv.id, quoteDate: q.quoteDate, validUntil: q.validUntil, currency: q.currency, paymentTermsDays: q.paymentTermsDays, leadTimeDays: q.leadTimeDays, subtotal: q.subtotal.toFixed(2), taxTotal: q.taxTotal.toFixed(2), grandTotal: q.grandTotal.toFixed(2), status: q.status })
             .returning({ id: schema.quotes.id });
           await tx.insert(schema.quoteLines).values(q.lines.map((l) => ({ tenantId, quoteId: qRow.id, lineNo: l.lineNo, itemId: itemByCode.get(l.itemCode) ?? null, description: l.description, quantity: String(l.quantity), uom: l.uom, unitPrice: l.unitPrice.toFixed(4), taxCode: l.taxCode, taxAmount: l.taxAmount.toFixed(2), lineTotal: l.lineTotal.toFixed(2) })));
-          await addDocument(tx, "quote", q.number, qRow.id, qv.id, quoteGroundTruth(q, rfq.number, qv));
+          await addDocument(tx, "quote", q.number, qRow.id, qv.id, quoteGroundTruth(q, rfq.number, qv), { lines: q.lines });
         }
       }
 
@@ -125,7 +150,7 @@ export async function provisionSandbox(tenantId: string, log: (m: string) => voi
           .returning({ id: schema.deliveryNotes.id });
         dnIdByNumber.set(dn.number, dnRow.id);
         await tx.insert(schema.deliveryNoteLines).values(dn.lines.map((l) => ({ tenantId, deliveryNoteId: dnRow.id, lineNo: l.lineNo, purchaseOrderLineId: poLineId.get(l.poLineNo) ?? null, itemId: itemByCode.get(l.itemCode) ?? null, description: l.description, quantity: String(l.quantity), uom: l.uom })));
-        await addDocument(tx, "delivery_note", dn.number, dnRow.id, vendor.id, deliveryNoteGroundTruth(dn, po.number, vendor));
+        await addDocument(tx, "delivery_note", dn.number, dnRow.id, vendor.id, deliveryNoteGroundTruth(dn, po.number, vendor), { lines: dn.lines });
       }
       for (const g of cycle.grns) {
         const [gRow] = await tx
@@ -133,7 +158,7 @@ export async function provisionSandbox(tenantId: string, log: (m: string) => voi
           .values({ tenantId, number: g.number, purchaseOrderId: poRow.id, deliveryNoteId: dnIdByNumber.get(g.deliveryNoteNumber) ?? null, vendorId: vendor.id, receivedDate: g.receivedDate, deliveryLocationId: dlByCode.get(g.deliveryLocationCode) ?? null, receivedById: empByCode.get(g.receivedByCode) ?? null, status: g.status, notes: g.notes })
           .returning({ id: schema.grns.id });
         await tx.insert(schema.grnLines).values(g.lines.map((l) => ({ tenantId, grnId: gRow.id, lineNo: l.lineNo, purchaseOrderLineId: poLineId.get(l.poLineNo) ?? null, itemId: itemByCode.get(l.itemCode) ?? null, description: l.description, quantityReceived: String(l.quantityReceived), quantityAccepted: String(l.quantityAccepted), quantityRejected: String(l.quantityRejected), uom: l.uom, rejectionReason: l.rejectionReason })));
-        await addDocument(tx, "grn", g.number, gRow.id, vendor.id, grnGroundTruth(g, po.number, vendor));
+        await addDocument(tx, "grn", g.number, gRow.id, vendor.id, grnGroundTruth(g, po.number, vendor), { lines: g.lines });
       }
 
       // Invoices, payments, receipts
@@ -166,7 +191,7 @@ export async function provisionSandbox(tenantId: string, log: (m: string) => voi
           .values({ tenantId, number: q.number, rfqId: rfqRow.id, vendorId: qv.id, quoteDate: q.quoteDate, validUntil: q.validUntil, currency: q.currency, paymentTermsDays: q.paymentTermsDays, leadTimeDays: q.leadTimeDays, subtotal: q.subtotal.toFixed(2), taxTotal: q.taxTotal.toFixed(2), grandTotal: q.grandTotal.toFixed(2), status: q.status })
           .returning({ id: schema.quotes.id });
         await tx.insert(schema.quoteLines).values(q.lines.map((l) => ({ tenantId, quoteId: qRow.id, lineNo: l.lineNo, itemId: itemByCode.get(l.itemCode) ?? null, description: l.description, quantity: String(l.quantity), uom: l.uom, unitPrice: l.unitPrice.toFixed(4), taxCode: l.taxCode, taxAmount: l.taxAmount.toFixed(2), lineTotal: l.lineTotal.toFixed(2) })));
-        await addDocument(tx, "quote", q.number, qRow.id, qv.id, quoteGroundTruth(q, rfq.number, qv));
+        await addDocument(tx, "quote", q.number, qRow.id, qv.id, quoteGroundTruth(q, rfq.number, qv), { lines: q.lines });
       }
     }
     for (const inv of set.orphanInvoices) {
@@ -181,7 +206,13 @@ export async function provisionSandbox(tenantId: string, log: (m: string) => voi
   log(`tenant ${tenant.slug} ready; ${eagerDocumentIds.length} render jobs queued`);
 }
 
-type AddDocument = (tx: Tx, kind: DocumentKind, number: string, sourceId: string, vendorId: string | null, gt: GroundTruthField[], defects?: { type: string; severity: "warning" | "error" | "critical"; details: Record<string, unknown> }[]) => Promise<string>;
+interface AddDocumentOptions {
+  defects?: { type: string; severity: "warning" | "error" | "critical"; details: Record<string, unknown> }[];
+  /** The document's lines, so a bilingual description can be recorded as an alternate reading. */
+  lines?: { itemCode?: string | null }[];
+}
+
+type AddDocument = (tx: Tx, kind: DocumentKind, number: string, sourceId: string, vendorId: string | null, gt: GroundTruthField[], opts?: AddDocumentOptions) => Promise<string>;
 
 async function insertInvoice(
   tx: Tx,
@@ -210,7 +241,7 @@ async function insertInvoice(
     })),
   );
   const defects = inv.defects.map((d) => ({ type: d.type, severity: d.severity, details: d.type === "vendor_not_in_master" && inv.ghostVendor ? { ...d.details, ghost: inv.ghostVendor } : d.details }));
-  await addDocument(tx, "invoice", internalNumber, row.id, vendorId, invoiceGroundTruth(inv), defects);
+  await addDocument(tx, "invoice", internalNumber, row.id, vendorId, invoiceGroundTruth(inv), { defects, lines: inv.lines });
   return row.id;
 }
 

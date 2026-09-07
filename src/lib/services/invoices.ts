@@ -102,18 +102,24 @@ export async function submitExtraction(
   asStored: Invoice,
   lines: MatchLine[],
   source: "ui" | "api",
-  confidence?: Record<string, number>,
+  opts: { confidence?: Record<string, number>; level?: number } = {},
 ): Promise<ExtractionOutcome> {
+  const { confidence, level = 1 } = opts;
   const ctx = await buildMatchContext(session, asStored, lines);
   const result = runRules(matchRules, ctx);
 
   const doc = await session.tdb.one(documents, and(eq(documents.kind, "invoice"), eq(documents.sourceId, inv.id))!);
   const truth = new Map<string, string>();
+  // A bilingual document prints some values twice; both readings are correct.
+  const alternates = new Map<string, string[]>();
   if (doc) {
     const { groundTruth } = await import("@/db/schema");
-    for (const g of await session.tdb.list(groundTruth, { where: eq(groundTruth.documentId, doc.id) })) truth.set(g.field, g.value);
+    for (const g of await session.tdb.list(groundTruth, { where: eq(groundTruth.documentId, doc.id) })) {
+      truth.set(g.field, g.value);
+      if (g.alternates?.length) alternates.set(g.field, g.alternates);
+    }
   }
-  const score = scoreInvoiceExtraction(truth, fields);
+  const score = scoreInvoiceExtraction(truth, fields, { alternates });
   const seeded = doc ? await session.tdb.list(seededDefects, { where: eq(seededDefects.documentId, doc.id) }) : [];
   const defects = gradeDefects(seeded.map((d) => ({ defectType: d.defectType, details: d.details })), result.violations);
 
@@ -123,6 +129,7 @@ export async function submitExtraction(
       documentId: doc.id,
       userId: session.principal.userId,
       source,
+      level,
       fields,
       confidence: confidence ?? null,
       score: score.score.toFixed(4),
@@ -133,7 +140,7 @@ export async function submitExtraction(
   }
   const status: Invoice["status"] = result.ok ? "matched" : "exception";
   await session.tdb.update(invoices, { status, updatedAt: new Date() }, eq(invoices.id, inv.id));
-  await audit(session, "invoice.extract", "invoice", inv.internalNumber, { source, ok: result.ok, score: score.score, violations: result.violations.map((v) => v.ruleId) });
+  await audit(session, "invoice.extract", "invoice", inv.internalNumber, { source, level, ok: result.ok, score: score.score, violations: result.violations.map((v) => v.ruleId) });
   await emitWebhook(session, "invoice.status_changed", { internalNumber: inv.internalNumber, status, previousStatus: inv.status, score: score.score, violations: result.violations.map((v) => v.ruleId) });
   return { ok: result.ok, status, violations: result.violations, score, defects, extractionId };
 }

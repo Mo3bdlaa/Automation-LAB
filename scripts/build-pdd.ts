@@ -56,8 +56,8 @@ function figureOf(id: string): Figure & { n: number } {
 const DOC = {
   title: "Automation Lab",
   subtitle: "Process Definition Document (PDD)",
-  version: "1.1",
-  date: "2026-09-06",
+  version: "1.2",
+  date: "2026-09-07",
   author: "Mohammed Shaker",
   status: "Draft for review",
 };
@@ -106,7 +106,7 @@ const B: Block[] = [
     ["Volume per sandbox", "About 30 pending invoices, of which about 30 % carry a seeded defect; 6 stand-alone invoices with no PO or unknown vendor", "About 13 pending vendor applications; 250 vendors with 4 compliance documents each", "About 20 purchase orders"],
     ["Frequency", "Daily", "Weekly", "Daily"],
     ["Average handling time (human)", "6 to 8 minutes per invoice", "5 minutes per application", "3 minutes per PO"],
-    ["Input", "Invoice PDF (level 1 native text in P1; scanned levels from P3)", "Commercial registration certificate PDF; tax card, bank letter, trade licence", "PO detail page, related delivery notes and goods receipts"],
+    ["Input", "Invoice PDF at the difficulty level the instructor set (1 native text, 2 to 5 scans)", "Commercial registration certificate PDF; tax card, bank letter, trade licence", "PO detail page, related delivery notes and goods receipts"],
     ["Output", "Invoice in status Matched, Exception, Approved, Rejected or Paid; extraction stored", "Vendor record created or corrected; status Active or Blocked", "List of POs with open receipts and no invoice; escalation to buyer"],
     ["Peak periods", "Month end", "Quarter start", "Month end"],
   ] },
@@ -115,7 +115,7 @@ const B: Block[] = [
   { t: "table", header: ["Application", "Type", "Access", "Notes for automation"], widths: [2300, 1500, 2300, 3260], rows: [
     ["Automation Lab web application", "Web (server-rendered HTML, ERP-style)", "https://automationlab.mohammedshaker.com, session cookie after login", "Every interactive element carries both id and data-testid with the same value. Tables are real HTML tables with fixed page size 25 and page in the URL. Status badges expose data-status. Validation results render in #validation-errors with data-rule-id per line."],
     ["Automation Lab REST API", "HTTPS JSON", "Session cookie or a personal bearer token", "Documents download with Content-Disposition attachment and predictable file names. 409 with Retry-After means a PDF is still rendering."],
-    ["PDF documents", "Files", "Download links on detail pages, bulk ZIP per queue", "Level 1 documents are native text and can be read without OCR. Levels 2 to 5 (P3) are scans of increasing difficulty."],
+    ["PDF documents", "Files", "Download links on detail pages, bulk ZIP per queue, ?level=N for the difficulty variant", "Level 1 is native text and can be read without OCR. Levels 2 to 5 are image-only scans of increasing difficulty and are produced on first request."],
     ["UiPath Orchestrator", "SaaS", "Student tenant", "Queues for dispatcher/performer; assets for the lab URL and credentials."],
   ] },
   { t: "figure", id: "01-launchpad" },
@@ -237,7 +237,7 @@ const B: Block[] = [
 
   { t: "pagebreak" },
   { t: "h1", text: "4. Platform roadmap: phases P2, P3 and P4" },
-  { t: "p", text: "P0 (foundation), P1 (full document cycle, seeded defects, three-way match) and P2 (queues, REST API, grading, Validation Station, instructor dashboard) are implemented. P3 and P4 are defined here with deliverables, the exercise each unlocks, and acceptance criteria that the smoke test and unit tests must cover before the phase is called done. P4 gathers the production and integration items that the design left open." },
+  { t: "p", text: "P0 (foundation), P1 (full document cycle, seeded defects, three-way match), P2 (queues, REST API, grading, Validation Station, instructor dashboard) and P3 (Arabic-first documents and the difficulty ladder) are implemented. P4 is defined here with deliverables, the exercise it unlocks, and acceptance criteria that the smoke test and unit tests must cover before the phase is called done. P4 gathers the production and integration items that the design left open." },
 
   { t: "h2", text: "4.1 P2: Queues, REST API, grading, validation station, instructor dashboard - delivered" },
   { t: "p", text: "This phase is built. The table below is the delivered scope; where the implementation departed from the plan the difference is stated in the Detail column." },
@@ -265,24 +265,30 @@ const B: Block[] = [
     "Met. Unit tests cover scoring normalisation, line alignment and defect grading; scripts/api-smoke.mjs drives token creation and an API-only run of the cycle, and the browser check covers the Validation Station round trip.",
   ] },
 
-  { t: "h2", text: "4.2 P3: Arabic-first templates and degraded scans (levels 2 to 5)" },
+  { t: "h2", text: "4.2 P3: Arabic-first documents and degraded scans (levels 2 to 5) - delivered" },
+  { t: "p", text: "This phase is built. The table below is the delivered scope; where the implementation departed from the plan the difference is stated in the Detail column." },
   { t: "h3", text: "Deliverables" },
   { t: "table", header: ["Area", "Deliverable", "Detail"], widths: [1900, 3200, 4260], rows: [
-    ["Arabic templates", "Arabic-first variants of every document kind", "Right-to-left layouts with English as the secondary script, Eastern Arabic numerals where a vendor would use them, Hijri dates alongside Gregorian on vendor documents. Per-vendor language preference (Arabic, English, bilingual) stored on the vendor and used by the generator."],
-    ["Ground truth for Arabic", "Bilingual field values", "Ground truth stores both scripts and the numeral system used, so an extraction in either script grades correctly."],
-    ["Degradation pipeline", "Levels 2 to 5 from the level-1 PDF", "Render to image, then apply: L2 clean 300 dpi scan (slight blur, JPEG); L3 200 dpi with skew up to 3 degrees, noise, uneven contrast; L4 phone photo with perspective, shadow gradient, colour cast; L5 stamps, handwriting overlays (amounts, signatures), staple marks, folds. Implemented with sharp and a small compositing library; deterministic per document and level."],
-    ["Lazy rendering", "Levels on first download", "Level 1 stays eager. Levels 2 to 5 render on first request for ?level=N and are cached in the blob store. Bulk ZIPs accept a level parameter."],
-    ["Bounding boxes", "Field positions in ground truth", "The renderer records each field's box (page, x, y, w, h) from the level-1 layout and transforms it through the degradation geometry, enabling position-aware grading and Validation Station highlights."],
-    ["Difficulty ladder in exercises", "Per-exercise level", "Instructor sets the level per exercise; the queue API exposes it; the dashboard reports accuracy per level."],
+    ["Arabic documents", "Every vendor prints in its own script", "Each vendor carries a document language: about half bilingual, a third Arabic-first, a fifth English only. An Arabic-first document is right-to-left with English as the secondary script, prints Eastern Arabic numerals for about two vendors in five, and shows a Hijri date beside the ISO one. Departure from plan: Arabic-first applies to what a vendor issues and to the certificates an authority issues about it; anything Al-Nahda issues stays bilingual, because a buyer's own paperwork does not change script per vendor."],
+    ["Hijri dates", "Printed beside the Gregorian date, never instead of it", "The conversion is arithmetic (tabular) rather than through Intl, so it cannot drift with an ICU version. It is within a day of Umm al-Qura, is decoration rather than a graded field, and the ISO date is always present so a grader can read it."],
+    ["Ground truth for Arabic", "Bilingual field values", "Ground truth records the other script of a name or description as an alternate reading, and the grader takes the best one. Arabic-Indic digits were already folded to Western digits by the P2 normaliser, so numbers and identifiers need no alternates."],
+    ["Degradation pipeline", "Levels 2 to 5 from the level-1 PDF", "L2 clean 300 dpi scan (slight blur, JPEG); L3 200 dpi with up to 3 degrees of skew, grain and uneven lighting; L4 phone photo with perspective, shadow gradient and a warm cast; L5 the same photograph of a page that has been stamped, annotated, stapled and folded. Departure from plan: it runs inside the Chromium the lab already uses - pdf.js rasterises the page, SVG filters and CSS transforms do the damage - rather than with sharp. One rendering engine, nothing native to install on a serverless host, and the output is an image-only PDF, so from level 2 up OCR is unavoidable."],
+    ["Reproducibility", "Seeded per document and level", "Every parameter comes from a hash of (document id, level), so two documents at one level are damaged differently and one document always degrades the same way."],
+    ["Lazy rendering", "Levels on first download", "Level 1 stays eager. A level above 1 is produced on first request for ?level=N and cached; the request answers 409 with Retry-After while the job runs. Queue ZIPs take a level and report what is still being produced."],
+    ["Bounding boxes", "Field positions per level", "Template elements carrying a graded value are tagged, the renderer measures them against the printed page, and the degradation pipeline puts marker elements through the same transform, so the boxes follow the skew and the perspective. Exposed on GET /api/documents/{id}?boxes=1 and drawn as a page map on the Validation Station."],
+    ["Difficulty ladder in exercises", "Cohort level", "The instructor sets the level on /instructor; the queue API hands out download URLs at that level; an extraction records the level it was read from; the dashboard and the CSV export report accuracy per level. Departure from plan: the level is set per cohort rather than per exercise, because the lab has no exercise model yet - that belongs with the course material."],
   ] },
-  { t: "h3", text: "Acceptance criteria" },
+  { t: "h3", text: "Acceptance criteria - verified" },
   { t: "bullets", items: [
-    "An Arabic-first invoice renders with connected glyphs and correct bidi in Chromium and its ground truth grades a correct Arabic extraction at 1.0.",
-    "Each degradation level is reproducible: the same document and level produce byte-identical images across runs.",
-    "OCR accuracy on the lab's reference extractor decreases monotonically from L1 to L5 on a 50-document sample, confirming the ladder is real.",
-    "A level-3 PDF is available within 10 seconds of first request and instantly thereafter; blob usage per sandbox stays below 400 MB with all levels rendered for the invoice queue.",
+    "Met. An Arabic-first invoice renders with connected glyphs and correct bidi, and a correct Arabic extraction of a bilingual invoice scores 1.0 against the alternates in the ground truth.",
+    "Met. The same document at the same level produces byte-identical page images across runs. The PDF wrapper around them carries a creation timestamp, so reproducibility is asserted on the images.",
+    "Met, with a finding. pnpm ocr:ladder renders every level, runs Tesseract over page 1 and reports the share of ground-truth values the OCR output contains. On a 12-invoice sample at 300 dpi: L1 85.7 per cent, L2 85.5, L3 85.8, L4 66.1, L5 59.3 - monotonic. The finding is that a clean synthetic scan costs OCR almost nothing: the real step for a bot is between level 1 and level 2, where the text layer disappears, and then again at level 4 where perspective and shadow start to bite.",
+    "Met. A level-3 PDF takes about one second per page to produce after warm-up and 2.8 seconds cold, against a 10-second budget, and is served from the blob store afterwards. Storage per document averages 396 KB at L2, 122 KB at L3, 70 KB at L4 and 65 KB at L5, so a sandbox with every level of every document sits near 200 MB against a 400 MB budget.",
+    "Open. The reference OCR engine for Arabic is still undecided (Tesseract needs its Arabic language data; UiPath's own engine is the alternative), so the ladder is measured on English and bilingual documents only.",
   ] },
 
+  { t: "figure", id: "15-difficulty-ladder" },
+  { t: "figure", id: "16-arabic-invoice" },
   { t: "figure", id: "11-arabic-rtl" },
 
   { t: "h2", text: "4.3 P4: Production identity, deployment and integration" },
@@ -309,7 +315,7 @@ const B: Block[] = [
   { t: "h2", text: "4.4 Dependencies and order" },
   { t: "table", header: ["Phase", "Depends on", "Blocks", "Decision needed"], widths: [1200, 2800, 2600, 2760], rows: [
     ["P2", "P1 (done)", "Exercise 4, grading in P3 and P4", "Done."],
-    ["P3", "P2 grading (done), P1 templates", "Advanced exercises", "Reference OCR engine for the acceptance test (UiPath OCR or Tesseract). Can start now."],
+    ["P3", "P2 grading (done), P1 templates", "Advanced exercises", "Done. Reference OCR engine for Arabic still open."],
     ["P4", "Courses platform choice; Vercel authorization; mohammedshaker.com repository or stylesheet access for optional re-branding", "Public launch", "Hosted IdP versus LTI 1.3; blob provider; render worker versus serverless Chromium."],
   ] },
 
@@ -393,6 +399,7 @@ const B: Block[] = [
   { t: "table", header: ["Version", "Date", "Author", "Change"], widths: [1200, 1600, 2600, 3960], rows: [
     ["1.0", "2026-09-05", DOC.author, "Initial PDD covering AS-IS, TO-BE and the P2, P3, P4 roadmap."],
     ["1.1", "2026-09-06", DOC.author, "P2 delivered: queues and REST API, extraction and defect grading, Validation Station, instructor dashboard, webhooks. Section 4.1 restated as built."],
+    ["1.2", "2026-09-07", DOC.author, "P3 delivered: difficulty levels 1 to 5, Arabic-first documents, bilingual ground truth, field bounding boxes, cohort difficulty setting. Section 4.2 restated as built with measured OCR results."],
   ] },
   { t: "table", header: ["Sign-off", "Name", "Role", "Date"], widths: [2200, 2600, 2600, 1960], rows: [
     ["Process owner", DOC.author, "Instructor", ""],

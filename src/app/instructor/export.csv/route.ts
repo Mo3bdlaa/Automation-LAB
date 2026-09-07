@@ -3,6 +3,7 @@ import { db, schema } from "@/db/client";
 import { apiSession } from "@/lib/auth/server";
 import { isStaff } from "@/lib/identity";
 import { problem } from "@/lib/api/http";
+import { LEVELS } from "@/lib/documents/levels";
 
 const csvCell = (v: unknown) => {
   const s = String(v ?? "");
@@ -23,7 +24,13 @@ export async function GET() {
     ? await db.select({ tenantId: schema.invoices.tenantId, n: sql<number>`count(*)` }).from(schema.invoices).where(inArray(schema.invoices.tenantId, ids)).groupBy(schema.invoices.tenantId)
     : [];
 
-  const header = ["userId", "displayName", "email", "sandboxStatus", "resets", "invoices", "extractions", "averageScore", "bestScore", "defectsCaught", "defectsMissed", "falsePositives", "lastActivity"];
+  // Per-level columns keep the difficulty ladder visible in the gradebook.
+  const header = [
+    "userId", "displayName", "email", "sandboxStatus", "resets", "invoices", "extractions", "averageScore", "bestScore",
+    "defectsCaught", "defectsMissed", "falsePositives",
+    ...LEVELS.flatMap((l) => [`level${l}Extractions`, `level${l}AverageScore`]),
+    "lastActivity",
+  ];
   const lines = [header.join(",")];
   for (const tenant of tenants) {
     const user = users.find((u) => u.id === tenant.ownerUserId);
@@ -44,6 +51,10 @@ export async function GET() {
         mine.reduce((a, e) => a + (e.matchResult?.defects?.caught.length ?? 0), 0),
         mine.reduce((a, e) => a + (e.matchResult?.defects?.missed.length ?? 0), 0),
         mine.reduce((a, e) => a + (e.matchResult?.defects?.falsePositives.length ?? 0), 0),
+        ...LEVELS.flatMap((l) => {
+          const at = mine.filter((e) => e.level === l && e.score !== null).map((e) => Number(e.score));
+          return [at.length, at.length ? (at.reduce((a, b) => a + b, 0) / at.length).toFixed(4) : ""];
+        }),
         last ? last.toISOString() : "",
       ]
         .map(csvCell)

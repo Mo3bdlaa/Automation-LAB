@@ -11,9 +11,9 @@ export function esc(s: unknown): string {
  * Shared page chrome: fonts, watermark, print sizing. Every document template
  * wraps its body in this. The watermark is non-negotiable (docs/spec.md, Safety).
  */
-export function baseDocument(opts: { title: string; body: string; extraCss?: string; lang?: "en" | "ar" }): string {
+export function baseDocument(opts: { title: string; body: string; extraCss?: string; lang?: "en" | "ar"; dir?: "ltr" | "rtl" }): string {
   return `<!doctype html>
-<html lang="${opts.lang ?? "en"}">
+<html lang="${opts.lang ?? "en"}" dir="${opts.dir ?? "ltr"}">
 <head>
 <meta charset="utf-8">
 <meta name="robots" content="noindex, nofollow">
@@ -29,6 +29,16 @@ body {
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
 .ar, [lang="ar"], [dir="rtl"] { font-family: "Noto Naskh Arabic", "Noto Sans", sans-serif; }
+/* The secondary script on a document that leads with the other one. */
+.alt { font-family: "Noto Sans", Arial, sans-serif; font-size: 0.82em; color: #555; font-weight: 400; direction: ltr; unicode-bidi: isolate; }
+.alt.block, .ar.block { display: block; }
+.hijri { font-size: 0.85em; color: #555; white-space: nowrap; }
+/* Latin text and numbers inside an Arabic paragraph: isolate them so a
+   trailing full stop or a hyphenated code does not jump to the wrong end. */
+.ltr { direction: ltr; unicode-bidi: isolate; }
+.nowrap { white-space: nowrap; }
+[dir="rtl"] .num { text-align: left; }
+[dir="rtl"] table.lines th, [dir="rtl"] table.lines td { text-align: right; }
 .watermark {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   display: flex; align-items: center; justify-content: center;

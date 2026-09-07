@@ -10,7 +10,9 @@ cd "$ROOT"
 # Match on the port, not the command line, so a renamed or detached process is
 # still cleared, and wait until the socket is actually released.
 for _ in $(seq 1 20); do
-  pids=$(ss -lptnH "sport = :$PORT" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u)
+  # `|| true`: grep exits 1 when the port is free, and `set -e` would take that
+  # as a failure of the whole script.
+  pids=$(ss -lptnH "sport = :$PORT" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u || true)
   [ -z "$pids" ] && break
   for pid in $pids; do kill -9 "$pid" 2>/dev/null || true; done
   sleep 1

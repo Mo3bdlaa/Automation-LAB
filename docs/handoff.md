@@ -1,7 +1,7 @@
 # Automation Lab — handoff
 
-**Date:** 2026-09-06
-**Status:** P0, P1 and P2 implemented in this repository. P3 and P4 are specified in `docs/pdd.md` section 4.
+**Date:** 2026-09-07
+**Status:** P0, P1, P2 and P3 implemented in this repository. P4 is specified in `docs/pdd.md` section 4.
 **Owner:** Mohammed Shaker
 **Companion documents:** `docs/spec.md` — the full design spec. Read it second. `docs/pdd.md` — the Process Definition Document: AS-IS and TO-BE processes students automate, annotated screenshots of every screen and document, and the P2/P3/P4 roadmap with acceptance criteria.
 
@@ -38,11 +38,12 @@ two different hosting platforms are in play and it is easy to conflate them.
 
 ## 3. Current state
 
-This repository holds P0, P1 and P2: the foundation, the full document cycle, and the REST
-API with grading, the Validation Station and the instructor dashboard. See `README.md` for
-what is implemented and how to run it. Not yet done: P3 (Arabic-first templates, degraded
-scan levels 2–5), P4 (production identity, Vercel project, DNS record, production database,
-blob store, flaky mode, gradebook export).
+This repository holds P0 to P3: the foundation, the full document cycle, the REST API with
+grading and the Validation Station, and the difficulty ladder with Arabic-first documents.
+See `README.md` for what is implemented and how to run it. Not yet done: P4 (production
+identity, Vercel project, DNS record, production database, S3-compatible blob store, rate
+limits, flaky mode, gradebook integration) and the course material itself — the exercise
+briefs, starter UiPath projects and the marking scheme that turns a score into a grade.
 
 ---
 
@@ -211,6 +212,51 @@ Chromium render pipeline. Both are in.
   the sandbox module is split into `lifecycle.ts` (request side) and `provision.ts` (job
   side), so `playwright-core` stays out of the page bundles and the standalone build runs
   without it.
+
+---
+
+## 7d. P3 — done in this repository
+
+- **The difficulty ladder** (`src/lib/documents/levels.ts`). Five levels, a public contract
+  like the rule IDs: 1 native PDF, 2 clean scan (300 dpi), 3 office scan (200 dpi, up to 3°
+  of skew, noise, uneven light), 4 phone photo (perspective, shadow, warm cast), 5 a handled
+  page (stamps, handwriting, staples, folds). Levels 2 to 5 are image-only PDFs, so a bot
+  that read level 1 with a text extractor has to switch to OCR.
+- **Degradation runs in Chromium**, not in a native image library. pdf.js rasterises the
+  level-1 PDF inside the page, SVG filters (`feTurbulence` for grain) and CSS transforms do
+  the damage, each page is screenshotted as JPEG, and the JPEGs are printed back into a PDF.
+  One rendering engine for the whole lab: nothing to install on a serverless host, and the
+  filters are seeded, so a level is reproducible. Verified: the same document and level
+  produce byte-identical page images across runs.
+- **Deterministic parameters** (`degrade-params.ts`), seeded from `(document id, level)`.
+  Two documents at the same level are damaged differently; one document always degrades the
+  same way. Unit-tested.
+- **Lazy production.** Level 1 stays eager. A level above 1 is produced on first request,
+  cached in the blob store, and the request answers `409` with `Retry-After` while the job
+  runs. Measured at about one second per page after warm-up, 2.8 s cold.
+- **Arabic-first documents.** Every vendor carries a `documentLanguage` (about half
+  bilingual, a third Arabic-first, a fifth English only) and prints its own paperwork in it,
+  including the certificates an authority issues about it. Arabic-first means RTL with
+  English as the secondary script, Eastern Arabic numerals for about two in five of those
+  vendors, and a Hijri date beside the ISO one. The Hijri conversion is arithmetic rather
+  than `Intl`, so it cannot drift with an ICU version; it is decoration, never graded, and
+  the ISO date is always printed.
+- **Bilingual ground truth.** `ground_truth.alternates` records the other script of a name
+  or description, and the grader takes the best reading, so an Arabic extraction of a
+  bilingual invoice scores 1.0.
+- **Field boxes.** Template elements carrying a graded value are tagged `data-gt-field`; the
+  renderer measures them against the printed page and stores a normalised box per field
+  (`document_field_boxes`). The degradation pipeline puts marker elements through the same
+  transform, so the boxes follow the skew and perspective. Exposed on
+  `GET /api/documents/{id}?boxes=1` and drawn as a page map on the validation station.
+- **The ladder in the exercise.** The instructor sets a cohort level on `/instructor`; the
+  queue API hands out download URLs at that level, an extraction records the level it was
+  read from, and both the dashboard and the CSV export report accuracy per level.
+- **Acceptance measured, not asserted.** `pnpm ocr:ladder` renders every level, OCRs page 1
+  with Tesseract and reports the share of ground-truth values the OCR text contains. On a
+  12-invoice sample at 300 dpi: L1 85.7 %, L2 85.5 %, L3 85.8 %, L4 66.1 %, L5 59.3 % —
+  monotonic, with the honest finding that a *clean* synthetic scan costs OCR almost nothing.
+  The real step for a bot is between level 1 and level 2, where the text layer disappears.
 
 ---
 

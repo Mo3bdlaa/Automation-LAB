@@ -1,9 +1,16 @@
 /**
  * Documents issued by a vendor: quotation, delivery note, tax invoice, payment
- * receipt. Layout and colours vary per vendor (vendor-brand.ts). Bilingual.
+ * receipt, and the compliance certificates an authority issues about it.
+ *
+ * Layout and colours vary per vendor (vendor-brand.ts) and so does the script:
+ * a vendor prints in English, Arabic-first or bilingual according to its own
+ * `documentLanguage` (see i18n.ts). Elements carrying a value the grader checks
+ * are marked with `data-gt-field`, which is what the renderer measures to
+ * record where each field sits on the page.
  */
 import { baseDocument, esc } from "./base";
 import { vendorBrand, type VendorBrand } from "./vendor-brand";
+import { docLocale, type DocLang, type DocLocale } from "./i18n";
 import { COMPANY } from "../../generator/vocab";
 import { fmtNumber } from "../../generator/money";
 import { formatIban } from "../../generator/iban";
@@ -23,6 +30,8 @@ export interface VendorParty {
   contactName?: string | null;
   email?: string | null;
   phone?: string | null;
+  /** The script this vendor prints its own paperwork in. */
+  documentLanguage?: DocLang;
 }
 
 export interface MoneyLine {
@@ -40,6 +49,15 @@ export interface MoneyLine {
   lineTotal: string | number;
 }
 
+function localeFor(v: VendorParty): DocLocale {
+  return docLocale(v.documentLanguage ?? "bilingual", v.code ?? v.taxId);
+}
+
+/** A value the grader reads back: tagged with its field path and localised. */
+function gt(field: string, value: string, loc: DocLocale, id?: string): string {
+  return `<span data-gt-field="${esc(field)}"${id ? ` id="${id}"` : ""}>${loc.digits(value)}</span>`;
+}
+
 function brandCss(b: VendorBrand): string {
   return `
 .vh { display: flex; justify-content: space-between; align-items: flex-start; gap: 12pt; padding-bottom: 8pt; border-bottom: ${b.layout === 1 ? "1px" : "3px"} solid ${b.accent}; ${b.layout === 2 ? `background:${b.accentSoft}; padding: 10pt; border-radius: 4pt; border-bottom: none;` : ""} }
@@ -47,6 +65,7 @@ function brandCss(b: VendorBrand): string {
 .vh .vname-ar { font-size: 12.5pt; color: ${b.accent}; }
 .vh .vmeta { font-size: 8.5pt; color: #444; margin-top: 2pt; }
 .vh .dtitle { text-align: right; }
+[dir="rtl"] .vh .dtitle { text-align: left; }
 .vh .dtitle h2 { margin: 0; font-size: 17pt; letter-spacing: 0.06em; color: ${b.accent}; }
 .vh .dtitle .ar { font-size: 13pt; }
 .meta { margin-top: 8pt; display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; font-size: 9.5pt; }
@@ -57,12 +76,13 @@ function brandCss(b: VendorBrand): string {
 .kv div:nth-child(odd) { color: #555; }
 table.lines { width: 100%; border-collapse: collapse; margin-top: 10pt; font-size: 9.5pt; }
 table.lines th { background: ${b.layout === 1 ? "#fff" : b.accent}; color: ${b.layout === 1 ? b.accent : "#fff"}; padding: 4pt 5pt; text-align: left; font-size: 8.5pt; ${b.layout === 1 ? `border-bottom: 2px solid ${b.accent};` : ""} }
-table.lines th .ar { display: block; font-weight: 400; }
+table.lines th .ar, table.lines th .alt { display: block; font-weight: 400; }
 table.lines td { padding: 4pt 5pt; border-bottom: 1px solid #e1e6ec; vertical-align: top; }
 ${b.layout === 0 ? "table.lines tr:nth-child(even) td { background: #f6f8fa; }" : ""}
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .desc-ar { display: block; font-size: 9pt; color: #333; }
 .totals { margin-top: 8pt; margin-left: auto; width: 64mm; border-collapse: collapse; font-size: 10pt; }
+[dir="rtl"] .totals { margin-left: 0; margin-right: auto; }
 .totals td { padding: 3pt 5pt; }
 .totals td:first-child { color: #444; }
 .totals tr.grand td { font-weight: 700; font-size: 11.5pt; border-top: 2px solid ${b.accent}; color: ${b.accent}; }
@@ -75,66 +95,69 @@ ${b.layout === 0 ? "table.lines tr:nth-child(even) td { background: #f6f8fa; }" 
 `;
 }
 
-function vendorHeader(v: VendorParty, title: string, titleAr: string, right: [string, string, string][]): string {
+function vendorHeader(v: VendorParty, loc: DocLocale, title: string, titleAr: string, right: [string, string, string][]): string {
+  const primaryName = loc.arabicFirst && v.nameAr ? v.nameAr : v.name;
+  const secondaryName = loc.arabicFirst ? v.name : v.nameAr;
   return `<div class="vh">
   <div>
-    <div class="vname">${esc(v.name)}</div>
-    ${v.nameAr ? `<div class="vname-ar ar" dir="rtl">${esc(v.nameAr)}</div>` : ""}
-    <div class="vmeta">${esc(v.addressLine)}, ${esc(v.city)}, ${esc(v.country)}${v.phone ? ` · ${esc(v.phone)}` : ""}${v.email ? ` · ${esc(v.email)}` : ""}</div>
-    <div class="vmeta">CR ${esc(v.crNumber)} · Tax ID ${esc(v.taxId)}</div>
+    <div class="vname"${loc.arabicFirst ? ' dir="rtl"' : ""}><span data-gt-field="vendor.name">${esc(primaryName)}</span></div>
+    ${secondaryName && loc.lang !== "en" ? `<div class="vname-ar${loc.arabicFirst ? " alt" : " ar"}"${loc.arabicFirst ? "" : ' dir="rtl"'}>${esc(secondaryName)}</div>` : ""}
+    <div class="vmeta">${loc.ltr(`${v.addressLine}, ${v.city}, ${v.country}`)}${v.phone ? ` · ${loc.digits(v.phone)}` : ""}${v.email ? ` · ${loc.ltr(v.email)}` : ""}</div>
+    <div class="vmeta">${loc.plain("CR", "س.ت")} ${loc.digits(v.crNumber)} · ${loc.plain("Tax ID", "الرقم الضريبي")} ${gt("vendor.taxId", v.taxId, loc)}</div>
   </div>
   <div class="dtitle">
-    <h2>${esc(title)}</h2>
-    <div class="ar" dir="rtl">${esc(titleAr)}</div>
-    <table style="margin-left:auto;margin-top:4pt;font-size:9.5pt;border-collapse:collapse">
-      ${right.map(([l, la, val]) => `<tr><td style="color:#555;text-align:right;padding:1pt 4pt">${esc(l)} <span class="ar">${esc(la)}</span></td><td style="font-weight:700;padding:1pt 4pt">${esc(val)}</td></tr>`).join("")}
+    <h2${loc.arabicFirst ? ' class="ar" dir="rtl"' : ""}>${esc(loc.arabicFirst ? titleAr : title)}</h2>
+    ${loc.lang === "en" ? "" : `<div class="${loc.arabicFirst ? "alt" : "ar"}"${loc.arabicFirst ? "" : ' dir="rtl"'}>${esc(loc.arabicFirst ? title : titleAr)}</div>`}
+    <table style="margin-inline-start:auto;margin-top:4pt;font-size:9.5pt;border-collapse:collapse">
+      ${right.map(([l, la, val]) => `<tr><td style="color:#555;text-align:end;padding:1pt 4pt">${loc.label(l, la)}</td><td style="font-weight:700;padding:1pt 4pt">${val}</td></tr>`).join("")}
     </table>
   </div>
 </div>`;
 }
 
-function billTo(extra: string): string {
+function billTo(loc: DocLocale, extra: string): string {
   return `<div class="box">
-  <h3>Bill to <span class="ar">فاتورة إلى</span></h3>
-  <div><strong>${esc(COMPANY.name)}</strong></div>
-  <div class="ar" dir="rtl">${esc(COMPANY.nameAr)}</div>
-  <div>${esc(COMPANY.addressLine)}, ${esc(COMPANY.city)}</div>
-  <div class="small">Tax ID ${esc(COMPANY.taxId)} · CR ${esc(COMPANY.crNumber)}</div>
+  <h3>${loc.label("Bill to", "فاتورة إلى")}</h3>
+  <div><strong>${loc.name(COMPANY.name, COMPANY.nameAr)}</strong></div>
+  <div>${loc.ltr(`${COMPANY.addressLine}, ${COMPANY.city}`)}</div>
+  <div class="small">${loc.plain("Tax ID", "الرقم الضريبي")} ${loc.digits(COMPANY.taxId)} · ${loc.plain("CR", "س.ت")} ${loc.digits(COMPANY.crNumber)}</div>
   ${extra}
 </div>`;
 }
 
-function linesTable(lines: MoneyLine[], opts: { showTaxRate?: boolean; showDiscount?: boolean }): string {
+function linesTable(lines: MoneyLine[], loc: DocLocale, opts: { showTaxRate?: boolean; showDiscount?: boolean }): string {
   const rows = lines
-    .map(
-      (l) => `<tr>
-  <td class="num">${l.lineNo}</td>
-  <td>${esc(l.itemCode ?? "")}</td>
-  <td>${esc(l.description)}${l.descriptionAr ? `<span class="desc-ar ar" dir="rtl">${esc(l.descriptionAr)}</span>` : ""}</td>
-  <td class="num">${fmtNumber(l.quantity, "en-US", Number(l.quantity) % 1 === 0 ? 0 : 3)}</td>
-  <td>${esc(l.uom)}</td>
-  <td class="num">${fmtNumber(l.unitPrice)}</td>
-  ${opts.showDiscount ? `<td class="num">${Number(l.discountPct ?? 0) ? fmtNumber(l.discountPct!, "en-US", 1) + "%" : "—"}</td>` : ""}
-  ${opts.showTaxRate ? `<td class="num">${(Number(l.taxRate ?? 0) * 100).toFixed(l.taxRate && Number(l.taxRate) * 100 % 1 ? 1 : 0)}%</td>` : `<td>${esc(l.taxCode ?? "")}</td>`}
-  <td class="num">${fmtNumber(l.taxAmount)}</td>
-  <td class="num">${fmtNumber(l.lineTotal)}</td>
-</tr>`,
-    )
+    .map((l, i) => {
+      const desc = loc.arabicFirst && l.descriptionAr ? l.descriptionAr : l.description;
+      const descAlt = loc.arabicFirst ? l.description : l.descriptionAr;
+      return `<tr>
+  <td class="num">${loc.digits(l.lineNo)}</td>
+  <td>${gt(`lines[${i}].itemCode`, l.itemCode ?? "", loc)}</td>
+  <td><span data-gt-field="lines[${i}].description"${loc.arabicFirst ? ' dir="rtl"' : ""}>${esc(desc)}</span>${descAlt && loc.lang !== "en" ? `<span class="desc-ar ${loc.arabicFirst ? "alt" : "ar"}"${loc.arabicFirst ? "" : ' dir="rtl"'}>${esc(descAlt)}</span>` : ""}</td>
+  <td class="num">${gt(`lines[${i}].quantity`, fmtNumber(l.quantity, "en-US", Number(l.quantity) % 1 === 0 ? 0 : 3), loc)}</td>
+  <td>${gt(`lines[${i}].uom`, l.uom, loc)}</td>
+  <td class="num">${gt(`lines[${i}].unitPrice`, fmtNumber(l.unitPrice), loc)}</td>
+  ${opts.showDiscount ? `<td class="num">${Number(l.discountPct ?? 0) ? loc.digits(fmtNumber(l.discountPct!, "en-US", 1)) + "%" : "—"}</td>` : ""}
+  ${opts.showTaxRate ? `<td class="num">${gt(`lines[${i}].taxRate`, (Number(l.taxRate ?? 0) * 100).toFixed((Number(l.taxRate ?? 0) * 100) % 1 ? 1 : 0), loc)}%</td>` : `<td>${esc(l.taxCode ?? "")}</td>`}
+  <td class="num">${gt(`lines[${i}].taxAmount`, fmtNumber(l.taxAmount), loc)}</td>
+  <td class="num">${gt(`lines[${i}].lineTotal`, fmtNumber(l.lineTotal), loc)}</td>
+</tr>`;
+    })
     .join("\n");
   return `<table class="lines"><thead><tr>
-  <th class="num">#</th><th>Item<span class="ar">الصنف</span></th><th>Description<span class="ar">الوصف</span></th>
-  <th class="num">Qty<span class="ar">الكمية</span></th><th>UoM<span class="ar">الوحدة</span></th><th class="num">Unit price<span class="ar">سعر الوحدة</span></th>
-  ${opts.showDiscount ? '<th class="num">Disc.<span class="ar">خصم</span></th>' : ""}
-  ${opts.showTaxRate ? '<th class="num">VAT %<span class="ar">نسبة الضريبة</span></th>' : '<th>Tax<span class="ar">الضريبة</span></th>'}
-  <th class="num">Tax amt<span class="ar">قيمة الضريبة</span></th><th class="num">Total<span class="ar">الإجمالي</span></th>
+  <th class="num">#</th><th>${loc.labelBlock("Item", "الصنف")}</th><th>${loc.labelBlock("Description", "الوصف")}</th>
+  <th class="num">${loc.labelBlock("Qty", "الكمية")}</th><th>${loc.labelBlock("UoM", "الوحدة")}</th><th class="num">${loc.labelBlock("Unit price", "سعر الوحدة")}</th>
+  ${opts.showDiscount ? `<th class="num">${loc.labelBlock("Disc.", "خصم")}</th>` : ""}
+  ${opts.showTaxRate ? `<th class="num">${loc.labelBlock("VAT %", "نسبة الضريبة")}</th>` : `<th>${loc.labelBlock("Tax", "الضريبة")}</th>`}
+  <th class="num">${loc.labelBlock("Tax amt", "قيمة الضريبة")}</th><th class="num">${loc.labelBlock("Total", "الإجمالي")}</th>
 </tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-function totalsTable(currency: string, subtotal: string | number, taxTotal: string | number, grandTotal: string | number, id = "grand-total"): string {
+function totalsTable(loc: DocLocale, currency: string, subtotal: string | number, taxTotal: string | number, grandTotal: string | number, id = "grand-total"): string {
   return `<table class="totals">
-  <tr><td>Subtotal <span class="ar">المجموع الفرعي</span></td><td class="num">${fmtNumber(subtotal)}</td></tr>
-  <tr><td>VAT <span class="ar">ضريبة القيمة المضافة</span></td><td class="num">${fmtNumber(taxTotal)}</td></tr>
-  <tr class="grand"><td>Total ${esc(currency)} <span class="ar">الإجمالي</span></td><td class="num" id="${id}">${fmtNumber(grandTotal)}</td></tr>
+  <tr><td>${loc.label("Subtotal", "المجموع الفرعي")}</td><td class="num">${gt("subtotal", fmtNumber(subtotal), loc)}</td></tr>
+  <tr><td>${loc.label("VAT", "ضريبة القيمة المضافة")}</td><td class="num">${gt("taxTotal", fmtNumber(taxTotal), loc)}</td></tr>
+  <tr class="grand"><td>${loc.label("Total", "الإجمالي")} ${esc(currency)}</td><td class="num">${gt("grandTotal", fmtNumber(grandTotal), loc, id)}</td></tr>
 </table>`;
 }
 
@@ -147,26 +170,35 @@ export interface QuoteTemplateData {
 
 export function renderQuoteHtml(d: QuoteTemplateData): string {
   const b = vendorBrand(d.vendor.code ?? d.vendor.taxId);
+  const loc = localeFor(d.vendor);
   const body = `
-${vendorHeader(d.vendor, "QUOTATION", "عرض سعر", [["Quote No.", "رقم العرض", d.number], ["Date", "التاريخ", d.quoteDate], ["Valid until", "صالح حتى", d.validUntil], ["Your RFQ", "طلب عرض السعر", d.rfqNumber]])}
+${vendorHeader(d.vendor, loc, "QUOTATION", "عرض سعر", [
+  ["Quote No.", "رقم العرض", gt("number", d.number, loc)],
+  ["Date", "التاريخ", loc.date(d.quoteDate)],
+  ["Valid until", "صالح حتى", loc.date(d.validUntil)],
+  ["Your RFQ", "طلب عرض السعر", loc.digits(d.rfqNumber)],
+])}
 <div class="meta">
-  ${billTo("")}
-  <div class="box"><h3>Terms <span class="ar">الشروط</span></h3>
+  ${billTo(loc, "")}
+  <div class="box"><h3>${loc.label("Terms", "الشروط")}</h3>
     <div class="kv">
-      <div>Currency</div><div>${esc(d.currency)}</div>
-      <div>Payment</div><div>${d.paymentTermsDays === 0 ? "Due on receipt" : `Net ${d.paymentTermsDays} days`}</div>
-      <div>Lead time</div><div>${d.leadTimeDays} days from PO</div>
-      <div>Delivery</div><div>DAP ${esc(COMPANY.city)}, packing included</div>
+      <div>${loc.label("Currency", "العملة")}</div><div>${esc(d.currency)}</div>
+      <div>${loc.label("Payment", "الدفع")}</div><div>${d.paymentTermsDays === 0 ? loc.plain("Due on receipt", "الدفع عند الاستلام") : `${loc.plain("Net", "صافي")} ${loc.digits(d.paymentTermsDays)} ${loc.plain("days", "يوم")}`}</div>
+      <div>${loc.label("Lead time", "مدة التوريد")}</div><div>${loc.digits(d.leadTimeDays)} ${loc.plain("days from PO", "يوم من أمر الشراء")}</div>
+      <div>${loc.label("Delivery", "التسليم")}</div><div>DAP ${esc(COMPANY.city)}</div>
     </div>
   </div>
 </div>
-${linesTable(d.lines, {})}
-${totalsTable(d.currency, d.subtotal, d.taxTotal, d.grandTotal)}
+${linesTable(d.lines, loc, {})}
+${totalsTable(loc, d.currency, d.subtotal, d.taxTotal, d.grandTotal)}
 <div class="foot">
-  <div><h4>Notes <span class="ar">ملاحظات</span></h4><p class="small">Prices are firm for the validity period. Quantities below the quoted volume may be re-priced. This quotation is not a tax invoice.</p></div>
-  <div><h4>For ${esc(d.vendor.name)}</h4><div class="sig">${esc(d.vendor.contactName ?? "Sales Department")}</div></div>
+  <div><h4>${loc.label("Notes", "ملاحظات")}</h4><p class="small">${loc.plain(
+    "Prices are firm for the validity period. Quantities below the quoted volume may be re-priced. This quotation is not a tax invoice.",
+    "الأسعار ثابتة خلال مدة السريان. قد يعاد تسعير الكميات الأقل من الكمية المعروضة. هذا العرض ليس فاتورة ضريبية.",
+  )}</p></div>
+  <div><h4>${loc.plain("For", "عن")} ${loc.ltr(d.vendor.name)}</h4><div class="sig">${loc.ltr(d.vendor.contactName ?? "Sales Department")}</div></div>
 </div>`;
-  return baseDocument({ title: `Quotation ${d.number}`, body, extraCss: brandCss(b) });
+  return baseDocument({ title: `Quotation ${d.number}`, body, extraCss: brandCss(b), lang: loc.arabicFirst ? "ar" : "en", dir: loc.dir });
 }
 
 // --- Delivery note -------------------------------------------------------------
@@ -179,28 +211,39 @@ export interface DeliveryNoteTemplateData {
 
 export function renderDeliveryNoteHtml(d: DeliveryNoteTemplateData): string {
   const b = vendorBrand(d.vendor.code ?? d.vendor.taxId);
-  const rows = d.lines.map((l) => `<tr><td class="num">${l.lineNo}</td><td>${l.poLineNo ?? ""}</td><td>${esc(l.itemCode ?? "")}</td><td>${esc(l.description)}${l.descriptionAr ? `<span class="desc-ar ar" dir="rtl">${esc(l.descriptionAr)}</span>` : ""}</td><td class="num">${fmtNumber(l.quantity, "en-US", Number(l.quantity) % 1 === 0 ? 0 : 3)}</td><td>${esc(l.uom)}</td><td style="width:22mm"></td></tr>`).join("");
+  const loc = localeFor(d.vendor);
+  const rows = d.lines
+    .map((l, i) => {
+      const desc = loc.arabicFirst && l.descriptionAr ? l.descriptionAr : l.description;
+      const alt = loc.arabicFirst ? l.description : l.descriptionAr;
+      return `<tr><td class="num">${loc.digits(l.lineNo)}</td><td>${l.poLineNo ?? ""}</td><td>${gt(`lines[${i}].itemCode`, l.itemCode ?? "", loc)}</td><td><span data-gt-field="lines[${i}].description"${loc.arabicFirst ? ' dir="rtl"' : ""}>${esc(desc)}</span>${alt && loc.lang !== "en" ? `<span class="desc-ar ${loc.arabicFirst ? "alt" : "ar"}">${esc(alt)}</span>` : ""}</td><td class="num">${gt(`lines[${i}].quantity`, fmtNumber(l.quantity, "en-US", Number(l.quantity) % 1 === 0 ? 0 : 3), loc)}</td><td>${gt(`lines[${i}].uom`, l.uom, loc)}</td><td style="width:22mm"></td></tr>`;
+    })
+    .join("");
   const body = `
-${vendorHeader(d.vendor, "DELIVERY NOTE", "إشعار تسليم", [["DN No.", "رقم الإشعار", d.number], ["Date", "التاريخ", d.deliveryDate], ["Your PO", "أمر الشراء", d.poNumber]])}
+${vendorHeader(d.vendor, loc, "DELIVERY NOTE", "إشعار تسليم", [
+  ["DN No.", "رقم الإشعار", gt("number", d.number, loc)],
+  ["Date", "التاريخ", loc.date(d.deliveryDate)],
+  ["Your PO", "أمر الشراء", gt("poNumber", d.poNumber, loc)],
+])}
 <div class="meta">
-  <div class="box"><h3>Deliver to <span class="ar">التسليم إلى</span></h3>
-    <div><strong>${esc(COMPANY.name)}</strong></div>
-    ${d.deliverTo ? `<div>${esc(d.deliverTo.name)}</div><div>${esc(d.deliverTo.addressLine)}, ${esc(d.deliverTo.city)}</div>` : ""}
+  <div class="box"><h3>${loc.label("Deliver to", "التسليم إلى")}</h3>
+    <div><strong>${loc.name(COMPANY.name, COMPANY.nameAr)}</strong></div>
+    ${d.deliverTo ? `<div>${loc.ltr(d.deliverTo.name)}</div><div>${loc.ltr(`${d.deliverTo.addressLine}, ${d.deliverTo.city}`)}</div>` : ""}
   </div>
-  <div class="box"><h3>Shipment <span class="ar">الشحنة</span></h3>
+  <div class="box"><h3>${loc.label("Shipment", "الشحنة")}</h3>
     <div class="kv">
-      <div>Carrier</div><div>${esc(d.carrier ?? "—")}</div>
-      <div>Vehicle</div><div>${esc(d.vehicle ?? "—")}</div>
-      <div>Packages</div><div>${d.packages ?? "—"}</div>
+      <div>${loc.label("Carrier", "الناقل")}</div><div>${loc.ltr(d.carrier ?? "—")}</div>
+      <div>${loc.label("Vehicle", "المركبة")}</div><div>${loc.digits(d.vehicle ?? "—")}</div>
+      <div>${loc.label("Packages", "الطرود")}</div><div>${d.packages === null ? "—" : loc.digits(d.packages)}</div>
     </div>
   </div>
 </div>
-<table class="lines"><thead><tr><th class="num">#</th><th>PO line</th><th>Item<span class="ar">الصنف</span></th><th>Description<span class="ar">الوصف</span></th><th class="num">Qty shipped<span class="ar">الكمية المشحونة</span></th><th>UoM<span class="ar">الوحدة</span></th><th>Received<span class="ar">المستلم</span></th></tr></thead><tbody>${rows}</tbody></table>
+<table class="lines"><thead><tr><th class="num">#</th><th>${loc.labelBlock("PO line", "بند الأمر")}</th><th>${loc.labelBlock("Item", "الصنف")}</th><th>${loc.labelBlock("Description", "الوصف")}</th><th class="num">${loc.labelBlock("Qty shipped", "الكمية المشحونة")}</th><th>${loc.labelBlock("UoM", "الوحدة")}</th><th>${loc.labelBlock("Received", "المستلم")}</th></tr></thead><tbody>${rows}</tbody></table>
 <div class="foot">
-  <div><h4>Dispatched by <span class="ar">أرسلها</span></h4><div class="sig">${esc(d.vendor.name)} Warehouse</div></div>
-  <div><h4>Received by <span class="ar">استلمها</span></h4><div class="sig">Name / signature / date</div></div>
+  <div><h4>${loc.label("Dispatched by", "أرسلها")}</h4><div class="sig">${loc.ltr(d.vendor.name)}</div></div>
+  <div><h4>${loc.label("Received by", "استلمها")}</h4><div class="sig">${loc.plain("Name / signature / date", "الاسم / التوقيع / التاريخ")}</div></div>
 </div>`;
-  return baseDocument({ title: `Delivery Note ${d.number}`, body, extraCss: brandCss(b) });
+  return baseDocument({ title: `Delivery Note ${d.number}`, body, extraCss: brandCss(b), lang: loc.arabicFirst ? "ar" : "en", dir: loc.dir });
 }
 
 // --- Tax invoice -------------------------------------------------------------
@@ -213,27 +256,36 @@ export interface InvoiceTemplateData {
 
 export function renderInvoiceHtml(d: InvoiceTemplateData): string {
   const b = vendorBrand(d.vendor.code ?? d.vendor.taxId);
+  const loc = localeFor(d.vendor);
   const body = `
-${vendorHeader(d.vendor, "TAX INVOICE", "فاتورة ضريبية", [["Invoice No.", "رقم الفاتورة", d.number], ["Date", "التاريخ", d.invoiceDate], ["Due date", "تاريخ الاستحقاق", d.dueDate], ["PO ref.", "أمر الشراء", d.poNumber ?? "—"]])}
+${vendorHeader(d.vendor, loc, "TAX INVOICE", "فاتورة ضريبية", [
+  ["Invoice No.", "رقم الفاتورة", gt("number", d.number, loc)],
+  ["Date", "التاريخ", `<span data-gt-field="invoiceDate">${loc.date(d.invoiceDate)}</span>`],
+  ["Due date", "تاريخ الاستحقاق", `<span data-gt-field="dueDate">${loc.date(d.dueDate)}</span>`],
+  ["PO ref.", "أمر الشراء", d.poNumber ? gt("poNumber", d.poNumber, loc) : "—"],
+])}
 <div class="meta">
-  ${billTo("")}
-  <div class="box"><h3>Remit to <span class="ar">الدفع إلى</span></h3>
+  ${billTo(loc, "")}
+  <div class="box"><h3>${loc.label("Remit to", "الدفع إلى")}</h3>
     <div class="kv">
-      <div>Bank</div><div>${esc(d.printedBankName)}</div>
-      <div>IBAN</div><div id="invoice-iban">${esc(formatIban(d.printedIban))}</div>
-      ${d.vendor.swift ? `<div>SWIFT</div><div>${esc(d.vendor.swift)}</div>` : ""}
-      <div>Beneficiary</div><div>${esc(d.vendor.name)}</div>
-      <div>Currency</div><div>${esc(d.currency)}</div>
+      <div>${loc.label("Bank", "البنك")}</div><div><span data-gt-field="vendor.bankName">${loc.ltr(d.printedBankName)}</span></div>
+      <div>${loc.label("IBAN", "الآيبان")}</div><div><span data-gt-field="vendor.iban" id="invoice-iban" dir="ltr">${loc.digits(formatIban(d.printedIban))}</span></div>
+      ${d.vendor.swift ? `<div>${loc.label("SWIFT", "سويفت")}</div><div>${loc.ltr(d.vendor.swift)}</div>` : ""}
+      <div>${loc.label("Beneficiary", "المستفيد")}</div><div>${loc.ltr(d.vendor.name)}</div>
+      <div>${loc.label("Currency", "العملة")}</div><div><span data-gt-field="currency">${loc.ltr(d.currency)}</span></div>
     </div>
   </div>
 </div>
-${linesTable(d.lines, { showTaxRate: true, showDiscount: true })}
-${totalsTable(d.currency, d.subtotal, d.taxTotal, d.grandTotal, "invoice-grand-total")}
+${linesTable(d.lines, loc, { showTaxRate: true, showDiscount: true })}
+${totalsTable(loc, d.currency, d.subtotal, d.taxTotal, d.grandTotal, "invoice-grand-total")}
 <div class="foot">
-  <div><h4>Payment terms <span class="ar">شروط الدفع</span></h4><p class="small">Please quote invoice number ${esc(d.number)} on your remittance. Late payments may incur charges as per contract.</p><div class="stamp">TAX INVOICE</div></div>
-  <div><h4>Authorised by <span class="ar">اعتماد</span></h4><div class="sig">${esc(d.vendor.contactName ?? "Accounts Receivable")}, ${esc(d.vendor.name)}</div></div>
+  <div><h4>${loc.label("Payment terms", "شروط الدفع")}</h4><p class="small">${loc.plain(
+    `Please quote invoice number ${d.number} on your remittance. Late payments may incur charges as per contract.`,
+    `يرجى ذكر رقم الفاتورة ${d.number} عند السداد. قد تترتب رسوم على التأخير وفق العقد.`,
+  )}</p><div class="stamp">${loc.plain("TAX INVOICE", "فاتورة ضريبية")}</div></div>
+  <div><h4>${loc.label("Authorised by", "اعتماد")}</h4><div class="sig">${loc.ltr(`${d.vendor.contactName ?? "Accounts Receivable"}, ${d.vendor.name}`)}</div></div>
 </div>`;
-  return baseDocument({ title: `Tax Invoice ${d.number}`, body, extraCss: brandCss(b) });
+  return baseDocument({ title: `Tax Invoice ${d.number}`, body, extraCss: brandCss(b), lang: loc.arabicFirst ? "ar" : "en", dir: loc.dir });
 }
 
 // --- Receipt -------------------------------------------------------------
@@ -244,26 +296,30 @@ export interface ReceiptTemplateData {
 
 export function renderReceiptHtml(d: ReceiptTemplateData): string {
   const b = vendorBrand(d.vendor.code ?? d.vendor.taxId);
+  const loc = localeFor(d.vendor);
   const body = `
-${vendorHeader(d.vendor, "PAYMENT RECEIPT", "سند قبض", [["Receipt No.", "رقم السند", d.number], ["Date", "التاريخ", d.receiptDate]])}
+${vendorHeader(d.vendor, loc, "PAYMENT RECEIPT", "سند قبض", [
+  ["Receipt No.", "رقم السند", gt("number", d.number, loc)],
+  ["Date", "التاريخ", `<span data-gt-field="receiptDate">${loc.date(d.receiptDate)}</span>`],
+])}
 <div class="meta" style="grid-template-columns:1fr">
   <div class="box">
-    <h3>Received from <span class="ar">استلمنا من</span></h3>
-    <div><strong>${esc(COMPANY.name)}</strong> <span class="ar" dir="rtl">${esc(COMPANY.nameAr)}</span></div>
+    <h3>${loc.label("Received from", "استلمنا من")}</h3>
+    <div><strong>${loc.name(COMPANY.name, COMPANY.nameAr)}</strong></div>
     <div class="kv" style="margin-top:6pt">
-      <div>Amount</div><div id="receipt-amount"><strong>${fmtNumber(d.amount)} ${esc(d.currency)}</strong></div>
-      <div>In settlement of</div><div>Invoice ${esc(d.invoiceNumber)}</div>
-      <div>Method</div><div>${esc(d.method.replace(/_/g, " "))}</div>
-      <div>Reference</div><div>${esc(d.paymentReference)}</div>
+      <div>${loc.label("Amount", "المبلغ")}</div><div id="receipt-amount"><strong>${gt("amount", fmtNumber(d.amount), loc)} <span data-gt-field="currency">${esc(d.currency)}</span></strong></div>
+      <div>${loc.label("In settlement of", "سداداً عن")}</div><div>${loc.plain("Invoice", "فاتورة")} ${gt("invoiceNumber", d.invoiceNumber, loc)}</div>
+      <div>${loc.label("Method", "طريقة الدفع")}</div><div>${loc.ltr(d.method.replace(/_/g, " "))}</div>
+      <div>${loc.label("Reference", "المرجع")}</div><div>${gt("paymentReference", d.paymentReference, loc)}</div>
     </div>
-    <div class="stamp">PAID · مدفوع</div>
+    <div class="stamp">${loc.plain("PAID", "مدفوع")} · ${loc.plain("مدفوع", "PAID")}</div>
   </div>
 </div>
 <div class="foot">
   <div></div>
-  <div><h4>Received by <span class="ar">المستلم</span></h4><div class="sig">${esc(d.vendor.contactName ?? "Accounts")}, ${esc(d.vendor.name)}</div></div>
+  <div><h4>${loc.label("Received by", "المستلم")}</h4><div class="sig">${loc.ltr(`${d.vendor.contactName ?? "Accounts"}, ${d.vendor.name}`)}</div></div>
 </div>`;
-  return baseDocument({ title: `Receipt ${d.number}`, body, extraCss: brandCss(b) });
+  return baseDocument({ title: `Receipt ${d.number}`, body, extraCss: brandCss(b), lang: loc.arabicFirst ? "ar" : "en", dir: loc.dir });
 }
 
 // --- Vendor compliance documents (issued by authorities / bank) ----------------
@@ -288,6 +344,8 @@ const ATTRIBUTE_LABELS: Record<string, [string, string]> = {
 
 export function renderVendorComplianceHtml(d: VendorComplianceTemplateData): string {
   const [title, titleAr, colour] = KIND_TITLES[d.kind];
+  // An authority issues these in the language of the vendor's own paperwork.
+  const loc = localeFor(d.vendor);
   const css = `
 .cert { border: 6px double ${colour}; padding: 16pt 20pt; margin-top: 6pt; min-height: 160mm; position: relative; }
 .cert .issuer { text-align: center; color: ${colour}; }
@@ -298,39 +356,51 @@ export function renderVendorComplianceHtml(d: VendorComplianceTemplateData): str
 .cert .no { text-align: center; margin: 8pt 0 14pt; font-size: 11pt; }
 .cert .no strong { font-size: 14pt; letter-spacing: 0.1em; }
 .grid { display: grid; grid-template-columns: 34mm 1fr 34mm; column-gap: 8pt; row-gap: 4pt; font-size: 10pt; }
-.grid .l { color: #444; } .grid .la { text-align: right; color: #444; }
+.grid .l { color: #444; } .grid .la { text-align: end; color: #444; }
 .grid .v { font-weight: 600; }
-.seal { position: absolute; right: 22pt; bottom: 22pt; width: 34mm; height: 34mm; border: 2px solid ${colour}; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 7.5pt; color: ${colour}; opacity: 0.75; transform: rotate(-12deg); line-height: 1.2; }
+.seal { position: absolute; inset-inline-end: 22pt; bottom: 22pt; width: 34mm; height: 34mm; border: 2px solid ${colour}; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 7.5pt; color: ${colour}; opacity: 0.75; transform: rotate(-12deg); line-height: 1.2; }
 .validity { margin-top: 14pt; font-size: 10pt; }
-.qr { position: absolute; left: 22pt; bottom: 22pt; width: 22mm; height: 22mm; background: repeating-linear-gradient(90deg, #222 0 2pt, #fff 2pt 4pt), repeating-linear-gradient(0deg, #222 0 2pt, #fff 2pt 4pt); background-blend-mode: multiply; opacity: 0.8; }
+.qr { position: absolute; inset-inline-start: 22pt; bottom: 22pt; width: 22mm; height: 22mm; background: repeating-linear-gradient(90deg, #222 0 2pt, #fff 2pt 4pt), repeating-linear-gradient(0deg, #222 0 2pt, #fff 2pt 4pt); background-blend-mode: multiply; opacity: 0.8; }
 `;
+  // On an Arabic-first certificate the Arabic label leads and the English one
+  // follows in the third column; on the others it is the other way round.
+  const row = (en: string, ar: string, value: string) =>
+    loc.arabicFirst
+      ? `<div class="l ar" dir="rtl">${esc(ar)}</div><div class="v">${value}</div><div class="la alt">${esc(en)}</div>`
+      : `<div class="l">${esc(en)}</div><div class="v">${value}</div><div class="la ar" dir="rtl">${esc(ar)}</div>`;
   const rows = Object.entries(d.attributes)
     .map(([k, v]) => {
       const [l, la] = ATTRIBUTE_LABELS[k] ?? [k, ""];
-      return `<div class="l">${esc(l)}</div><div class="v">${esc(v)}</div><div class="la ar" dir="rtl">${esc(la)}</div>`;
+      return row(l, la, loc.digits(v));
     })
     .join("");
+  const issuerLabel = issuerAr(d.kind, d.vendor.city);
   const body = `
 <div class="cert">
-  <div class="issuer"><div class="en">${esc(d.issuer)}</div><div class="ar" dir="rtl">${esc(issuerAr(d.kind, d.vendor.city))}</div></div>
-  <h2>${esc(title)}</h2><div class="h2ar ar" dir="rtl">${esc(titleAr)}</div>
-  <div class="no">No. <strong id="doc-number">${esc(d.number)}</strong></div>
+  <div class="issuer">${
+    loc.arabicFirst
+      ? `<div class="ar" dir="rtl">${esc(issuerLabel)}</div><div class="alt">${esc(d.issuer)}</div>`
+      : `<div class="en">${esc(d.issuer)}</div><div class="ar" dir="rtl">${esc(issuerLabel)}</div>`
+  }</div>
+  <h2${loc.arabicFirst ? ' class="ar" dir="rtl"' : ""}>${esc(loc.arabicFirst ? titleAr : title)}</h2>
+  <div class="h2ar ${loc.arabicFirst ? "alt" : "ar"}"${loc.arabicFirst ? "" : ' dir="rtl"'}>${esc(loc.arabicFirst ? title : titleAr)}</div>
+  <div class="no">${loc.plain("No.", "رقم")} <strong id="doc-number" data-gt-field="number">${loc.digits(d.number)}</strong></div>
   <div class="grid">
-    <div class="l">Name</div><div class="v">${esc(d.vendor.name)}</div><div class="la ar" dir="rtl">الاسم</div>
-    <div class="l">Arabic name</div><div class="v ar" dir="rtl" style="text-align:left">${esc(d.vendor.nameAr ?? "")}</div><div class="la ar" dir="rtl">الاسم العربي</div>
-    <div class="l">Address</div><div class="v">${esc(d.vendor.addressLine)}, ${esc(d.vendor.city)}, ${esc(d.vendor.country)}</div><div class="la ar" dir="rtl">العنوان</div>
-    ${d.kind !== "vendor_licence" ? `<div class="l">CR No.</div><div class="v">${esc(d.vendor.crNumber)}</div><div class="la ar" dir="rtl">السجل التجاري</div>` : ""}
-    ${d.kind !== "vendor_tax_card" ? `<div class="l">Tax ID</div><div class="v">${esc(d.vendor.taxId)}</div><div class="la ar" dir="rtl">الرقم الضريبي</div>` : ""}
+    ${row("Name", "الاسم", `<span data-gt-field="vendor.name">${esc(loc.arabicFirst && d.vendor.nameAr ? d.vendor.nameAr : d.vendor.name)}</span>`)}
+    ${row(loc.arabicFirst ? "Name (English)" : "Arabic name", loc.arabicFirst ? "الاسم بالإنجليزية" : "الاسم العربي", `<span${loc.arabicFirst ? "" : ' class="ar" dir="rtl" style="text-align:left"'}>${esc(loc.arabicFirst ? d.vendor.name : d.vendor.nameAr ?? "")}</span>`)}
+    ${row("Address", "العنوان", loc.ltr(`${d.vendor.addressLine}, ${d.vendor.city}, ${d.vendor.country}`))}
+    ${d.kind !== "vendor_licence" ? row("CR No.", "السجل التجاري", `<span data-gt-field="vendor.crNumber">${loc.digits(d.vendor.crNumber)}</span>`) : ""}
+    ${d.kind !== "vendor_tax_card" ? row("Tax ID", "الرقم الضريبي", `<span data-gt-field="vendor.taxId">${loc.digits(d.vendor.taxId)}</span>`) : ""}
     ${rows}
   </div>
   <div class="validity grid">
-    <div class="l">Issued</div><div class="v" id="doc-issued">${esc(d.issuedDate)}</div><div class="la ar" dir="rtl">تاريخ الإصدار</div>
-    <div class="l">Valid until</div><div class="v" id="doc-expiry">${esc(d.expiryDate)}</div><div class="la ar" dir="rtl">صالح حتى</div>
+    ${row("Issued", "تاريخ الإصدار", `<span id="doc-issued" data-gt-field="issuedDate">${loc.date(d.issuedDate)}</span>`)}
+    ${row("Valid until", "صالح حتى", `<span id="doc-expiry" data-gt-field="expiryDate">${loc.date(d.expiryDate)}</span>`)}
   </div>
   <div class="qr" aria-hidden="true"></div>
-  <div class="seal">${esc(d.issuer)}<br>OFFICIAL SEAL<br>ختم رسمي</div>
+  <div class="seal">${esc(loc.arabicFirst ? issuerLabel : d.issuer)}<br>${loc.plain("OFFICIAL SEAL", "ختم رسمي")}</div>
 </div>`;
-  return baseDocument({ title: `${title} ${d.number}`, body, extraCss: css });
+  return baseDocument({ title: `${title} ${d.number}`, body, extraCss: css, lang: loc.arabicFirst ? "ar" : "en", dir: loc.dir });
 }
 
 function issuerAr(kind: VendorComplianceTemplateData["kind"], city: string): string {

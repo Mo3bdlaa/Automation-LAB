@@ -39,6 +39,11 @@ All lowercase, hyphen-separated. `id` and `data-testid` carry the same value.
 | API token row | `tokens-row-{id}` with `data-revoked` | inside `#tokens-table` |
 | Instructor row | `instructor-row-{userId}` | inside `#instructor-table` |
 | Instructor stat tile | `instructor-stat-{key}` with `data-value` | `instructor-stat-averageScore` |
+| Difficulty level link | `{entity}-level-{n}` with `data-current` | `invoice-level-3`, `validation-level-3` |
+| Document card | also carries `data-level` | `invoice-document[data-level="3"]` |
+| Validation station field map | `validation-field-map` with `data-boxes` | one `validation-box-{field}` per field |
+| Cohort difficulty form | `difficulty-form`, `difficulty-level`, `difficulty-submit`, `difficulty-current` | `difficulty-current[data-level]` |
+| Per-level score tile | `instructor-level-{n}` with `data-extractions`, `data-score` | `instructor-level-3` |
 
 ## Rules
 
@@ -53,5 +58,8 @@ All lowercase, hyphen-separated. `id` and `data-testid` carry the same value.
 - On the validation station (`/invoices/{internalNumber}/validate`), every field group carries
   `data-low-confidence="1"` when the confidence the bot submitted for that field is below
   0.85, so an attended workflow can jump straight to the fields that need a human.
+- `?level=N` on an invoice page or the validation station switches the document to that
+  difficulty level (1 native PDF, 2 to 5 scans). The document card and the station both
+  carry `data-level`, so a bot can assert which variant it is looking at.
 - `?classic=1` on any page requests the plain server-rendered variant with no client-side
   JavaScript hydration beyond what forms need. (P0: all pages are already server-rendered.)

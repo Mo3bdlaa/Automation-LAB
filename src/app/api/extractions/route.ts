@@ -5,6 +5,7 @@ import { apiSession } from "@/lib/auth/server";
 import { conflict, created, notFound, problem, readJson } from "@/lib/api/http";
 import { extractionToInvoice, flattenApiExtraction } from "@/lib/services/extraction";
 import { submitExtraction } from "@/lib/services/invoices";
+import { defaultLevel } from "@/lib/lab-settings";
 
 const Body = z.object({
   internalNumber: z.string().min(1),
@@ -41,6 +42,8 @@ const Body = z.object({
     .min(1),
   /** Optional per-field confidence (0..1), keyed like the ground truth: `number`, `vendor.iban`, `lines[0].quantity`. */
   confidence: z.record(z.string(), z.number().min(0).max(1)).optional(),
+  /** Which difficulty level the bot read. Defaults to the level the instructor set. */
+  level: z.number().int().min(1).max(5).optional(),
 });
 
 /**
@@ -54,6 +57,7 @@ export async function POST(req: Request) {
   const parsed = await readJson(req, Body);
   if ("response" in parsed) return parsed.response;
   const { internalNumber, fields, lines, confidence } = parsed.data;
+  const level = parsed.data.level ?? (await defaultLevel());
 
   const inv = await s.tdb.one(invoices, eq(invoices.internalNumber, internalNumber));
   if (!inv) return notFound("Invoice");
@@ -64,9 +68,10 @@ export async function POST(req: Request) {
 
   const flat = flattenApiExtraction({ fields, lines });
   const { asStored, lines: matchLines } = extractionToInvoice(inv, flat);
-  const outcome = await submitExtraction(s, inv, flat, asStored, matchLines, "api", confidence);
+  const outcome = await submitExtraction(s, inv, flat, asStored, matchLines, "api", { confidence, level });
   return created({
     extractionId: outcome.extractionId,
+    level,
     invoice: { internalNumber: inv.internalNumber, status: outcome.status },
     match: { ok: outcome.ok, violations: outcome.violations },
     grade: {

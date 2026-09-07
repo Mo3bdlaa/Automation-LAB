@@ -5,7 +5,10 @@ import { db, schema } from "@/db/client";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
 import { isStaff } from "@/lib/identity";
-import { LinkButton, Page, Section, Status, TableWrap, Toolbar } from "@/components/ui";
+import { Button, LinkButton, Page, Section, Status, TableWrap, Toolbar } from "@/components/ui";
+import { LEVELS, LEVEL_SPECS } from "@/lib/documents/levels";
+import { defaultLevel } from "@/lib/lab-settings";
+import { setDefaultLevelAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +24,8 @@ interface Row {
   extractions: number;
   averageScore: number | null;
   bestScore: number | null;
+  /** Average score per difficulty level, so the ladder shows in the numbers. */
+  byLevel: Record<number, { extractions: number; averageScore: number }>;
   caught: number;
   missed: number;
   falsePositives: number;
@@ -46,7 +51,9 @@ export default async function InstructorPage() {
     ? await db.select({ tenantId: schema.documents.tenantId, n: sql<number>`count(*)` }).from(schema.documents).where(inArray(schema.documents.tenantId, ids)).groupBy(schema.documents.tenantId)
     : [];
   const fileCounts = ids.length
-    ? await db.select({ tenantId: schema.documentFiles.tenantId, n: sql<number>`count(*)` }).from(schema.documentFiles).where(inArray(schema.documentFiles.tenantId, ids)).groupBy(schema.documentFiles.tenantId)
+    // Level 1 only, so a student downloading degraded scans does not read as
+    // more documents rendered than the sandbox holds.
+    ? await db.select({ tenantId: schema.documentFiles.tenantId, n: sql<number>`count(*)` }).from(schema.documentFiles).where(and(inArray(schema.documentFiles.tenantId, ids), eq(schema.documentFiles.level, 1))).groupBy(schema.documentFiles.tenantId)
     : [];
   const invoiceCounts = ids.length
     ? await db
@@ -56,6 +63,7 @@ export default async function InstructorPage() {
         .groupBy(schema.invoices.tenantId)
     : [];
   const allExtractions = ids.length ? await db.select().from(schema.extractions).where(inArray(schema.extractions.tenantId, ids)) : [];
+  const cohortLevel = await defaultLevel();
 
   const rows: Row[] = tenants
     .map((tenant) => {
@@ -76,6 +84,12 @@ export default async function InstructorPage() {
         extractions: mine.length,
         averageScore: scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 1000) / 1000 : null,
         bestScore: scores.length ? Math.max(...scores) : null,
+        byLevel: Object.fromEntries(
+          LEVELS.map((l) => {
+            const at = graded.filter((e) => e.level === l).map((e) => Number(e.score));
+            return [l, { extractions: at.length, averageScore: at.length ? at.reduce((a, b) => a + b, 0) / at.length : 0 }];
+          }).filter(([, v]) => (v as { extractions: number }).extractions > 0),
+        ),
         caught: mine.reduce((a, e) => a + (e.matchResult?.defects?.caught.length ?? 0), 0),
         missed: mine.reduce((a, e) => a + (e.matchResult?.defects?.missed.length ?? 0), 0),
         falsePositives: mine.reduce((a, e) => a + (e.matchResult?.defects?.falsePositives.length ?? 0), 0),
@@ -111,6 +125,44 @@ export default async function InstructorPage() {
               <div className="mt-1 text-2xl font-light text-primary">{value}</div>
             </div>
           ))}
+        </div>
+      </Section>
+
+      <Section title={ti.difficulty} testId="instructor-difficulty">
+        <p className="mb-2 text-sm text-muted">{ti.difficultyIntro}</p>
+        <form action={setDefaultLevelAction} id="difficulty-form" data-testid="difficulty-form" className="flex flex-wrap items-end gap-3">
+          <div>
+            <label htmlFor="difficulty-level" className="al-label">
+              {ti.difficulty}
+            </label>
+            <select id="difficulty-level" data-testid="difficulty-level" name="level" defaultValue={String(cohortLevel)} className="al-input">
+              {LEVELS.map((l) => (
+                <option key={l} value={l}>
+                  L{l} — {LEVEL_SPECS[l].label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button testId="difficulty-submit">{ti.setDifficulty}</Button>
+          <span id="difficulty-current" data-testid="difficulty-current" data-level={cohortLevel} className="text-sm text-muted">
+            {LEVEL_SPECS[cohortLevel].description}
+          </span>
+        </form>
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
+          {LEVELS.map((l) => {
+            const at = rows.flatMap((r) => (r.byLevel[l] ? [r.byLevel[l]] : []));
+            const n = at.reduce((a, b) => a + b.extractions, 0);
+            const avg = n ? at.reduce((a, b) => a + b.averageScore * b.extractions, 0) / n : null;
+            return (
+              <div key={l} className="al-card" id={`instructor-level-${l}`} data-testid={`instructor-level-${l}`} data-extractions={n} data-score={avg ?? ""}>
+                <div className="text-xs uppercase tracking-wide text-muted">
+                  L{l} {LEVEL_SPECS[l].label}
+                </div>
+                <div className="mt-1 text-xl font-light text-primary">{pct(avg)}</div>
+                <div className="text-xs text-muted">{n} {ti.extractions.toLowerCase()}</div>
+              </div>
+            );
+          })}
         </div>
       </Section>
 

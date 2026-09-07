@@ -28,4 +28,11 @@ export const handlers: Partial<Record<JobKind, Handler>> = {
     const { renderDocument } = await import("../documents/service");
     await renderDocument(documentId, log);
   },
+  degrade_document: async (job, log) => {
+    const documentId = String(job.payload.documentId ?? "");
+    const level = Number(job.payload.level ?? 0);
+    if (!documentId) throw new Error("degrade_document needs payload.documentId");
+    const { degradeDocument } = await import("../documents/service");
+    await degradeDocument(documentId, level, log);
+  },
 };

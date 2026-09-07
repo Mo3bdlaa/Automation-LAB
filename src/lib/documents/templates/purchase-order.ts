@@ -82,17 +82,17 @@ function money(v: string | number) {
 export function renderPurchaseOrderHtml(d: PoTemplateData): string {
   const lines = d.lines
     .map(
-      (l) => `<tr>
+      (l, i) => `<tr>
   <td class="num">${l.lineNo}</td>
-  <td>${esc(l.itemCode ?? "")}</td>
-  <td>${esc(l.description)}${l.descriptionAr ? `<span class="desc-ar ar" dir="rtl">${esc(l.descriptionAr)}</span>` : ""}</td>
-  <td class="num">${fmtNumber(l.quantity, "en-US", Number(l.quantity) % 1 === 0 ? 0 : 3)}</td>
-  <td>${esc(l.uom)}</td>
-  <td class="num">${money(l.unitPrice)}</td>
+  <td data-gt-field="lines[${i}].itemCode">${esc(l.itemCode ?? "")}</td>
+  <td><span data-gt-field="lines[${i}].description">${esc(l.description)}</span>${l.descriptionAr ? `<span class="desc-ar ar" dir="rtl">${esc(l.descriptionAr)}</span>` : ""}</td>
+  <td class="num" data-gt-field="lines[${i}].quantity">${fmtNumber(l.quantity, "en-US", Number(l.quantity) % 1 === 0 ? 0 : 3)}</td>
+  <td data-gt-field="lines[${i}].uom">${esc(l.uom)}</td>
+  <td class="num" data-gt-field="lines[${i}].unitPrice">${money(l.unitPrice)}</td>
   <td class="num">${Number(l.discountPct) ? fmtNumber(l.discountPct, "en-US", 1) + "%" : "—"}</td>
-  <td>${esc(l.taxCode)}</td>
+  <td data-gt-field="lines[${i}].taxCode">${esc(l.taxCode)}</td>
   <td class="num">${money(l.taxAmount)}</td>
-  <td class="num">${money(l.lineTotal)}</td>
+  <td class="num" data-gt-field="lines[${i}].lineTotal">${money(l.lineTotal)}</td>
 </tr>`,
     )
     .join("\n");
@@ -111,10 +111,10 @@ export function renderPurchaseOrderHtml(d: PoTemplateData): string {
     <h2>PURCHASE ORDER</h2>
     <div class="ar" dir="rtl">أمر شراء</div>
     <table>
-      <tr><td>PO No. <span class="ar">رقم الأمر</span></td><td id="po-number">${esc(d.number)}</td></tr>
-      <tr><td>Date <span class="ar">التاريخ</span></td><td>${esc(d.orderDate)}</td></tr>
-      <tr><td>Expected delivery <span class="ar">التسليم المتوقع</span></td><td>${esc(d.expectedDeliveryDate)}</td></tr>
-      <tr><td>Currency <span class="ar">العملة</span></td><td>${esc(d.currency)}</td></tr>
+      <tr><td>PO No. <span class="ar">رقم الأمر</span></td><td id="po-number" data-gt-field="number">${esc(d.number)}</td></tr>
+      <tr><td>Date <span class="ar">التاريخ</span></td><td data-gt-field="orderDate">${esc(d.orderDate)}</td></tr>
+      <tr><td>Expected delivery <span class="ar">التسليم المتوقع</span></td><td data-gt-field="expectedDeliveryDate">${esc(d.expectedDeliveryDate)}</td></tr>
+      <tr><td>Currency <span class="ar">العملة</span></td><td data-gt-field="currency">${esc(d.currency)}</td></tr>
       <tr><td>Status</td><td><span class="status-pill">${esc(d.status.replace(/_/g, " "))}</span></td></tr>
     </table>
   </div>
@@ -123,13 +123,13 @@ export function renderPurchaseOrderHtml(d: PoTemplateData): string {
 <div class="parties">
   <div class="party">
     <h3>Vendor <span class="ar">المورد</span></h3>
-    <div class="strong">${esc(d.vendor.name)}</div>
+    <div class="strong" data-gt-field="vendor.name">${esc(d.vendor.name)}</div>
     ${d.vendor.nameAr ? `<div class="ar ar-name" dir="rtl">${esc(d.vendor.nameAr)}</div>` : ""}
     <div>${esc(d.vendor.addressLine)}, ${esc(d.vendor.city)}, ${esc(d.vendor.country)}</div>
     <div class="kv" style="margin-top:4pt">
       <div>Vendor code</div><div>${esc(d.vendor.code)}</div>
-      <div>Tax ID</div><div>${esc(d.vendor.taxId)}</div>
-      <div>CR No.</div><div>${esc(d.vendor.crNumber)}</div>
+      <div>Tax ID</div><div data-gt-field="vendor.taxId">${esc(d.vendor.taxId)}</div>
+      <div>CR No.</div><div data-gt-field="vendor.crNumber">${esc(d.vendor.crNumber)}</div>
       <div>Contact</div><div>${esc(d.vendor.contactName)} · ${esc(d.vendor.phone)}</div>
       <div>Email</div><div>${esc(d.vendor.email)}</div>
     </div>
@@ -169,9 +169,9 @@ ${lines}
 </table>
 
 <table class="totals">
-  <tr><td>Subtotal <span class="ar">المجموع الفرعي</span></td><td class="num">${money(d.subtotal)}</td></tr>
-  <tr><td>Tax <span class="ar">الضريبة</span></td><td class="num">${money(d.taxTotal)}</td></tr>
-  <tr class="grand"><td>Total ${esc(d.currency)} <span class="ar">الإجمالي</span></td><td class="num" id="po-grand-total">${money(d.grandTotal)}</td></tr>
+  <tr><td>Subtotal <span class="ar">المجموع الفرعي</span></td><td class="num" data-gt-field="subtotal">${money(d.subtotal)}</td></tr>
+  <tr><td>Tax <span class="ar">الضريبة</span></td><td class="num" data-gt-field="taxTotal">${money(d.taxTotal)}</td></tr>
+  <tr class="grand"><td>Total ${esc(d.currency)} <span class="ar">الإجمالي</span></td><td class="num" id="po-grand-total" data-gt-field="grandTotal">${money(d.grandTotal)}</td></tr>
 </table>
 <div class="tax-note">Tax codes: ${taxCodesUsed.map((c) => `${c} = ${esc(TAX_CODES[c].label)} <span class="ar">${esc(TAX_CODES[c].labelAr)}</span>`).join(" · ")}</div>
 

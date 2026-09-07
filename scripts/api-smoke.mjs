@@ -170,11 +170,58 @@ const sharedPatch = await api("PATCH", "/api/vendors/V-00001", { name: "Should n
 if (sharedPatch.status !== 403) fail(`patching a shared vendor should be 403, got ${sharedPatch.status}`);
 log("shared corpus vendor is read-only:", sharedPatch.status, sharedPatch.json.error);
 
+// 9b. The difficulty ladder: a level above 1 is produced on demand, has no text
+// layer, and carries the level-1 field boxes through the degradation geometry.
+const docId = hidden.json.invoice.documentId;
+let degraded = null;
+for (let i = 0; i < 30; i++) {
+  const r = await fetch(`${BASE}/api/documents/${docId}/file?level=3`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+  if (r.status === 200) {
+    degraded = Buffer.from(await r.arrayBuffer());
+    break;
+  }
+  if (r.status !== 409) fail(`level 3 download -> ${r.status} ${await r.text()}`);
+  await new Promise((res) => setTimeout(res, 2000));
+}
+if (!degraded) fail("level 3 was not produced within 60 seconds");
+if (!degraded.subarray(0, 5).toString().startsWith("%PDF")) fail("level 3 download did not return a PDF");
+// A scan is an image: the PDF must carry an image and no font programme.
+const asText = degraded.toString("latin1");
+if (!/\/Subtype\s*\/Image/.test(asText)) fail("a degraded level must be an image, not text");
+if (/\/FontFile\d?\b/.test(asText)) fail("a degraded level must not carry a text layer");
+log("level 3 produced:", degraded.length, "bytes, image-only (OCR required)");
+
+const meta = await api("GET", `/api/documents/${docId}?level=3&boxes=1`);
+const l1 = await api("GET", `/api/documents/${docId}?level=1&boxes=1`);
+if (!l1.json.document.fieldBoxes?.length) fail("level 1 should carry field boxes");
+if (!meta.json.document.fieldBoxes?.length) fail("a degraded level should carry transformed field boxes");
+const moved = meta.json.document.fieldBoxes.filter((b) => {
+  const a = l1.json.document.fieldBoxes.find((x) => x.field === b.field);
+  return a && Math.abs(a.x - b.x) + Math.abs(a.y - b.y) > 0.002;
+});
+log("field boxes:", l1.json.document.fieldBoxes.length, "at L1,", meta.json.document.fieldBoxes.length, "at L3,", moved.length, "moved by the skew");
+if (meta.json.document.textLayer !== false) fail("level 3 must report no text layer");
+
 // 10. Contract and packaging
 const spec = await api("GET", "/api/openapi");
 log("openapi:", spec.json.openapi, "|", Object.keys(spec.json.paths).length, "paths");
 const zip = await fetch(`${BASE}/api/queues/invoices-pending/download`, { headers: { Authorization: `Bearer ${TOKEN}` } });
 log("queue zip:", zip.status, zip.headers.get("content-type"), zip.headers.get("x-document-count"), "docs");
+// The first call queues the degradation jobs and answers 409; the ZIP fills up
+// as they finish, so a dispatcher polls exactly like this.
+let zipL3 = null;
+for (let i = 0; i < 45; i++) {
+  const r = await fetch(`${BASE}/api/queues/invoices-pending/download?level=3`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+  if (r.status === 200) {
+    zipL3 = r;
+    break;
+  }
+  if (r.status !== 409) fail(`level 3 ZIP -> ${r.status} ${await r.text()}`);
+  await r.arrayBuffer();
+  await new Promise((res) => setTimeout(res, 2000));
+}
+if (!zipL3) fail("no level 3 files were ready within 90 seconds");
+log("queue zip at level 3:", zipL3.status, "level", zipL3.headers.get("x-document-level"), zipL3.headers.get("x-document-count"), "entries");
 
 // 11. Revoking the token closes the door
 const tokens = await api("GET", "/api/tokens");

@@ -359,6 +359,38 @@ await figure(
   { include: [".cert"], pad: 10 },
 );
 
+// 15. The difficulty ladder, rendered through the real degradation pipeline.
+await page.setViewportSize({ width: 1500, height: 1200 });
+await page.goto(fileUrl("ladder.html"));
+await page.evaluate(() => document.fonts.ready);
+await figure(
+  "15-difficulty-ladder",
+  "The same invoice at three difficulty levels, with the totals block magnified underneath",
+  [
+    ["#ladder-1 img", "Level 1: the PDF the lab renders. Text is selectable, so no OCR is needed."],
+    ["#ladder-3 img", "Level 3: a 200 dpi office scan with skew, grain and uneven lighting. Image only."],
+    ["#ladder-5 img", "Level 5: a photograph of a page that has been stamped, annotated, stapled and folded."],
+    ["#ladder-5 .zoom", "The magnified crop shows what the extractor actually has to read at each level."],
+  ],
+  { include: [".ladder"], pad: 6 },
+);
+
+// 16. An Arabic-first document.
+await page.setViewportSize({ width: 900, height: 1300 });
+await page.goto(fileUrl("invoice-arabic.html"));
+await page.evaluate(() => document.fonts.ready);
+await figure(
+  "16-arabic-invoice",
+  "The same invoice from a vendor that prints Arabic-first",
+  [
+    [".vh .vname", "Arabic legal name first, English underneath. Ground truth accepts either reading."],
+    [".dtitle table", "Dates carry the Hijri date beside the ISO one; the ISO date is always printed."],
+    ["table.lines thead", "Right-to-left layout: the column order reverses, the ids and field paths do not."],
+    ["#invoice-iban", "Identifiers stay machine-readable, in Eastern Arabic numerals where the vendor uses them."],
+  ],
+  { include: [".content"], pad: 10 },
+);
+
 writeFileSync(path.join(OUT, "figures.json"), JSON.stringify(figures, null, 2));
 console.log(`\nWrote ${figures.length} figures and ${OUT}/figures.json`);
 await browser.close();

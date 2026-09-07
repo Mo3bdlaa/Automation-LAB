@@ -6,6 +6,7 @@ import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
 import { isStaff } from "@/lib/identity";
 import { Button, DocumentCard, Facts, Flash, LinkButton, Page, Section, Status, TableWrap, ValidationErrors } from "@/components/ui";
+import { isLevel, LEVELS, LEVEL_SPECS, type Level } from "@/lib/documents/levels";
 import { fmtNumber } from "@/lib/generator/money";
 import type { Violation } from "@/lib/validation/engine";
 import { decideInvoiceAction, rematchAction } from "../actions";
@@ -27,7 +28,11 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
     session.tdb.list(invoiceLines, { where: eq(invoiceLines.invoiceId, inv.id), orderBy: [{ column: invoiceLines.lineNo }] }),
     session.tdb.one(documents, and(eq(documents.kind, "invoice"), eq(documents.sourceId, inv.id))!),
   ]);
-  const file = doc ? await session.tdb.one(documentFiles, and(eq(documentFiles.documentId, doc.id), eq(documentFiles.level, 1))!) : null;
+  // `?level=N` picks the difficulty variant of the same document; levels above
+  // 1 are produced on first download, so the card links straight to the file.
+  const rawLevel = Number(Array.isArray(sp.level) ? sp.level[0] : sp.level ?? "1");
+  const level: Level = isLevel(rawLevel) ? rawLevel : 1;
+  const file = doc ? await session.tdb.one(documentFiles, and(eq(documentFiles.documentId, doc.id), eq(documentFiles.level, level))!) : null;
   const lastExtraction = doc ? (await session.tdb.list(extractions, { where: eq(extractions.documentId, doc.id), orderBy: [{ column: extractions.submittedAt, direction: "desc" }], limit: 1 }))[0] ?? null : null;
   const payment = await session.tdb.one(payments, eq(payments.invoiceId, inv.id));
   const staff = isStaff(session.principal);
@@ -158,12 +163,20 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
           {["pending_extraction", "extracted", "matched", "exception"].includes(inv.status) ? (
             <Section title={tc.extraction} testId="invoice-extraction">
               <p className="mb-2 text-sm text-muted">{tc.extractionIntro}</p>
-              <ExtractionForm t={t} internalNumber={inv.internalNumber} previous={lastExtraction && lastExtraction.fields.number !== undefined ? lastExtraction.fields : null} />
+              <ExtractionForm t={t} internalNumber={inv.internalNumber} level={level} previous={lastExtraction && lastExtraction.fields.number !== undefined ? lastExtraction.fields : null} />
             </Section>
           ) : null}
         </div>
         <div>
-          <DocumentCard entity="invoice" documentId={doc?.id ?? null} file={file} labels={{ title: t.po.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: t.po.filename }} />
+          <DocumentCard
+            entity="invoice"
+            documentId={doc?.id ?? null}
+            file={file}
+            level={level}
+            levels={LEVELS.map((l) => ({ level: l, label: LEVEL_SPECS[l].label }))}
+            levelHref={(l) => `/invoices/${encodeURIComponent(inv.internalNumber)}${l > 1 ? `?level=${l}` : ""}`}
+            labels={{ title: t.po.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: t.po.filename, levels: t.cycle.difficulty }}
+          />
           {staff && defects.length ? (
             <div className="al-card mt-4" id="invoice-defects" data-testid="invoice-defects">
               <h2 className="mb-2">{tc.seededDefects}</h2>

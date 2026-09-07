@@ -28,7 +28,10 @@ describe("purchase order template", () => {
     expect(html).toContain("أمر شراء");
     expect(html).toContain("Acme &amp; Sons");
     expect(html).not.toContain("<script>alert");
-    expect(html).toContain('id="po-number">PO-2026-05001');
+    expect(html).toContain('id="po-number" data-gt-field="number">PO-2026-05001');
+    // Every graded field is tagged, which is what the renderer measures.
+    expect(html).toContain('data-gt-field="grandTotal"');
+    expect(html).toContain('data-gt-field="lines[0].unitPrice"');
     expect(html).toContain("@font-face");
   });
   it("builds predictable filenames", () => {

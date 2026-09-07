@@ -64,10 +64,12 @@ export interface SandboxProgress {
 export async function sandboxProgress(tenant: Tenant): Promise<SandboxProgress> {
   // Eagerly rendered kinds only: vendor compliance documents render on first download.
   const [d] = await db.select({ n: sql<number>`count(*)` }).from(schema.documents).where(and(eq(schema.documents.tenantId, tenant.id), sql`${schema.documents.kind} not like 'vendor_%'`));
+  // Level 1 only: a student who downloads a degraded scan adds files to the
+  // same document, and provisioning is not "more than finished" because of it.
   const [f] = await db
     .select({ n: sql<number>`count(*)` })
     .from(schema.documentFiles)
     .innerJoin(schema.documents, eq(schema.documents.id, schema.documentFiles.documentId))
-    .where(and(eq(schema.documentFiles.tenantId, tenant.id), sql`${schema.documents.kind} not like 'vendor_%'`));
+    .where(and(eq(schema.documentFiles.tenantId, tenant.id), eq(schema.documentFiles.level, 1), sql`${schema.documents.kind} not like 'vendor_%'`));
   return { tenant, documents: Number(d?.n ?? 0), rendered: Number(f?.n ?? 0) };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareField, fieldKind, normaliseIdentifier, normaliseText, parseDate, parseNumber, similarity, westernDigits } from "./normalise";
+import { compareBest, compareField, fieldKind, normaliseIdentifier, normaliseText, parseDate, parseNumber, similarity, westernDigits } from "./normalise";
 import { gradeDefects, scoreInvoiceExtraction } from "./score";
 
 describe("normalisation", () => {
@@ -124,6 +124,33 @@ describe("extraction scoring", () => {
   });
   it("blank submission scores zero", () => {
     expect(scoreInvoiceExtraction(truth, {}).score).toBe(0);
+  });
+
+  it("grades an Arabic reading of a bilingual document as correct", () => {
+    // What a bot extracting the Arabic-first variant of the same invoice reads:
+    // the Arabic vendor name and description, and Eastern Arabic numerals.
+    const arabic: Record<string, string> = {
+      ...perfect,
+      vendorName: "شركة دلتا للمعدات",
+      line1Description: "رف كتب - صغير",
+      grandTotal: "٧٦٨٩٨١٫٧٥".replace("٫", "."),
+      subtotal: "٦٦٨٦٧٩.٧٨",
+      invoiceDate: "٢٠٢٦-٠٩-١٥",
+    };
+    const alternates = new Map<string, string[]>([
+      ["vendor.name", ["شركة دلتا للمعدات"]],
+      ["lines[0].description", ["رف كتب - صغير"]],
+    ]);
+    const r = scoreInvoiceExtraction(truth, arabic, { alternates });
+    expect(r.score).toBe(1);
+    // Without the alternates the same submission loses the two text fields.
+    expect(scoreInvoiceExtraction(truth, arabic).score).toBeLessThan(1);
+  });
+
+  it("keeps the primary reading when the submission matches neither", () => {
+    const cmp = compareBest("vendor.name", "Delta Equipment Co.", ["شركة دلتا للمعدات"], "Something Else Ltd");
+    expect(cmp.match).toBe(false);
+    expect(cmp.expectedNormalised).toBe("delta equipment co");
   });
 });
 

@@ -10,6 +10,7 @@ import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import type { LabSession } from "@/lib/auth/server";
 import type { WorkItem, WorkItemQueue } from "@/db/schema";
+import type { Level } from "@/lib/documents/levels";
 import { deliveryNotes, documents, invoices, purchaseOrders, rfqs, vendors, workItems } from "@/db/schema";
 
 export const QUEUE_DESCRIPTIONS: Record<WorkItemQueue, string> = {
@@ -26,9 +27,14 @@ export interface QueueSource {
   priority?: "low" | "normal" | "high";
 }
 
-/** Reads the current domain state for one queue. */
-export async function queueSources(session: LabSession, queue: WorkItemQueue): Promise<QueueSource[]> {
+/**
+ * Reads the current domain state for one queue. `level` is the cohort's current
+ * difficulty level: it goes into the download URLs so a performer picks up the
+ * variant the exercise asks for without knowing about the setting.
+ */
+export async function queueSources(session: LabSession, queue: WorkItemQueue, level: Level = 1): Promise<QueueSource[]> {
   const tdb = session.tdb;
+  const fileUrl = (documentId: string) => `/api/documents/${documentId}/file${level > 1 ? `?level=${level}` : ""}`;
   switch (queue) {
     case "invoices-pending": {
       const rows = await tdb.list(invoices, { where: eq(invoices.status, "pending_extraction"), orderBy: [{ column: invoices.receivedDate }] });
@@ -37,7 +43,7 @@ export async function queueSources(session: LabSession, queue: WorkItemQueue): P
         const doc = docs.find((d) => d.sourceId === r.id);
         return {
           reference: r.internalNumber,
-          specificContent: { invoiceId: r.id, internalNumber: r.internalNumber, receivedDate: r.receivedDate, documentId: doc?.id ?? null, downloadUrl: doc ? `/api/documents/${doc.id}/file` : null, uiUrl: `/invoices/${r.internalNumber}` },
+          specificContent: { invoiceId: r.id, internalNumber: r.internalNumber, receivedDate: r.receivedDate, documentId: doc?.id ?? null, level, downloadUrl: doc ? fileUrl(doc.id) : null, uiUrl: `/invoices/${r.internalNumber}` },
         };
       });
     }
@@ -58,8 +64,8 @@ export async function queueSources(session: LabSession, queue: WorkItemQueue): P
       return rows.map((v) => ({
         reference: v.code,
         specificContent: {
-          vendorId: v.id, code: v.code, name: v.name, uiUrl: `/vendors/${v.code}`,
-          documents: Object.fromEntries(docs.filter((d) => d.vendorId === v.id).map((d) => [d.kind, { documentId: d.id, downloadUrl: `/api/documents/${d.id}/file` }])),
+          vendorId: v.id, code: v.code, name: v.name, level, uiUrl: `/vendors/${v.code}`,
+          documents: Object.fromEntries(docs.filter((d) => d.vendorId === v.id).map((d) => [d.kind, { documentId: d.id, downloadUrl: fileUrl(d.id) }])),
         },
       }));
     }
@@ -84,8 +90,8 @@ export async function queueSources(session: LabSession, queue: WorkItemQueue): P
  * abandoned rather than handed out, which is what an Orchestrator dispatcher
  * would do on its next pass.
  */
-export async function refreshQueue(session: LabSession, queue: WorkItemQueue): Promise<{ current: number; abandoned: number }> {
-  const sources = await queueSources(session, queue);
+export async function refreshQueue(session: LabSession, queue: WorkItemQueue, level: Level = 1): Promise<{ current: number; abandoned: number }> {
+  const sources = await queueSources(session, queue, level);
   if (sources.length > 0) {
     await db
       .insert(workItems)

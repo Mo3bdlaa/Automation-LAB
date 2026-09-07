@@ -7,7 +7,7 @@ import { Button, Field, Input, ValidationErrors } from "@/components/ui";
 import { submitExtractionAction } from "./actions";
 import { INVOICE_FORM_LINES } from "./constants";
 
-export function ExtractionForm({ t, internalNumber, previous }: { t: Dictionary; internalNumber: string; previous: Record<string, string> | null }) {
+export function ExtractionForm({ t, internalNumber, previous, level = 1 }: { t: Dictionary; internalNumber: string; previous: Record<string, string> | null; level?: number }) {
   const bound = submitExtractionAction.bind(null, internalNumber);
   const [state, action, pending] = useActionState<FormState, FormData>(bound, emptyFormState);
   const v = (k: string) => state.values[k] ?? previous?.[k] ?? "";
@@ -20,6 +20,8 @@ export function ExtractionForm({ t, internalNumber, previous }: { t: Dictionary;
   ];
   return (
     <form key={state.nonce ?? 0} id="extraction-form" data-testid="extraction-form" action={action} noValidate>
+      {/* Which difficulty variant the student was looking at, so the grade knows. */}
+      <input type="hidden" name="level" value={level} />
       <ValidationErrors violations={state.violations} emptyText={t.common.noValidationErrors} title={tc.matchResult} />
       <div className="al-card grid grid-cols-1 gap-x-6 md:grid-cols-3">
         {head.map(([name, label, type]) => (

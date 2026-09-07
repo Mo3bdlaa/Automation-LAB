@@ -11,6 +11,18 @@ const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
 const jsonBody = (schema: unknown, required = true) => ({ required, content: { "application/json": { schema } } });
 const jsonOk = (description: string, schema: unknown) => ({ description, content: { "application/json": { schema } } });
 
+/**
+ * The difficulty ladder: level 1 is the native-text PDF, levels 2 to 5 are
+ * scans and photographs of it with no text layer. Levels above 1 are produced
+ * on first request, so the first call can answer 409 with Retry-After.
+ */
+const levelParam = {
+  name: "level",
+  in: "query",
+  schema: { type: "integer", minimum: 1, maximum: 5, default: 1 },
+  description: "Difficulty level: 1 native PDF, 2 clean scan, 3 office scan, 4 phone photo, 5 handled document.",
+};
+
 const listParams = [
   { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 200, default: 50 }, description: "Page size." },
   { name: "cursor", in: "query", schema: { type: "string" }, description: "Opaque cursor from the previous response's page.nextCursor." },
@@ -82,7 +94,7 @@ export function openApiDocument(origin: string) {
         get: {
           tags: ["Work queues"],
           summary: "ZIP of every rendered PDF in a queue.",
-          parameters: [{ name: "queue", in: "path", required: true, schema: { type: "string", enum: ["invoices-pending", "pos-awaiting-invoice", "vendor-applications"] } }],
+          parameters: [{ name: "queue", in: "path", required: true, schema: { type: "string", enum: ["invoices-pending", "pos-awaiting-invoice", "vendor-applications"] } }, levelParam],
           responses: { "200": { description: "ZIP archive.", content: { "application/zip": { schema: { type: "string", format: "binary" } } } }, ...errorResponses },
         },
       },
@@ -95,6 +107,7 @@ export function openApiDocument(origin: string) {
             { name: "queue", in: "query", required: true, schema: { type: "string", enum: WORK_ITEM_QUEUES } },
             { name: "status", in: "query", schema: { type: "string", enum: WORK_ITEM_STATUSES } },
             { name: "refresh", in: "query", schema: { type: "string", enum: ["0", "1"] }, description: "Set to 0 to skip re-reading the domain state." },
+            { ...levelParam, description: "Difficulty level for the download URLs in the items. Defaults to the level the instructor set." },
             ...listParams,
           ],
           responses: { "200": jsonOk("Work items.", { type: "object", properties: { items: { type: "array", items: ref("WorkItem") } } }), "400": jsonOk("Unknown queue or status.", ref("Error")), ...errorResponses },
@@ -179,13 +192,24 @@ export function openApiDocument(origin: string) {
         get: { tags: ["Master data"], summary: "One item.", parameters: [{ name: "code", in: "path", required: true, schema: { type: "string" } }], responses: { "200": jsonOk("Item.", { type: "object" }), ...errorResponses } },
         patch: { tags: ["Master data"], summary: "Update an item you created.", parameters: [{ name: "code", in: "path", required: true, schema: { type: "string" } }], requestBody: jsonBody({ type: "object" }), responses: { "200": jsonOk("Updated.", { type: "object" }), ...errorResponses } },
       },
-      "/api/documents/{id}": { get: { tags: ["Documents"], summary: "Document metadata and render state.", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": jsonOk("Document.", { type: "object" }), ...errorResponses } } },
+      "/api/documents/{id}": {
+        get: {
+          tags: ["Documents"],
+          summary: "Document metadata and render state.",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+            levelParam,
+            { name: "boxes", in: "query", schema: { type: "string", enum: ["0", "1"] }, description: "Include where each ground-truth field sits on the page at this level." },
+          ],
+          responses: { "200": jsonOk("Document.", { type: "object" }), ...errorResponses },
+        },
+      },
       "/api/documents/{id}/file": {
         get: {
           tags: ["Documents"],
           summary: "Download the PDF.",
           description: "Served as an attachment with a predictable file name. 409 means the render is still queued; wait for Retry-After and try again.",
-          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }, { name: "level", in: "query", schema: { type: "integer", default: 1 }, description: "Difficulty level. Level 1 is native text." }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }, levelParam, { name: "inline", in: "query", schema: { type: "string", enum: ["0", "1"] }, description: "Serve inline instead of as an attachment." }],
           responses: { ...errorResponses, "200": { description: "The PDF.", content: { "application/pdf": { schema: { type: "string", format: "binary" } } } }, "409": jsonOk("The render is still queued. Wait for Retry-After and try again.", ref("Error")) },
         },
       },
@@ -226,6 +250,8 @@ export function openApiDocument(origin: string) {
             internalNumber: { type: "string", example: "INV-2026-05012" },
             fields: { type: "object", properties: { number: { type: "string" }, invoiceDate: { type: "string" }, dueDate: { type: "string" }, poNumber: { type: "string" }, currency: { type: "string" }, vendorName: { type: "string" }, vendorTaxId: { type: "string" }, iban: { type: "string" }, bankName: { type: "string" }, subtotal: { type: "number" }, taxTotal: { type: "number" }, grandTotal: { type: "number" } } },
             lines: { type: "array", items: { type: "object", required: ["quantity", "unitPrice"], properties: { poLineNo: { type: "integer" }, itemCode: { type: "string" }, description: { type: "string" }, quantity: { type: "number" }, uom: { type: "string" }, unitPrice: { type: "number" }, taxRate: { type: "number", description: "Percent, e.g. 15." }, taxAmount: { type: "number" }, lineTotal: { type: "number" } } } },
+            confidence: { type: "object", additionalProperties: { type: "number", minimum: 0, maximum: 1 }, description: "Per-field confidence keyed like the ground truth (`number`, `vendor.iban`, `lines[0].quantity`). Anything at or below 0.85 is flagged on the validation station." },
+            level: { type: "integer", minimum: 1, maximum: 5, description: "Which difficulty level the bot read. Defaults to the level the instructor set for the cohort." },
           },
         },
         ExtractionResult: {

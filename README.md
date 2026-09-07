@@ -14,7 +14,7 @@ knows every correct field value and can grade extraction accuracy automatically.
 Everything in the lab is fictitious. Every PDF is watermarked `SPECIMEN — TRAINING ONLY`,
 every response carries `X-Robots-Tag: noindex`, and `robots.txt` denies all crawlers.
 
-## What P0, P1 and P2 contain
+## What P0, P1, P2 and P3 contain
 
 | Area | Where |
 |---|---|
@@ -46,6 +46,13 @@ every response carries `X-Robots-Tag: noindex`, and `robots.txt` denies all craw
 | **P2** Instructor dashboard with cohort stats, drill-down and CSV export | `src/app/instructor/` |
 | **P2** HMAC-signed webhooks delivered from the job queue | `src/lib/webhooks/`, `src/app/api/webhooks` |
 | **P2** Domain services shared by the UI actions and the API, so both paths validate identically | `src/lib/services/` |
+| **P3** Difficulty ladder: levels 1 to 5, from the native PDF to a photographed, stamped and annotated page | `src/lib/documents/levels.ts`, `degrade.ts`, `degrade-params.ts` |
+| **P3** Degradation in Chromium: pdf.js rasterises the level-1 PDF, SVG filters and CSS transforms do the damage, the result is an image-only PDF | `src/lib/documents/degrade.ts` |
+| **P3** Arabic-first documents: per-vendor script, RTL layouts, Eastern Arabic numerals, Hijri dates beside Gregorian | `src/lib/documents/templates/i18n.ts`, `vendor-documents.ts` |
+| **P3** Bilingual ground truth: a name read in either script grades as correct | `groundTruth.alternates`, `src/lib/grading/normalise.ts` |
+| **P3** Field bounding boxes captured from the print layout and carried through the degradation geometry | `documentFieldBoxes`, `src/lib/documents/renderer.ts` |
+| **P3** Cohort difficulty setting, per-level scoring, per-level columns in the gradebook export | `src/lib/lab-settings.ts`, `src/app/instructor/` |
+| **P3** OCR ladder acceptance test | `scripts/ocr-ladder.ts` |
 
 ## Running locally
 
@@ -78,16 +85,20 @@ Jobs run in-process right after they are enqueued, so `pnpm dev` alone is enough
 dedicated worker (recommended when rendering many documents) run `pnpm worker` in a
 second terminal and set `JOBS_KICK=0` for the web process.
 
+`.github/workflows/ci.yml` runs typecheck, lint, tests, the migrations and the build on
+every push and pull request.
+
 Other scripts:
 
 ```bash
-pnpm test          # vitest unit tests (generators, checksums, rules, session, scoping guard)
+pnpm test          # vitest unit tests (generators, checksums, rules, grading, levels, scoping guard)
 pnpm typecheck
 pnpm lint
 pnpm render:po     # renders a sample PO to .data/sample-po.pdf without a database
 node scripts/e2e-smoke.mjs   # browser smoke test of the whole cycle against `pnpm dev`
 pnpm serve:prod 3000         # assembles the standalone build and serves it (frees the port first)
 pnpm api:smoke               # mints a token, then drives the whole REST API with bearer auth
+pnpm ocr:ladder --docs=20     # OCR accuracy per difficulty level (needs `apt-get install tesseract-ocr`)
 pnpm pdd:figures   # re-captures the annotated screenshots in docs/pdd-assets (needs `pnpm dev` running)
 pnpm pdd           # regenerates docs/pdd.md, .data/Automation-Lab-PDD.docx and .pdf from scripts/build-pdd.ts
 pnpm db:reset      # drops everything (dev only), then db:migrate + db:seed again
@@ -119,6 +130,41 @@ Violations render in `#validation-errors` with rule IDs (`PO-INV-PRICE`, `GRN-QT
 `DUP-INV`, `BANK-CHANGE`, …). The invoice becomes `matched` or `exception`, then can be
 approved, rejected, or paid. Seeded defects are recorded per document and visible to
 instructors on the invoice page.
+
+**Difficulty levels.** Every document exists at five levels. Level 1 is the PDF the
+templates render: vector text, no OCR needed. Levels 2 to 5 are produced from it on first
+request and cached: pdf.js rasterises the page inside the same Chromium the renderer uses,
+SVG filters and CSS transforms apply the damage, and the pages are printed back into an
+**image-only** PDF — so from level 2 up a bot has to OCR.
+
+| Level | What it is | Resolution |
+|---|---|---|
+| 1 | Native PDF, selectable text | vector |
+| 2 | Clean flatbed scan: faint blur, JPEG artefacts, a fraction of a degree of skew | 300 dpi |
+| 3 | Office scan: up to 3° skew, sensor noise, uneven lighting | 200 dpi |
+| 4 | Phone photo: perspective, shadow gradient, warm cast, soft focus | 150 dpi |
+| 5 | A handled page: stamps, handwritten notes, staple marks, fold lines | 150 dpi |
+
+The damage is seeded from `(document id, level)`, so a level is reproducible: the same
+document always degrades to the same image. Request one with `?level=N` on a document
+download, a queue ZIP, an invoice page or the validation station; the first request answers
+`409` with `Retry-After` while the job runs. `pnpm ocr:ladder` measures what OCR actually
+reads at each level.
+
+**Arabic-first documents.** Each vendor prints in its own script (`documentLanguage`:
+about half bilingual, a third Arabic-first, a fifth English). An Arabic-first document is
+right-to-left with English as the secondary script, prints Eastern Arabic numerals for
+about two in five of those vendors, and shows a Hijri date beside the ISO one — the ISO
+date is always there, because a grader has to be able to read it. Ground truth records both
+scripts of a name or description (`alternates`), so a bot that read the Arabic name scores
+the same as one that read the English name. Anything Al-Nahda itself issues (RFQ, purchase
+order, goods receipt) stays bilingual.
+
+**Field positions.** The renderer measures every element the templates tag with
+`data-gt-field` against the printed page and stores a normalised box per field. The
+degradation pipeline carries those boxes through its own geometry, so a highlight lands in
+the right place on a skewed scan. `GET /api/documents/{id}?level=N&boxes=1` returns them,
+and the validation station draws them as a page map.
 
 **Validation.** Rules are plain objects with an `id`, `severity`, `description`, optional
 `params` and a `check`. The same engine runs on form save and API POST. Violations render
@@ -172,8 +218,9 @@ validation rule blocks the write.
 | POST | `/api/extractions` | submit extracted fields; graded against ground truth |
 | POST | `/api/invoices/{internalNumber}/match`, `/approve`, `/reject`, `/pay` | three-way match and the AP decisions |
 | GET | `/api/payments`, `/api/payments/{number}` | payments and receipts |
-| GET | `/api/documents/{id}`, `/api/documents/{id}/file?level=1` | metadata and the PDF |
-| GET | `/api/queues/{queue}/download` | ZIP of a queue's documents with a JSON manifest |
+| GET | `/api/documents/{id}?level=N&boxes=1` | metadata, which levels exist, and field positions |
+| GET | `/api/documents/{id}/file?level=N` | the PDF at a difficulty level |
+| GET | `/api/queues/{queue}/download?level=N` | ZIP of a queue's documents with a JSON manifest |
 | GET, POST | `/api/webhooks`, DELETE `/api/webhooks/{id}` | HMAC-signed event delivery |
 | GET | `/api/rules` | validation rules as JSON |
 | POST | `/api/jobs/run` | process queued jobs (Vercel Cron; `Authorization: Bearer $CRON_SECRET`) |
@@ -193,8 +240,13 @@ digits folded to Western, identifiers stripped of separators, descriptions match
 is highlighted on the Validation Station at `/invoices/{internalNumber}/validate` for a
 human to correct and resubmit.
 
+**Difficulty.** `GET /api/queues` and `GET /api/work-items` report the level the instructor
+set for the cohort and hand out download URLs at that level; pass `?level=N` to override.
+`POST /api/extractions` accepts the `level` the bot read, and scores are reported per level.
+
 **Instructor view.** `/instructor` (staff only) lists the cohort with sandbox status,
-documents processed, average score and defects caught; `/instructor/export.csv` exports it.
+documents processed, average score, defects caught and accuracy per difficulty level, and
+sets the cohort's exercise level; `/instructor/export.csv` exports it with per-level columns.
 
 ## Deploying to Vercel
 

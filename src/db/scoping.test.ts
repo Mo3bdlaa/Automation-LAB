@@ -19,6 +19,9 @@ const ALLOWED = [
   "src/lib/api/tokens.ts",
   "src/lib/api/work-items.ts",
   "src/lib/webhooks/emit.ts",
+  // Lab settings are global rather than per tenant, and only staff may write
+  // them: the action that does is gated on the role.
+  "src/lib/lab-settings.ts",
   // The instructor views read across every student tenant on purpose. They are
   // gated on the staff role, which the test below asserts.
   "src/app/instructor/",
