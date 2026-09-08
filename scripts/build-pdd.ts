@@ -56,8 +56,8 @@ function figureOf(id: string): Figure & { n: number } {
 const DOC = {
   title: "Automation Lab",
   subtitle: "Process Definition Document (PDD)",
-  version: "1.2",
-  date: "2026-09-07",
+  version: "1.3",
+  date: "2026-09-08",
   author: "Mohammed Shaker",
   status: "Draft for review",
 };
@@ -282,9 +282,9 @@ const B: Block[] = [
   { t: "bullets", items: [
     "Met. An Arabic-first invoice renders with connected glyphs and correct bidi, and a correct Arabic extraction of a bilingual invoice scores 1.0 against the alternates in the ground truth.",
     "Met. The same document at the same level produces byte-identical page images across runs. The PDF wrapper around them carries a creation timestamp, so reproducibility is asserted on the images.",
-    "Met, with a finding. pnpm ocr:ladder renders every level, runs Tesseract over page 1 and reports the share of ground-truth values the OCR output contains. On a 12-invoice sample at 300 dpi: L1 85.7 per cent, L2 85.5, L3 85.8, L4 66.1, L5 59.3 - monotonic. The finding is that a clean synthetic scan costs OCR almost nothing: the real step for a bot is between level 1 and level 2, where the text layer disappears, and then again at level 4 where perspective and shadow start to bite.",
+    "Met, with a finding. pnpm ocr:ladder renders every level, reads page 1 back with Tesseract and reports the share of ground-truth values the OCR output contains. On a 15-invoice sample at 300 dpi: L1 80.1 per cent, L2 80.0, L3 79.0, L4 64.3, L5 48.2 - monotonic. The finding is that a clean synthetic scan costs OCR almost nothing: the real step for a bot is between level 1 and level 2, where the text layer disappears, and then again at level 4 where perspective and shadow start to bite.",
     "Met. A level-3 PDF takes about one second per page to produce after warm-up and 2.8 seconds cold, against a 10-second budget, and is served from the blob store afterwards. Storage per document averages 396 KB at L2, 122 KB at L3, 70 KB at L4 and 65 KB at L5, so a sandbox with every level of every document sits near 200 MB against a 400 MB budget.",
-    "Open. The reference OCR engine for Arabic is still undecided (Tesseract needs its Arabic language data; UiPath's own engine is the alternative), so the ladder is measured on English and bilingual documents only.",
+    "Met on Arabic too, and the numbers say something the course should teach. Reading the Arabic-first documents with the same engine gives, over 8 invoices: L1 51.0 per cent, L2 52.8, L3 49.0, L4 36.1, L5 23.5 - roughly half what the English documents give, and the spread between individual documents runs from 20 to 100 per cent. Which OCR or extraction engine to point at a document, and how to configure it, is the student's decision and part of the exercise; the lab's job is to produce documents that make the decision matter, and it does.",
   ] },
 
   { t: "figure", id: "15-difficulty-ladder" },
@@ -315,7 +315,7 @@ const B: Block[] = [
   { t: "h2", text: "4.4 Dependencies and order" },
   { t: "table", header: ["Phase", "Depends on", "Blocks", "Decision needed"], widths: [1200, 2800, 2600, 2760], rows: [
     ["P2", "P1 (done)", "Exercise 4, grading in P3 and P4", "Done."],
-    ["P3", "P2 grading (done), P1 templates", "Advanced exercises", "Done. Reference OCR engine for Arabic still open."],
+    ["P3", "P2 grading (done), P1 templates", "Advanced exercises", "Done."],
     ["P4", "Courses platform choice; Vercel authorization; mohammedshaker.com repository or stylesheet access for optional re-branding", "Public launch", "Hosted IdP versus LTI 1.3; blob provider; render worker versus serverless Chromium."],
   ] },
 
@@ -400,6 +400,7 @@ const B: Block[] = [
     ["1.0", "2026-09-05", DOC.author, "Initial PDD covering AS-IS, TO-BE and the P2, P3, P4 roadmap."],
     ["1.1", "2026-09-06", DOC.author, "P2 delivered: queues and REST API, extraction and defect grading, Validation Station, instructor dashboard, webhooks. Section 4.1 restated as built."],
     ["1.2", "2026-09-07", DOC.author, "P3 delivered: difficulty levels 1 to 5, Arabic-first documents, bilingual ground truth, field bounding boxes, cohort difficulty setting. Section 4.2 restated as built with measured OCR results."],
+    ["1.3", "2026-09-08", DOC.author, "Ladder measured on Arabic documents as well. Choice of OCR engine recorded as a student decision inside the exercise rather than a platform dependency."],
   ] },
   { t: "table", header: ["Sign-off", "Name", "Role", "Date"], widths: [2200, 2600, 2600, 1960], rows: [
     ["Process owner", DOC.author, "Instructor", ""],

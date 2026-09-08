@@ -252,11 +252,25 @@ Chromium render pipeline. Both are in.
 - **The ladder in the exercise.** The instructor sets a cohort level on `/instructor`; the
   queue API hands out download URLs at that level, an extraction records the level it was
   read from, and both the dashboard and the CSV export report accuracy per level.
-- **Acceptance measured, not asserted.** `pnpm ocr:ladder` renders every level, OCRs page 1
-  with Tesseract and reports the share of ground-truth values the OCR text contains. On a
-  12-invoice sample at 300 dpi: L1 85.7 %, L2 85.5 %, L3 85.8 %, L4 66.1 %, L5 59.3 % —
-  monotonic, with the honest finding that a *clean* synthetic scan costs OCR almost nothing.
-  The real step for a bot is between level 1 and level 2, where the text layer disappears.
+- **Acceptance measured, not asserted.** `pnpm ocr:ladder` renders every level, reads page 1
+  back with Tesseract and reports the share of ground-truth values the OCR text contains, by
+  the script the vendor printed in. Which engine a *student* points at these documents is
+  their decision and part of the exercise; Tesseract is here because it is free and
+  scriptable, and the lab needs some way to prove its own ladder is real.
+  On a 15-invoice mixed sample at 300 dpi: L1 80.1 %, L2 80.0 %, L3 79.0 %, L4 64.3 %,
+  L5 48.2 % — monotonic. On 8 Arabic-first invoices: L1 51.0 %, L2 52.8 %, L3 49.0 %,
+  L4 36.1 %, L5 23.5 %.
+  Three findings worth keeping:
+  1. A *clean* synthetic scan costs OCR almost nothing. The real step for a bot is between
+     level 1 and level 2, where the text layer disappears, and again at level 4 where
+     perspective and shadow start to bite.
+  2. Arabic costs about half the recall at every level with this engine, and collapses at
+     level 5. Engine choice and configuration matter far more than the level does — which
+     is the judgement the exercise is meant to teach.
+  3. Individual Arabic documents range from 20 % to 100 % at level 1. Inspecting the weakest
+     one, it comes from a vendor that prints Eastern Arabic numerals (٠١٢), which this engine
+     reads badly. Worth confirming across a larger sample before it goes in a lecture, but it
+     is exactly the kind of failure a student should meet and solve.
 
 ---
 

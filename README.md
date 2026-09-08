@@ -98,7 +98,7 @@ pnpm render:po     # renders a sample PO to .data/sample-po.pdf without a databa
 node scripts/e2e-smoke.mjs   # browser smoke test of the whole cycle against `pnpm dev`
 pnpm serve:prod 3000         # assembles the standalone build and serves it (frees the port first)
 pnpm api:smoke               # mints a token, then drives the whole REST API with bearer auth
-pnpm ocr:ladder --docs=20     # OCR accuracy per difficulty level (needs `apt-get install tesseract-ocr`)
+pnpm ocr:ladder --docs=20     # OCR accuracy per difficulty level (needs tesseract-ocr and tesseract-ocr-ara)
 pnpm pdd:figures   # re-captures the annotated screenshots in docs/pdd-assets (needs `pnpm dev` running)
 pnpm pdd           # regenerates docs/pdd.md, .data/Automation-Lab-PDD.docx and .pdf from scripts/build-pdd.ts
 pnpm db:reset      # drops everything (dev only), then db:migrate + db:seed again
@@ -148,8 +148,12 @@ SVG filters and CSS transforms apply the damage, and the pages are printed back 
 The damage is seeded from `(document id, level)`, so a level is reproducible: the same
 document always degrades to the same image. Request one with `?level=N` on a document
 download, a queue ZIP, an invoice page or the validation station; the first request answers
-`409` with `Retry-After` while the job runs. `pnpm ocr:ladder` measures what OCR actually
-reads at each level.
+`409` with `Retry-After` while the job runs.
+
+Which OCR or extraction engine to point at these documents is the student's decision, and
+part of the exercise. `pnpm ocr:ladder` is the lab's own check that the ladder is real: it
+renders every level, reads it back with Tesseract and reports the share of ground-truth
+values the OCR output contains.
 
 **Arabic-first documents.** Each vendor prints in its own script (`documentLanguage`:
 about half bilingual, a third Arabic-first, a fifth English). An Arabic-first document is
