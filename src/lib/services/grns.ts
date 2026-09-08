@@ -2,7 +2,7 @@
  * Goods receipt posting. Shared by the warehouse screen and POST /api/grns.
  */
 import { and, eq, inArray, like } from "drizzle-orm";
-import { deliveryNoteLines, deliveryNotes, documents, grnLines, grns, groundTruth, purchaseOrderLines, purchaseOrders } from "@/db/schema";
+import { deliveryNoteLines, deliveryNotes, documents, grnLines, grns, groundTruth, purchaseOrderLines, purchaseOrders, type DeliveryNote } from "@/db/schema";
 import type { LabSession } from "@/lib/auth/server";
 import { audit } from "@/lib/auth/server";
 import { runRules } from "@/lib/validation/engine";
@@ -24,6 +24,22 @@ export interface GrnLineInput {
 export type GrnResult =
   | { ok: true; number: string; documentId: string }
   | { ok: false; error: "not_found" | "already_posted" | "read_only" | "validation_failed"; message: string; violations?: Violation[] };
+
+/**
+ * Records that a delivery was not received, and why.
+ *
+ * Refusing an over-delivery is the right answer in the warehouse process, but
+ * doing nothing looks exactly like never getting to it. This gives that
+ * decision somewhere to live for a person working the screens, the same way a
+ * robot records it as a business exception on the queue item.
+ */
+export async function refuseDelivery(session: LabSession, dn: DeliveryNote, reason: string, ruleIds: string[] = []): Promise<{ ok: true } | { ok: false; message: string }> {
+  if (session.tdb.isReadOnlyRow(dn)) return { ok: false, message: "Shared corpus records cannot be changed." };
+  const existing = await session.tdb.list(grns, { where: eq(grns.deliveryNoteId, dn.id), limit: 1 });
+  if (existing.length) return { ok: false, message: `Delivery ${dn.number} already has goods receipt ${existing[0].number}.` };
+  await audit(session, "delivery.refuse", "delivery_note", dn.number, { reason, ruleIds });
+  return { ok: true };
+}
 
 export async function postGoodsReceipt(
   session: LabSession,

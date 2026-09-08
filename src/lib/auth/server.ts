@@ -30,6 +30,12 @@ export interface LabSession {
   principal: Principal;
   tenant: Tenant;
   tdb: TenantDb;
+  /**
+   * How this request arrived: through the screens or through the API. Recorded
+   * on every audited action so a scored run can say which leaderboard it
+   * belongs on without guessing.
+   */
+  channel: "ui" | "api";
 }
 
 export const getLabSession = cache(async (): Promise<LabSession | null> => {
@@ -37,7 +43,7 @@ export const getLabSession = cache(async (): Promise<LabSession | null> => {
   if (!principal || !hasLabAccess(principal)) return null;
   const tenant = await ensureTenantForPrincipal(principal);
   if (!tenant) return null;
-  return { principal, tenant, tdb: forTenant(await tenantContext(tenant)) };
+  return { principal, tenant, tdb: forTenant(await tenantContext(tenant)), channel: "ui" };
 });
 
 /** Redirects to /login (no session) or /no-access (no entitlement). */
@@ -66,13 +72,16 @@ const getTokenPrincipal = cache(async (): Promise<Principal | null> => {
  * Returns a 401 or 403 response instead of redirecting.
  */
 export async function apiSession(): Promise<LabSession | Response> {
-  const principal = (await getTokenPrincipal()) ?? (await getPrincipal());
+  // A bearer token means a robot came in through the API; a cookie on an API
+  // route means the screens are calling their own endpoints.
+  const tokenPrincipal = await getTokenPrincipal();
+  const principal = tokenPrincipal ?? (await getPrincipal());
   const unauth = (status: number, error: string) => Response.json({ error }, { status, headers: { "Cache-Control": "no-store", "WWW-Authenticate": status === 401 ? 'Bearer realm="Automation Lab"' : "" } });
   if (!principal) return unauth(401, "unauthenticated");
   if (!hasLabAccess(principal)) return unauth(403, "no_lab_access");
   const tenant = await ensureTenantForPrincipal(principal);
   if (!tenant) return unauth(403, "no_sandbox");
-  return { principal, tenant, tdb: forTenant(await tenantContext(tenant)) };
+  return { principal, tenant, tdb: forTenant(await tenantContext(tenant)), channel: tokenPrincipal ? "api" : "ui" };
 }
 
 export async function establishSession(principal: Principal): Promise<void> {
@@ -98,7 +107,7 @@ export async function clearSession(): Promise<void> {
 }
 
 export async function audit(session: LabSession, action: string, entity: string, entityId: string | null, details: Record<string, unknown> = {}) {
-  await db.insert(schema.auditLog).values({ tenantId: session.tenant.id, userId: session.principal.userId, action, entity, entityId, details });
+  await db.insert(schema.auditLog).values({ tenantId: session.tenant.id, userId: session.principal.userId, action, entity, entityId, details: { ...details, channel: session.channel } });
 }
 
 

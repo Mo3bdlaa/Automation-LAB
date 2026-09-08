@@ -18,6 +18,7 @@
  */
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import {
+  auditLog,
   challengeRuns,
   deliveryNoteLines,
   deliveryNotes,
@@ -76,6 +77,19 @@ export function f1(truePositives: number, falseNegatives: number, falsePositives
 export function timeFraction(durationMs: number, parSecondsTotal: number): number {
   const actual = Math.max(1, durationMs / 1000);
   return clamp01(actual <= parSecondsTotal ? 1 : parSecondsTotal / actual);
+}
+
+/**
+ * How the work was driven, read from the audit trail of the run's window. Every
+ * audited action records the channel it came in on, so a scenario with no
+ * extractions to look at can still be placed on the right board.
+ */
+async function channelFromAudit(session: LabSession, run: ChallengeRun, completedAt: Date): Promise<"ui" | "api" | "mixed" | null> {
+  const rows = await session.tdb.list(auditLog, { where: and(gte(auditLog.at, run.startedAt), lte(auditLog.at, completedAt))! });
+  const sources = rows
+    .map((r) => r.details?.channel)
+    .filter((c): c is "ui" | "api" => c === "ui" || c === "api");
+  return channelOf(sources);
 }
 
 /** Extractions submitted inside the run window, earliest first. */
@@ -210,7 +224,7 @@ async function scoreVendorOnboarding(session: LabSession, run: ChallengeRun, sce
   const coverage = targets.length ? rows.filter((v) => v.status !== "pending").length / targets.length : 0;
   const time = timeFraction(completedAt.getTime() - run.startedAt.getTime(), runParSeconds(scenario, run));
 
-  return assemble(scenario, run, processed, channelOf(channels), notes, {
+  return assemble(scenario, run, processed, channelOf(channels) ?? (await channelFromAudit(session, run, completedAt)), notes, {
     accuracy: { fraction: accuracy, detail: `Mean field accuracy over ${rows.length} commercial registrations.` },
     decisions: { fraction: decisions, detail: `${decisionsRight} of ${rows.length} applications decided correctly.` },
     exceptions: { fraction: exceptions, detail: `${refusedCorrectly} bad applications refused, ${acceptedWrongly} let through, ${refusedWrongly} good ones refused.` },
@@ -232,6 +246,13 @@ async function scoreGoodsReceipt(session: LabSession, run: ChallengeRun, scenari
   const posted = notes.length ? await session.tdb.list(grns, { where: inArray(grns.deliveryNoteId, notes.map((n) => n.id)) }) : [];
   const postedLines = posted.length ? await session.tdb.list(grnLines, { where: inArray(grnLines.grnId, posted.map((g) => g.id)) }) : [];
   const poLines = notes.length ? await session.tdb.list(purchaseOrderLines, { where: inArray(purchaseOrderLines.purchaseOrderId, [...new Set(notes.map((n) => n.purchaseOrderId))]) }) : [];
+  // A refusal is a decision, not an omission: it is recorded in the audit trail
+  // by both the screens and the API.
+  const refusals = new Set(
+    (await session.tdb.list(auditLog, { where: and(eq(auditLog.action, "delivery.refuse"), gte(auditLog.at, run.startedAt), lte(auditLog.at, completedAt))! }))
+      .map((r) => r.entityId)
+      .filter((x): x is string => Boolean(x)),
+  );
 
   let linesRight = 0;
   let linesTotal = 0;
@@ -251,14 +272,18 @@ async function scoreGoodsReceipt(session: LabSession, run: ChallengeRun, scenari
       const po = poLines.find((p) => p.id === l.purchaseOrderLineId);
       return po ? Number(l.quantity) > Number(po.quantity) * (1 + OVER_RECEIPT_TOLERANCE) : false;
     });
-    if (receipt) processed++;
+    const refused = refusals.has(note.number);
+    if (receipt || refused) processed++;
 
-    for (const l of lines) {
-      linesTotal++;
-      const got = postedLines.find((g) => g.grnId === receipt?.id && g.purchaseOrderLineId === l.purchaseOrderLineId);
-      const po = poLines.find((p) => p.id === l.purchaseOrderLineId);
-      const allowed = po ? Math.min(Number(l.quantity), Number(po.quantity) * (1 + OVER_RECEIPT_TOLERANCE)) : Number(l.quantity);
-      if (got && Math.abs(Number(got.quantityReceived) - allowed) < 0.001) linesRight++;
+    // Only the deliveries that should have been received count towards
+    // accuracy: refusing an over-delivery is the right answer, and marking it
+    // wrong here would contradict the decision it is credited for below.
+    if (!overDelivery) {
+      for (const l of lines) {
+        linesTotal++;
+        const got = postedLines.find((g) => g.grnId === receipt?.id && g.purchaseOrderLineId === l.purchaseOrderLineId);
+        if (got && Math.abs(Number(got.quantityReceived) - Number(l.quantity)) < 0.001) linesRight++;
+      }
     }
 
     if (overDelivery) {
@@ -268,26 +293,27 @@ async function scoreGoodsReceipt(session: LabSession, run: ChallengeRun, scenari
       } else {
         overCaught++;
         decisionsRight++;
+        if (!refused) messages.push(`${note.number}: correctly not received, but no exception was recorded against it.`);
       }
     } else if (receipt) {
       decisionsRight++;
     } else {
       overInvented++;
-      messages.push(`${note.number}: nothing posted although the delivery is within tolerance.`);
+      messages.push(`${note.number}: ${refused ? "refused" : "left untouched"} although the delivery is within tolerance.`);
     }
   }
 
   const accuracy = linesTotal ? linesRight / linesTotal : 0;
   const decisions = notes.length ? decisionsRight / notes.length : 0;
   const exceptions = f1(overCaught, overMissed, overInvented);
-  const coverage = targets.length ? notes.filter((n) => posted.some((g) => g.deliveryNoteId === n.id)).length / targets.length : 0;
+  const coverage = targets.length ? processed / targets.length : 0;
   const time = timeFraction(completedAt.getTime() - run.startedAt.getTime(), runParSeconds(scenario, run));
 
-  return assemble(scenario, run, processed, "ui", messages, {
+  return assemble(scenario, run, processed, await channelFromAudit(session, run, completedAt), messages, {
     accuracy: { fraction: accuracy, detail: `${linesRight} of ${linesTotal} lines received at the right quantity.` },
     decisions: { fraction: decisions, detail: `${decisionsRight} of ${notes.length} deliveries handled correctly.` },
     exceptions: { fraction: exceptions, detail: `${overCaught} over-deliveries stopped, ${overMissed} received anyway.` },
-    coverage: { fraction: coverage, detail: `${processed} of ${targets.length} deliveries receipted.` },
+    coverage: { fraction: coverage, detail: `${processed} of ${targets.length} deliveries received or refused.` },
     time: { fraction: time, detail: timeDetail(completedAt.getTime() - run.startedAt.getTime(), runParSeconds(scenario, run)) },
   });
 }
@@ -350,7 +376,7 @@ async function scoreSourcingAward(session: LabSession, run: ChallengeRun, scenar
   const coverage = targets.length ? decided / targets.length : 0;
   const time = timeFraction(completedAt.getTime() - run.startedAt.getTime(), runParSeconds(scenario, run));
 
-  return assemble(scenario, run, decided, "ui", messages, {
+  return assemble(scenario, run, decided, await channelFromAudit(session, run, completedAt), messages, {
     accuracy: { fraction: accuracy, detail: `${approved} of ${rows.length} awards followed through to an approved purchase order.` },
     decisions: { fraction: decisions, detail: `${awardedRight} of ${rows.length} requests awarded to the right quotation.` },
     exceptions: { fraction: exceptions, detail: `${correctlyHeld} requests correctly left unawarded, ${wronglyAwarded} awarded to an ineligible quotation.` },

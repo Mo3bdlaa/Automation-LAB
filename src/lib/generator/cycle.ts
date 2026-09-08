@@ -416,7 +416,14 @@ export function addPendingDelivery(r: Rng, cycle: GenCycle, vendor: GenVendor): 
   if (cycle.deliveryNotes.length > 0 || (cycle.po.status !== "sent" && cycle.po.status !== "approved")) return false;
   cycle.po.status = "sent";
   const deliveryDate = toWorkingDay(addDays(cycle.po.expectedDeliveryDate, r.int(-2, 5)));
-  const delivered = cycle.po.lines.map((l) => ({ line: l, qty: r.chance(0.75) ? l.quantity : Math.max(1, Math.floor(l.quantity * r.float(0.5, 0.9))) }));
+  // A quarter of these deliveries bring more than was ordered. Refusing them is
+  // the decision the warehouse scenario is really about, so the queue has to
+  // contain some: a queue where everything is fine teaches nothing.
+  const overDelivery = r.chance(0.25);
+  const delivered = cycle.po.lines.map((l, i) => ({
+    line: l,
+    qty: overDelivery && i === 0 ? Math.ceil(l.quantity * r.float(1.08, 1.4)) : r.chance(0.75) ? l.quantity : Math.max(1, Math.floor(l.quantity * r.float(0.5, 0.9))),
+  }));
   cycle.deliveryNotes.push(dnFrom(r, vendor, delivered, deliveryDate, cycle.po.deliveryLocationCode, "delivered"));
   return true;
 }

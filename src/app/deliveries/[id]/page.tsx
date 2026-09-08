@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { deliveryLocations, deliveryNoteLines, deliveryNotes, documentFiles, documents, grns, items, purchaseOrderLines, purchaseOrders, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { DocumentCard, Facts, LinkButton, Page, Section, Status, TableWrap } from "@/components/ui";
+import { Button, DocumentCard, Facts, Input, LinkButton, Page, Section, Status, TableWrap } from "@/components/ui";
+import { refuseDeliveryAction } from "../actions";
 import { CORPUS_TODAY } from "@/lib/generator/dates";
 import { GrnForm } from "../grn-form";
 
@@ -60,6 +61,18 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
           {canPost ? (
             <Section title={tc.postGrn} testId="delivery-post-grn">
               <GrnForm t={t} deliveryNoteId={dn.id} today={CORPUS_TODAY} lines={viewLines} />
+              <form action={refuseDeliveryAction} className="mt-3 flex flex-wrap items-end gap-2" id="delivery-refuse-form" data-testid="delivery-refuse-form">
+                <input type="hidden" name="deliveryNoteId" value={dn.id} />
+                <div>
+                  <label htmlFor="delivery-refuse-reason" className="al-label">
+                    {tc.refuseReason}
+                  </label>
+                  <Input testId="delivery-refuse-reason" name="reason" placeholder={tc.refuseReasonHint} />
+                </div>
+                <Button testId="delivery-refuse" variant="danger">
+                  {tc.refuse}
+                </Button>
+              </form>
             </Section>
           ) : (
             <Section title={tc.lines}>

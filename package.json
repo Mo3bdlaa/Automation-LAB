@@ -19,12 +19,14 @@
     "worker": "tsx scripts/worker.ts",
     "serve:prod": "scripts/serve-prod.sh",
     "api:smoke": "node scripts/api-smoke.mjs",
+    "challenge:smoke": "node scripts/challenge-smoke.mjs",
     "ocr:ladder": "tsx scripts/ocr-ladder.ts",
     "pdd": "tsx scripts/build-pdd.ts",
     "pdd:figures": "tsx scripts/render-pdd-samples.ts && node scripts/capture-pdd-figures.mjs"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",
+    "docx": "^9.7.1",
     "drizzle-orm": "^0.45.2",
     "next": "^16.3.4",
     "pdfjs-dist": "^6.3.289",
@@ -40,7 +42,6 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "docx": "^9.7.1",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "^16.3.4",

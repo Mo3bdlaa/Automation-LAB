@@ -11,6 +11,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
+      docx:
+        specifier: ^9.7.1
+        version: 9.7.1
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
@@ -51,9 +54,6 @@ importers:
       '@types/react-dom':
         specifier: ^19
         version: 19.2.7(@types/react@19.2.18)
-      docx:
-        specifier: ^9.7.1
-        version: 9.7.1
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10

@@ -281,6 +281,16 @@ export function openApiDocument(origin: string) {
           responses: { "200": jsonOk("Board entries, best run per person.", { type: "object" }), "400": jsonOk("Unknown scenario.", ref("Error")) },
         },
       },
+      "/api/deliveries/{id}/refuse": {
+        post: {
+          tags: ["Procurement"],
+          summary: "Record that a delivery was refused rather than received.",
+          description: "Use this for an over-delivery beyond tolerance: refusing is the correct outcome, and it needs to be recorded rather than left as an unworked item.",
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          requestBody: jsonBody({ type: "object", required: ["reason"], properties: { reason: { type: "string" }, ruleIds: { type: "array", items: { type: "string" }, example: ["GRN-OVER-PO"] } } }),
+          responses: { "200": jsonOk("Recorded.", { type: "object" }), ...errorResponses },
+        },
+      },
       "/api/vendors/{code}/approve": {
         post: {
           tags: ["Master data"],
