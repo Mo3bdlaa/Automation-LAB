@@ -22,6 +22,9 @@ const ALLOWED = [
   // Lab settings are global rather than per tenant, and only staff may write
   // them: the action that does is gated on the role.
   "src/lib/lab-settings.ts",
+  // Accounts are the identity store: they exist before a tenant does, and are
+  // keyed by user rather than by tenant.
+  "src/lib/identity/accounts.ts",
   // The instructor views read across every student tenant on purpose. They are
   // gated on the staff role, which the test below asserts.
   "src/app/instructor/",

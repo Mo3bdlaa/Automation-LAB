@@ -188,6 +188,36 @@ export function scoreInvoiceExtraction(
   };
 }
 
+/**
+ * Grades an extraction of any document against its ground truth, keyed by the
+ * ground-truth paths themselves rather than a form taxonomy. This is what the
+ * onboarding scenario uses: a commercial registration has no line items, so the
+ * invoice weighting would not mean anything.
+ *
+ * Fields the participant did not send count as missed; fields they sent that no
+ * ground truth covers are ignored rather than punished, because a document
+ * carries more text than the lab records.
+ */
+export function scoreGenericExtraction(truth: Map<string, string>, fields: Record<string, string>, alternates?: Map<string, string[]>): ExtractionScore {
+  const results: Record<string, FieldResult> = {};
+  let matched = 0;
+  for (const [field, expected] of truth) {
+    const actual = (fields[field] ?? "").trim();
+    const cmp = compareBest(field, expected, alternates?.get(field) ?? [], actual);
+    results[field] = { field, expected, actual, weight: HEADER_WEIGHT, ...cmp };
+    if (cmp.match) matched++;
+  }
+  const total = truth.size;
+  return {
+    score: total === 0 ? 0 : Math.round((matched / total) * 10000) / 10000,
+    matched,
+    total,
+    extraLines: 0,
+    missingLines: 0,
+    fields: results,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Defect grading
 // ---------------------------------------------------------------------------

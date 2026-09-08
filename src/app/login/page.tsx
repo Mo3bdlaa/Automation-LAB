@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { i18n } from "@/i18n/server";
 import { getPrincipal } from "@/lib/auth/server";
-import { identityProvider } from "@/lib/identity";
+import { identityProvider, selfServiceSignUp } from "@/lib/identity";
 import { Page } from "@/components/ui";
 import { LoginForm } from "./login-form";
 
@@ -14,6 +15,11 @@ export default async function LoginPage() {
     <Page title={t.login.title}>
       <p className="mb-4 max-w-xl text-sm text-muted">{t.login.intro}</p>
       <LoginForm fields={provider.loginFields ?? []} labels={{ submit: t.login.submit, failed: t.login.failed, noAccess: t.login.noAccess }} />
+      {selfServiceSignUp() ? (
+        <p className="mt-4 text-sm" id="login-register-link" data-testid="login-register-link">
+          {t.login.noAccount} <Link href="/register">{t.login.createOne}</Link>
+        </p>
+      ) : null}
       {provider.id === "local" ? (
         <p className="mt-4 text-xs text-muted" id="login-dev-hint" data-testid="login-dev-hint">
           {t.login.devHint}

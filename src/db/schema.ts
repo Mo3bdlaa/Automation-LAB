@@ -62,6 +62,31 @@ export const users = pgTable("users", {
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Credentials for people who signed themselves up. The lab is a public
+ * challenge, so registration is open: an email, a password and a display name.
+ * Passwords are scrypt hashes with a per-account salt; nothing here is
+ * reversible. `users` stays the application-side mirror of a principal.
+ */
+export const accounts = pgTable(
+  "accounts",
+  {
+    userId: text("user_id").primaryKey(),
+    email: text("email").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    displayName: text("display_name").notNull(),
+    /** Shown on the leaderboard instead of the display name, when set. */
+    alias: text("alias"),
+    /** The country or city a participant wants shown beside their name. */
+    location: text("location"),
+    roles: jsonb("roles").$type<string[]>().notNull().default(sql`'["student"]'::jsonb`),
+    status: text("status", { enum: ["active", "suspended"] }).notNull().default("active"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("accounts_email_uq").on(sql`lower(${t.email})`)],
+);
+
 // ---------------------------------------------------------------------------
 // Master data
 // ---------------------------------------------------------------------------
@@ -833,6 +858,63 @@ export const webhookDeliveries = pgTable(
 // Background jobs and audit
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// P5: the challenge - scenarios, scored runs, leaderboard, certificates
+// ---------------------------------------------------------------------------
+
+export const RUN_MODES = ["practice", "scored"] as const;
+export type RunMode = (typeof RUN_MODES)[number];
+
+export const RUN_STATUSES = ["running", "completed", "abandoned"] as const;
+export type RunStatus = (typeof RUN_STATUSES)[number];
+
+/** How the work was done, which decides which leaderboard a run lands on. */
+export const RUN_CHANNELS = ["ui", "api", "mixed"] as const;
+export type RunChannel = (typeof RUN_CHANNELS)[number];
+
+/** One scored attempt at one scenario. */
+export const challengeRuns = pgTable(
+  "challenge_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    userId: text("user_id").notNull(),
+    /** Scenario slug from the code-defined catalogue. */
+    scenario: text("scenario").notNull(),
+    mode: text("mode", { enum: RUN_MODES }).notNull().default("practice"),
+    channel: text("channel", { enum: RUN_CHANNELS }),
+    status: text("status", { enum: RUN_STATUSES }).notNull().default("running"),
+    /** Difficulty level the documents were served at. */
+    level: integer("level").notNull().default(1),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    durationMs: integer("duration_ms"),
+    /**
+     * The work in scope, snapshotted when the run started. Scoring a run later
+     * must not be affected by anything that arrived afterwards.
+     */
+    targets: jsonb("targets").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    processedCount: integer("processed_count").notNull().default(0),
+    /** Final mark out of 100. */
+    score: numeric("score", { precision: 5, scale: 2 }),
+    /** Points and detail per judging parameter. */
+    breakdown: jsonb("breakdown").$type<{
+      parameters: { key: string; label: string; points: number; max: number; detail: string }[];
+      notes: string[];
+    }>(),
+    /** Opt in to appear on the public leaderboard. */
+    publish: boolean("publish").notNull().default(false),
+    /** Set when the run earns a certificate; the code is what /verify checks. */
+    certificateCode: text("certificate_code"),
+    certificateIssuedAt: timestamp("certificate_issued_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("challenge_runs_board_idx").on(t.scenario, t.status, t.score),
+    index("challenge_runs_user_idx").on(t.userId, t.startedAt),
+    uniqueIndex("challenge_runs_certificate_uq").on(t.certificateCode),
+  ],
+);
+
 /**
  * Instructor-set knobs that apply to the whole lab rather than one sandbox.
  * Kept as one small key/value table so a new knob does not need a migration.
@@ -915,6 +997,7 @@ export const tenantTables = {
   documentFieldBoxes,
   groundTruth,
   seededDefects,
+  challengeRuns,
 } as const;
 
 export type Vendor = typeof vendors.$inferSelect;
@@ -947,5 +1030,7 @@ export type DocumentFile = typeof documentFiles.$inferSelect;
 export type DocumentFieldBox = typeof documentFieldBoxes.$inferSelect;
 export type GroundTruth = typeof groundTruth.$inferSelect;
 export type LabSetting = typeof labSettings.$inferSelect;
+export type Account = typeof accounts.$inferSelect;
+export type ChallengeRun = typeof challengeRuns.$inferSelect;
 export type Tenant = typeof tenants.$inferSelect;
 export type Job = typeof jobs.$inferSelect;

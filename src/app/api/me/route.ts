@@ -6,6 +6,7 @@ import { sandboxProgress } from "@/lib/sandbox/lifecycle";
 import { isStaff } from "@/lib/identity";
 import { LEVELS } from "@/lib/documents/levels";
 import { defaultLevel } from "@/lib/lab-settings";
+import { inScoredRun } from "@/lib/challenge/runs";
 
 /** Who am I, what is my sandbox doing, and how am I scoring. */
 export async function GET() {
@@ -16,13 +17,17 @@ export async function GET() {
   const scores = graded.map((g) => Number(g.score));
   const caught = graded.reduce((a, g) => a + (g.matchResult?.defects?.caught.length ?? 0), 0);
   const missed = graded.reduce((a, g) => a + (g.matchResult?.defects?.missed.length ?? 0), 0);
+  // While a scored run is open the running score is withheld for the same
+  // reason the per-submission grade is: it would answer "was that right?".
+  const scored = await inScoredRun(s);
   return ok({
     user: { id: s.principal.userId, email: s.principal.email, displayName: s.principal.displayName, roles: s.principal.roles, staff: isStaff(s.principal) },
     entitlements: s.principal.entitlements,
     // The exercise level the instructor set for the cohort.
     level: await defaultLevel(),
     sandbox: { tenantId: s.tenant.id, status: s.tenant.status, progress: s.tenant.progress, seed: s.tenant.seed, resetCount: s.tenant.resetCount, documents: progress.documents, rendered: progress.rendered },
-    score: {
+    scoredRun: scored ? { id: scored.id, scenario: scored.scenario, startedAt: scored.startedAt.toISOString(), feedback: "withheld until the run is closed" } : null,
+    score: scored ? { extractions: graded.length, withheld: true } : {
       extractions: graded.length,
       // Accuracy per difficulty level, so a bot can see whether OCR is holding up.
       byLevel: Object.fromEntries(

@@ -64,6 +64,7 @@ export function openApiDocument(origin: string) {
       { name: "Master data", description: "Vendors and catalogue items." },
       { name: "Documents", description: "Generated PDFs and their metadata." },
       { name: "Account", description: "Identity, sandbox status, tokens and webhooks." },
+      { name: "Challenge", description: "Scenarios, scored runs, the leaderboard and certificates." },
     ],
     paths: {
       "/api/health": { get: { tags: ["Account"], summary: "Liveness and database check.", security: [], responses: { "200": jsonOk("Healthy.", { type: "object" }) } } },
@@ -213,6 +214,97 @@ export function openApiDocument(origin: string) {
           responses: { ...errorResponses, "200": { description: "The PDF.", content: { "application/pdf": { schema: { type: "string", format: "binary" } } } }, "409": jsonOk("The render is still queued. Wait for Retry-After and try again.", ref("Error")) },
         },
       },
+      "/api/scenarios": {
+        get: {
+          tags: ["Challenge"],
+          summary: "The challenge catalogue and how each scenario is judged.",
+          responses: { "200": jsonOk("Scenarios with their weights, steps and rule IDs.", { type: "object" }), ...errorResponses },
+        },
+      },
+      "/api/challenge/runs": {
+        get: { tags: ["Challenge"], summary: "Your runs, newest first.", responses: { "200": jsonOk("Runs.", { type: "object" }), ...errorResponses } },
+        post: {
+          tags: ["Challenge"],
+          summary: "Open a run. The clock starts here.",
+          description:
+            "A scored run snapshots the queue, withholds grade feedback until it is closed, and can earn a certificate. A practice run behaves the same but is never ranked. If the queue is short, reset the sandbox first.",
+          requestBody: jsonBody({
+            type: "object",
+            required: ["scenario"],
+            properties: { scenario: { type: "string", example: "invoice-processing" }, mode: { type: "string", enum: ["practice", "scored"], default: "practice" }, level: { type: "integer", minimum: 1, maximum: 5 } },
+          }),
+          responses: { "201": jsonOk("The open run.", ref("ChallengeRun")), "409": jsonOk("A run is already open, or the queue is too short.", ref("Error")), ...errorResponses },
+        },
+      },
+      "/api/challenge/runs/{id}": {
+        get: {
+          tags: ["Challenge"],
+          summary: "One run: scope, progress and result.",
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          responses: { "200": jsonOk("The run.", ref("ChallengeRun")), ...errorResponses },
+        },
+        patch: {
+          tags: ["Challenge"],
+          summary: "Publish a finished run to the leaderboard, or take it down.",
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          requestBody: jsonBody({ type: "object", required: ["publish"], properties: { publish: { type: "boolean" } } }),
+          responses: { "200": jsonOk("The run.", ref("ChallengeRun")), ...errorResponses },
+        },
+      },
+      "/api/challenge/runs/{id}/close": {
+        post: {
+          tags: ["Challenge"],
+          summary: "Close a run and get the score.",
+          description: "Grades the run on accuracy, decisions, exceptions, coverage and time, and issues a certificate if it reached the pass mark.",
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          responses: { "200": jsonOk("Score, breakdown and what was missed.", { type: "object" }), ...errorResponses },
+        },
+      },
+      "/api/challenge/runs/{id}/abandon": {
+        post: {
+          tags: ["Challenge"],
+          summary: "Give up on a run without scoring it.",
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          responses: { "200": jsonOk("The abandoned run.", ref("ChallengeRun")), ...errorResponses },
+        },
+      },
+      "/api/leaderboard": {
+        get: {
+          tags: ["Challenge"],
+          summary: "The public board for a scenario.",
+          security: [],
+          parameters: [
+            { name: "scenario", in: "query", schema: { type: "string" } },
+            { name: "channel", in: "query", schema: { type: "string", enum: ["ui", "api", "all"], default: "all" }, description: "Runs driven through the screens, through the API, or both." },
+            { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 100, default: 25 } },
+          ],
+          responses: { "200": jsonOk("Board entries, best run per person.", { type: "object" }), "400": jsonOk("Unknown scenario.", ref("Error")) },
+        },
+      },
+      "/api/vendors/{code}/approve": {
+        post: {
+          tags: ["Master data"],
+          summary: "Accept a supplier application.",
+          parameters: [{ name: "code", in: "path", required: true, schema: { type: "string" } }],
+          responses: { "200": jsonOk("The supplier, now active, with any rule violations it had.", { type: "object" }), ...errorResponses },
+        },
+      },
+      "/api/vendors/{code}/reject": {
+        post: {
+          tags: ["Master data"],
+          summary: "Refuse a supplier application.",
+          parameters: [{ name: "code", in: "path", required: true, schema: { type: "string" } }],
+          responses: { "200": jsonOk("The supplier, now blocked.", { type: "object" }), ...errorResponses },
+        },
+      },
+      "/api/sandbox/reset": {
+        post: {
+          tags: ["Account"],
+          summary: "Wipe and regenerate the sandbox from its seed.",
+          description: "Queues the reset and returns immediately. Poll GET /api/sandbox until status is ready.",
+          responses: { "202": jsonOk("Reset queued.", { type: "object" }), ...errorResponses },
+        },
+      },
       "/api/openapi": { get: { tags: ["Account"], summary: "This document.", security: [], responses: { "200": jsonOk("The OpenAPI 3.1 description.", { type: "object" }) } } },
       "/api/docs": { get: { tags: ["Account"], summary: "Swagger UI for this API.", security: [], responses: { "200": { description: "HTML page.", content: { "text/html": { schema: { type: "string" } } } } } } },
       "/api/jobs/run": { post: { tags: ["Account"], summary: "Drain the background job queue (cron).", security: [], responses: { "200": jsonOk("Report.", { type: "object" }), "401": jsonOk("Bad cron secret.", ref("Error")) } } },
@@ -252,6 +344,24 @@ export function openApiDocument(origin: string) {
             lines: { type: "array", items: { type: "object", required: ["quantity", "unitPrice"], properties: { poLineNo: { type: "integer" }, itemCode: { type: "string" }, description: { type: "string" }, quantity: { type: "number" }, uom: { type: "string" }, unitPrice: { type: "number" }, taxRate: { type: "number", description: "Percent, e.g. 15." }, taxAmount: { type: "number" }, lineTotal: { type: "number" } } } },
             confidence: { type: "object", additionalProperties: { type: "number", minimum: 0, maximum: 1 }, description: "Per-field confidence keyed like the ground truth (`number`, `vendor.iban`, `lines[0].quantity`). Anything at or below 0.85 is flagged on the validation station." },
             level: { type: "integer", minimum: 1, maximum: 5, description: "Which difficulty level the bot read. Defaults to the level the instructor set for the cohort." },
+          },
+        },
+        ChallengeRun: {
+          type: "object",
+          properties: {
+            id: { type: "string", format: "uuid" },
+            scenario: { type: "string" },
+            mode: { type: "string", enum: ["practice", "scored"] },
+            status: { type: "string", enum: ["running", "completed", "abandoned"] },
+            channel: { type: ["string", "null"], enum: ["ui", "api", "mixed", null] },
+            level: { type: "integer" },
+            startedAt: { type: "string", format: "date-time" },
+            completedAt: { type: ["string", "null"], format: "date-time" },
+            targets: { type: "array", items: { type: "string" }, description: "The references in scope, fixed when the run opened." },
+            score: { type: ["number", "null"], description: "Out of 100, once the run is closed." },
+            breakdown: { type: ["object", "null"] },
+            publish: { type: "boolean" },
+            certificate: { type: ["object", "null"] },
           },
         },
         ExtractionResult: {

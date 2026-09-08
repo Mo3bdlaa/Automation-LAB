@@ -6,8 +6,11 @@ import { conflict, created, notFound, problem, readJson } from "@/lib/api/http";
 import { extractionToInvoice, flattenApiExtraction } from "@/lib/services/extraction";
 import { submitExtraction } from "@/lib/services/invoices";
 import { defaultLevel } from "@/lib/lab-settings";
+import { documentById, submitDocumentExtraction } from "@/lib/services/document-extraction";
+import { inScoredRun } from "@/lib/challenge/runs";
 
-const Body = z.object({
+/** An invoice extraction: the taxonomy the three-way match needs. */
+const InvoiceBody = z.object({
   internalNumber: z.string().min(1),
   fields: z
     .object({
@@ -47,6 +50,19 @@ const Body = z.object({
 });
 
 /**
+ * An extraction of any other document, keyed by ground-truth path
+ * (`number`, `expiryDate`, `vendor.taxId`). Used by the onboarding scenario.
+ */
+const DocumentBody = z.object({
+  documentId: z.string().uuid(),
+  fields: z.record(z.string(), z.union([z.string(), z.number()])),
+  confidence: z.record(z.string(), z.number().min(0).max(1)).optional(),
+  level: z.number().int().min(1).max(5).optional(),
+});
+
+const Body = z.union([InvoiceBody, DocumentBody]);
+
+/**
  * Submits what a bot read from the invoice PDF. The three-way match runs on the
  * submitted values, and the submission is graded against the ground truth the
  * generator stored when it created the document.
@@ -56,8 +72,27 @@ export async function POST(req: Request) {
   if (s instanceof Response) return s;
   const parsed = await readJson(req, Body);
   if ("response" in parsed) return parsed.response;
-  const { internalNumber, fields, lines, confidence } = parsed.data;
   const level = parsed.data.level ?? (await defaultLevel());
+  // A scored run withholds the grade: a bot that could read its own accuracy
+  // after every submission would not need to read the document.
+  const scored = await inScoredRun(s);
+
+  if ("documentId" in parsed.data) {
+    const doc = await documentById(s, parsed.data.documentId);
+    if (!doc) return notFound("Document");
+    if (s.tdb.isReadOnlyRow(doc)) return problem(403, "read_only", "Shared corpus records cannot be changed.");
+    const fields = Object.fromEntries(Object.entries(parsed.data.fields).map(([k, v]) => [k, String(v)]));
+    const outcome = await submitDocumentExtraction(s, doc, fields, "api", { confidence: parsed.data.confidence, level });
+    return created({
+      extractionId: outcome.extractionId,
+      level,
+      document: outcome.document,
+      grade: scored ? null : { score: outcome.score.score, matchedFields: outcome.score.matched, totalFields: outcome.score.total },
+      scoredRun: scored ? { id: scored.id, scenario: scored.scenario, feedback: "withheld until the run is closed" } : null,
+    });
+  }
+
+  const { internalNumber, fields, lines, confidence } = parsed.data;
 
   const inv = await s.tdb.one(invoices, eq(invoices.internalNumber, internalNumber));
   if (!inv) return notFound("Invoice");
@@ -73,14 +108,19 @@ export async function POST(req: Request) {
     extractionId: outcome.extractionId,
     level,
     invoice: { internalNumber: inv.internalNumber, status: outcome.status },
+    // The match result is the business system talking, so it is always
+    // returned: without it nobody could decide what to do with the invoice.
     match: { ok: outcome.ok, violations: outcome.violations },
-    grade: {
-      score: outcome.score.score,
-      matchedFields: outcome.score.matched,
-      totalFields: outcome.score.total,
-      extraLines: outcome.score.extraLines,
-      missingLines: outcome.score.missingLines,
-      defects: { caught: outcome.defects.caught, missed: outcome.defects.missed, falsePositives: outcome.defects.falsePositives, recall: outcome.defects.recall, precision: outcome.defects.precision },
-    },
+    grade: scored
+      ? null
+      : {
+          score: outcome.score.score,
+          matchedFields: outcome.score.matched,
+          totalFields: outcome.score.total,
+          extraLines: outcome.score.extraLines,
+          missingLines: outcome.score.missingLines,
+          defects: { caught: outcome.defects.caught, missed: outcome.defects.missed, falsePositives: outcome.defects.falsePositives, recall: outcome.defects.recall, precision: outcome.defects.precision },
+        },
+    scoredRun: scored ? { id: scored.id, scenario: scored.scenario, feedback: "withheld until the run is closed" } : null,
   });
 }

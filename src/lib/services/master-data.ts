@@ -25,6 +25,26 @@ export interface VendorFields extends VendorInput {
   country?: string;
 }
 
+/**
+ * Runs the vendor rules against a stored supplier, which is what decides
+ * whether an onboarding application should have been refused. Kept beside
+ * saveVendor so both paths judge a supplier by exactly the same rules.
+ */
+export async function runVendorRules(session: LabSession, vendor: Vendor): Promise<Violation[]> {
+  const others = await session.tdb.list(vendors, { where: ne(vendors.code, vendor.code) });
+  const result = runRules(vendorRules, {
+    vendor: {
+      code: vendor.code, name: vendor.name, nameAr: vendor.nameAr ?? undefined, crNumber: vendor.crNumber, crExpiry: vendor.crExpiry,
+      taxId: vendor.taxId, taxCertExpiry: vendor.taxCertExpiry, iban: vendor.iban, email: vendor.email,
+      currency: vendor.currency, paymentTermsDays: vendor.paymentTermsDays, rating: vendor.rating, blacklisted: vendor.blacklisted,
+      status: vendor.status,
+    } as VendorInput,
+    existing: others.map((v) => ({ code: v.code, name: v.name, taxId: v.taxId, iban: v.iban, blacklisted: v.blacklisted })),
+    today: CORPUS_TODAY,
+  });
+  return result.violations;
+}
+
 export async function saveVendor(session: LabSession, mode: "create" | "edit", originalCode: string | null, input: VendorFields): Promise<SaveResult<Vendor>> {
   const tdb = session.tdb;
   const code = mode === "edit" ? originalCode! : input.code.toUpperCase();
