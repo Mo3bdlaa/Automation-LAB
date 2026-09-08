@@ -20,6 +20,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - PDFs are HTML/CSS rendered by Chromium in a background job. Do not add `@react-pdf/renderer`.
 - Degraded levels (2 to 5) are produced in the same Chromium with pdf.js, SVG filters and CSS transforms. Do not add `sharp` or another native image library, and keep every parameter seeded from `(document id, level)` so a level stays reproducible.
 - Difficulty levels are a public contract like rule IDs: never renumber them or change what a level means.
+- So are the challenge scenarios in `src/lib/challenge/scenarios.ts`. Slugs appear in URLs, in the API and on issued certificates; weights and pass marks are printed in each scenario's PDD and stand behind every leaderboard entry. Never rename a slug or silently change a weight — bump `version` and leave the old meaning intact.
+- A scored run must not leak its grade. Anything that reports how well a submission did is gated by `inScoredRun` (`src/lib/challenge/runs.ts`); the business result still comes back, the score does not. Adding a new endpoint that returns a grade means adding that gate.
+- The challenge walkthrough is a side panel: it must never overlay the page or intercept pointer events, because a bot driving the screens has to behave identically whether it is open or closed.
 - A template element that carries a graded value needs `data-gt-field="<ground truth path>"`; that is what the renderer measures to store field positions.
 - Nothing in this repo touches mohammedshaker.com or the share-know.com VPS.
 - The PDD is generated: edit `scripts/build-pdd.ts`, never `docs/pdd.md`. Its screenshots come from `pnpm pdd:figures` against a running dev server; `pnpm pdd` then rebuilds the Markdown, Word and PDF.

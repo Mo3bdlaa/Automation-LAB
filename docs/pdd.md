@@ -28,7 +28,7 @@
 
 ### 1.1 Purpose of the document
 
-This Process Definition Document describes the procurement processes that students automate in Automation Lab, the practice sandbox of the Document Understanding and RPA course. It follows the structure of a standard UiPath PDD: the AS-IS process as a human performs it in the target application, the TO-BE process as an attended or unattended automation, the exceptions the automation must handle, and the acceptance criteria. It also fixes the scope of the platform phases: P2 (queues, REST API, grading, Validation Station, instructor dashboard) as delivered, and P3 and P4 as planned, so that the lab, the exercises and the grading evolve together.
+This Process Definition Document describes the procurement processes that students automate in Automation Lab, the practice sandbox of the Document Understanding and RPA course. It follows the structure of a standard UiPath PDD: the AS-IS process as a human performs it in the target application, the TO-BE process as an attended or unattended automation, the exceptions the automation must handle, and the acceptance criteria. It also fixes the scope of the platform phases: P2 (queues, REST API, grading, Validation Station, instructor dashboard), P3 (Arabic-first documents and the difficulty ladder) and P5 (the public, scored challenge) as delivered, and P4 as planned, so that the lab, the exercises and the grading evolve together.
 
 Two audiences use it. Students read sections 2 and 3 as they would read a PDD handed to them by a client: it is the specification of what to build. The instructor and developers read section 4 and the appendices: they define what the platform must provide in each phase and how it is verified.
 
@@ -313,9 +313,9 @@ The lab exposes the same work as its own queues: GET /api/work-items?queue=invoi
 - Per student: extraction accuracy per field against ground truth, defects caught versus seeded, false positives, time per document. Available at /api/me and on the instructor dashboard.
 - Per document: the audit log records every read and write the bot performed, so a run can be reconstructed after the fact.
 
-## 4. Platform roadmap: phases P2, P3 and P4
+## 4. Platform roadmap: phases P2, P3, P5 and P4
 
-P0 (foundation), P1 (full document cycle, seeded defects, three-way match), P2 (queues, REST API, grading, Validation Station, instructor dashboard) and P3 (Arabic-first documents and the difficulty ladder) are implemented. P4 is defined here with deliverables, the exercise it unlocks, and acceptance criteria that the smoke test and unit tests must cover before the phase is called done. P4 gathers the production and integration items that the design left open.
+P0 (foundation), P1 (full document cycle, seeded defects, three-way match), P2 (queues, REST API, grading, Validation Station, instructor dashboard), P3 (Arabic-first documents and the difficulty ladder) and P5 (the public, scored challenge) are implemented. P4 is defined here with deliverables, the exercise it unlocks, and acceptance criteria that the smoke test and unit tests must cover before the phase is called done. P4 gathers the production and integration items that the design left open. P5 was taken ahead of P4 deliberately: a scored challenge needs only an account and a database, and it is the part of the lab that can be put in front of the public.
 
 ### 4.1 P2: Queues, REST API, grading, validation station, instructor dashboard - delivered
 
@@ -398,7 +398,40 @@ This phase is built. The table below is the delivered scope; where the implement
 1. Language switch. The choice is stored in a cookie and applies to every screen.
 2. Tables, labels and status badges are translated; ids and data-testid values stay identical.
 
-### 4.3 P4: Production identity, deployment and integration
+### 4.3 P5: The public challenge - delivered
+
+The lab was built for a cohort. P5 wraps the same sandbox in a scored, timed and verifiable challenge that a stranger can find, complete and prove they completed, so that it can be run as a community hackathon rather than only as coursework.
+
+#### Deliverables
+
+| Area | Deliverable | Detail |
+| --- | --- | --- |
+| Accounts | Self-service email and password sign-up | Passwords hashed with scrypt and compared in constant time. No third-party sign-in: this is a public event, and a participant who does not use, or does not wish to use, a Google account should not meet a consent screen before their first invoice. A profile carries a display name, a leaderboard alias and a location; the board shows the alias and the location, never the email. The fixture provider stays for development and runs beside the accounts provider, so smoke tests and sign-up both work without switching. |
+| Scenario catalogue | Four scenarios with steps, rules, par times and weights | Accounts payable (invoice-processing, 12 invoices, 90s per item, documents must be read); supplier onboarding (vendor-onboarding, 10 applications, 120s, documents must be read); warehouse (goods-receipt, 8 deliveries, 60s); sourcing (sourcing-award, 6 requests, 75s). Slugs, weights and pass marks are a public contract like the rule IDs: a certificate and a leaderboard entry both refer to a scenario version, so a change of meaning takes a version bump. |
+| Runs | Start, poll, close or abandon | A run fixes its target references when it opens, starts a clock, and is closed for a score or abandoned without one. One open run per participant; a second start is refused. A scored run whose queue is too short is refused at the start rather than handed out unfinishable, which is why the sandbox generator now guarantees queue depths instead of leaving them to the seed. |
+| Judging | Five parameters | Accuracy (values against ground truth), decisions (approve, reject, pay, hold, refuse), exceptions (the seeded problems, as an F1 over caught, missed and invented), coverage (how much of the queue), time (against par). 40/20/25/10/5 where documents must be read, 45/25/10/15/5 where they need not be: a scenario with no reading in it should not award a quarter of its marks for catching document defects. |
+| Anti-oracle | No grade while the run is open | A scored run returns the business result and withholds the grade, and only the first submission for a document counts. Without this a participant can brute-force an invoice by resubmitting until the score moves, which measures patience rather than automation. The score, the breakdown and the misses all arrive at close. |
+| Channel | Observed, not declared | Every audited action records whether it arrived through the screens or through a bearer token, and the run reads that back from its own audit trail. A UI board and an API board therefore mean something. |
+| Leaderboard | Opt-in, per scenario and channel | Nothing is published until its owner publishes it and unpublishing removes it again; only a participant's best run per scenario appears. Ranking people who did not ask to be ranked is the fastest way to make a public event feel hostile. |
+| Certificates | Issued on a pass, verifiable in public | A code in an alphabet without look-alike characters, minted idempotently so re-closing never issues a second one. /verify/{code} is public and unauthenticated, names the holder, the scenario and the score, and serves a PDF; an invented code answers 404. It is deliberately the one document in the lab that is not watermarked SPECIMEN: it is a real statement about a real run. |
+| Scenario documents | A PDD per scenario and an SDD skeleton | The PDD is generated from the same scenario definition the grader uses, so it cannot describe a process the grader does not measure. The SDD ships with the facts filled in and the thinking left blank: designing the solution is the exercise, and handing over a finished design would remove it. |
+| Onboarding | A walkthrough bots can ignore | A side panel of steps with the endpoints and selectors for each. It never overlays the page and never intercepts pointer events, so a UI bot behaves identically whether it is open or closed. |
+| Run API | Unattended participation | GET /api/scenarios, POST /api/challenge/runs, GET/PATCH /api/challenge/runs/{id}, /close, /abandon, GET /api/leaderboard. A performer opens a run, receives the references it will be judged on, works them and closes for the score. Polling reports status, items processed and elapsed time - enough to know it is being scored, nothing about how well. |
+
+#### Acceptance criteria - verified
+
+- Met. pnpm challenge:smoke signs up through the sign-up form, waits for the sandbox, mints a token, opens a scored goods-receipt run, works the queue correctly over the API and closes it. A run done properly scores 100 and passes. A smoke test that only ever submits rubbish would prove the grader rejects rubbish, not that it rewards good work.
+- Met. The certificate the run earned verifies on the public page and downloads as a PDF; an invented code answers 404.
+- Met. The run does not appear on the leaderboard until it is published, appears when it is, and disappears again when it is unpublished.
+- Met. A second run started while one is open is refused with 409, and the run's channel is reported as api because that is how the work actually arrived.
+- Met. Every challenge route is in the OpenAPI document, enforced by the same test that guards the rest of the API.
+
+#### Two findings worth keeping
+
+1. A grader can contradict itself. The first goods-receipt scorer paid decision points for refusing an over-delivery and took accuracy and coverage points away for the same act, so the correct play was to score badly on purpose. Accuracy now excludes refused notes from its denominator and coverage counts an item as covered when it was received or refused. Every new scenario needs the same check: play it perfectly on paper and confirm the perfect play scores 100.
+2. A scenario has to be possible. Supplier onboarding was unplayable at first because its vendors came from the shared corpus, which is read-only through the tenant layer. Vendor applications are now generated into the participant's own tenant and the queue lists only rows they can write. Check writability before a queue becomes a scenario.
+
+### 4.4 P4: Production identity, deployment and integration
 
 #### Deliverables
 
@@ -421,13 +454,14 @@ This phase is built. The table below is the delivered scope; where the implement
 - Flaky mode on: a compliant performer with the retry policy of section 3.5 completes a 30-invoice queue; a performer without retries fails at the configured rate.
 - The production site answers X-Robots-Tag noindex on every route and serves no document without a session.
 
-### 4.4 Dependencies and order
+### 4.5 Dependencies and order
 
 | Phase | Depends on | Blocks | Decision needed |
 | --- | --- | --- | --- |
-| P2 | P1 (done) | Exercise 4, grading in P3 and P4 | Done. |
+| P2 | P1 (done) | Exercise 4, grading in P3 and P5 | Done. |
 | P3 | P2 grading (done), P1 templates | Advanced exercises | Done. |
-| P4 | Courses platform choice; Vercel authorization; mohammedshaker.com repository or stylesheet access for optional re-branding | Public launch | Hosted IdP versus LTI 1.3; blob provider; render worker versus serverless Chromium. |
+| P5 | P2 API and grading (done), P1 defects, P3 levels | A public hackathon | Done. Self-service accounts rather than a third-party sign-in; leaderboard opt-in rather than opt-out. |
+| P4 | Vercel authorization; production database and blob store; courses platform choice for the institutional identity provider; mohammedshaker.com repository or stylesheet access for optional re-branding | Announcing a date | Hosted IdP versus LTI 1.3 for cohorts (the public challenge no longer waits on it); blob provider; render worker versus serverless Chromium. |
 
 ## 5. Other requirements
 
@@ -588,6 +622,7 @@ Generated from the code at build time. Rule IDs are a public contract: none is e
 | 1.1 | 2026-09-06 | Mohammed Shaker | P2 delivered: queues and REST API, extraction and defect grading, Validation Station, instructor dashboard, webhooks. Section 4.1 restated as built. |
 | 1.2 | 2026-09-07 | Mohammed Shaker | P3 delivered: difficulty levels 1 to 5, Arabic-first documents, bilingual ground truth, field bounding boxes, cohort difficulty setting. Section 4.2 restated as built with measured OCR results. |
 | 1.3 | 2026-09-08 | Mohammed Shaker | Ladder measured on Arabic documents as well. Choice of OCR engine recorded as a student decision inside the exercise rather than a platform dependency. |
+| 1.4 | 2026-09-08 | Mohammed Shaker | P5 delivered: self-service accounts, four scored scenarios, five judging parameters, opt-in leaderboard, verifiable certificates, per-scenario PDD and SDD, and the run API. New section 4.3; the P4 section renumbered to 4.4. |
 
 | Sign-off | Name | Role | Date |
 | --- | --- | --- | --- |

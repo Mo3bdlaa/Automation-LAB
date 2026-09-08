@@ -44,6 +44,20 @@ All lowercase, hyphen-separated. `id` and `data-testid` carry the same value.
 | Validation station field map | `validation-field-map` with `data-boxes` | one `validation-box-{field}` per field |
 | Cohort difficulty form | `difficulty-form`, `difficulty-level`, `difficulty-submit`, `difficulty-current` | `difficulty-current[data-level]` |
 | Per-level score tile | `instructor-level-{n}` with `data-extractions`, `data-score` | `instructor-level-3` |
+| Sign-up field | `register-field-{field}` | `register-field-email`, `register-field-alias` |
+| Sign-up error | `register-error-{field}` | inside `#register-form`, submit is `#register-submit` |
+| Profile field | `account-field-{field}` | inside `#account-form`, submit is `#account-submit` |
+| Scenario card | `scenario-card-{slug}` | `scenario-card-goods-receipt`, link `scenario-link-goods-receipt` |
+| Start a run | `scenario-start-scored`, `scenario-start-practice` | on `/challenges/{slug}` |
+| Open run banner | `active-run` with `data-run-id`, `data-scenario`, `data-mode` | `#run-close`, `#run-abandon` |
+| Walkthrough step | `walkthrough-step-{n}`, `walkthrough-check-{n}` | inside `#walkthrough`; `#walkthrough-show` / `#walkthrough-hide` |
+| Run result | `run-result` with `data-run-id`, `data-score`, `data-passed`, `data-mode` | `#run-score`, `#run-verdict`, `#run-channel`, `#run-processed` |
+| Judging row | `judging-{parameter}` | `judging-accuracy`, `judging-exceptions` |
+| Run note | `run-note-{n}` | inside `#run-note-list` |
+| Publish toggle | `run-publish-toggle`, `run-publish-state` with `data-published` | on `/runs/{id}` |
+| Leaderboard row | `board-row-{rank}` with `data-score`, `data-name`; `board-certificate-{rank}` | inside `#board-table` |
+| Leaderboard tab | `board-tab-{slug}` with `data-current`; `board-channel-{all\|ui\|api}` | on `/leaderboard` |
+| Certificate check | `verify-certificate` with `data-code`, `data-valid`, `data-score`; plus `verify-name`, `verify-score`, `verify-scenario` | on `/verify/{code}` |
 
 ## Rules
 
@@ -61,5 +75,11 @@ All lowercase, hyphen-separated. `id` and `data-testid` carry the same value.
 - `?level=N` on an invoice page or the validation station switches the document to that
   difficulty level (1 native PDF, 2 to 5 scans). The document card and the station both
   carry `data-level`, so a bot can assert which variant it is looking at.
+- The challenge walkthrough (`#walkthrough`) is a side panel. It never overlays the page and
+  never intercepts pointer events, so a bot driving the screens behaves identically whether
+  it is open or closed. Keep it that way.
+- Scenario slugs (`goods-receipt`, `invoice-processing`, `vendor-onboarding`,
+  `sourcing-award`) appear in URLs, in the API and on certificates. They are a public
+  contract: never rename one.
 - `?classic=1` on any page requests the plain server-rendered variant with no client-side
   JavaScript hydration beyond what forms need. (P0: all pages are already server-rendered.)

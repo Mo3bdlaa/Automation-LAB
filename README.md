@@ -1,20 +1,22 @@
 # Automation Lab
 
-Practice sandbox for the **Document Understanding & RPA** course. Students run a
-procurement cycle at a fictional company by hand, then automate it with UiPath through
-UI automation and a REST API. The lab generates its own procurement documents, so it
-knows every correct field value and can grade extraction accuracy automatically.
+Practice sandbox and public automation challenge for the **Document Understanding & RPA**
+course. Participants run a procurement cycle at a fictional company by hand, then automate
+it with UiPath through UI automation and a REST API. The lab generates its own procurement
+documents, so it knows every correct field value and can grade a run automatically — which
+is what turns the sandbox into a scored, verifiable challenge.
 
 - Design spec: [`docs/spec.md`](docs/spec.md)
 - Handoff and decisions: [`docs/handoff.md`](docs/handoff.md)
 - Selector convention for bots: [`docs/selectors.md`](docs/selectors.md)
 - Identifier formats (IBAN, tax ID, CR number): [`docs/data-formats.md`](docs/data-formats.md)
 - Process Definition Document (AS-IS, TO-BE, phase roadmap, 14 annotated screenshots): [`docs/pdd.md`](docs/pdd.md), Word and PDF versions via `pnpm pdd`
+- Per-scenario PDD and SDD template: generated live at `/challenges/{slug}/pdd.pdf` and `/challenges/{slug}/sdd.docx`
 
 Everything in the lab is fictitious. Every PDF is watermarked `SPECIMEN — TRAINING ONLY`,
 every response carries `X-Robots-Tag: noindex`, and `robots.txt` denies all crawlers.
 
-## What P0, P1, P2 and P3 contain
+## What P0 to P5 contain
 
 | Area | Where |
 |---|---|
@@ -53,6 +55,16 @@ every response carries `X-Robots-Tag: noindex`, and `robots.txt` denies all craw
 | **P3** Field bounding boxes captured from the print layout and carried through the degradation geometry | `documentFieldBoxes`, `src/lib/documents/renderer.ts` |
 | **P3** Cohort difficulty setting, per-level scoring, per-level columns in the gradebook export | `src/lib/lab-settings.ts`, `src/app/instructor/` |
 | **P3** OCR ladder acceptance test | `scripts/ocr-ladder.ts` |
+| **P5** Public accounts: self-service sign-up, scrypt password hashing, display name / alias / location, profile editing | `src/lib/identity/accounts.ts`, `src/app/register`, `src/app/account` |
+| **P5** Scenario catalogue: four scenarios with steps, rules in scope, par times and judging weights | `src/lib/challenge/scenarios.ts` |
+| **P5** Scored runs: start, track, close or abandon; one open run per participant | `src/lib/challenge/runs.ts`, `src/app/api/challenge/runs` |
+| **P5** Five-parameter scoring (accuracy, decisions, exceptions, coverage, time) per scenario | `src/lib/challenge/score.ts` |
+| **P5** Anti-oracle: a scored run returns the business result but never the grade until it is closed | `inScoredRun`, `src/lib/services/` |
+| **P5** Result dashboard, opt-in leaderboard per scenario and channel (UI vs API) | `src/app/runs/[id]`, `src/app/leaderboard` |
+| **P5** Certificates with a public verification page and a PDF download | `src/lib/challenge/certificate.ts`, `src/app/verify/[code]` |
+| **P5** Guided walkthrough panel that bots can ignore, and a public landing page with scenario cards | `src/app/challenges/[slug]/walkthrough.tsx`, `src/app/landing.tsx` |
+| **P5** Per-scenario PDD (generated from the scenario the grader uses) and an SDD skeleton | `src/lib/challenge/documents.ts` |
+| **P5** Scenario-sized sandboxes with guaranteed queue depths, and a self-service reset | `src/lib/generator/sandbox.ts`, `src/app/api/sandbox/reset` |
 
 ## Running locally
 
@@ -67,7 +79,9 @@ pnpm db:seed                     # shared corpus (idempotent; --force to regener
 pnpm dev                         # http://localhost:3000
 ```
 
-Sign in with a development account from `config/local-users.json`:
+Anyone can create an account at `/register` (email, password, display name, an alias for the
+leaderboard and a location). In development the fixture accounts from
+`config/local-users.json` work alongside self-service sign-up:
 
 | Email | Password | Role |
 |---|---|---|
@@ -79,7 +93,9 @@ Sign in with a development account from `config/local-users.json`:
 
 On first login a sandbox is created and provisioned in the background: 60 purchase
 orders with their RFQs, quotes, delivery notes, goods receipts, invoices, payments and
-receipts, about 250 PDFs. The dashboard shows progress and refreshes itself.
+receipts, plus twelve pending vendor applications, about 250 PDFs. The dashboard shows
+progress and refreshes itself. `SANDBOX_ACTIVE_POS` sizes the cycle down for a public event
+where hundreds of sandboxes are provisioned at once.
 
 Jobs run in-process right after they are enqueued, so `pnpm dev` alone is enough. For a
 dedicated worker (recommended when rendering many documents) run `pnpm worker` in a
@@ -98,11 +114,62 @@ pnpm render:po     # renders a sample PO to .data/sample-po.pdf without a databa
 node scripts/e2e-smoke.mjs   # browser smoke test of the whole cycle against `pnpm dev`
 pnpm serve:prod 3000         # assembles the standalone build and serves it (frees the port first)
 pnpm api:smoke               # mints a token, then drives the whole REST API with bearer auth
+pnpm challenge:smoke         # signs up, opens a scored run, works it over the API, checks score, certificate and board
 pnpm ocr:ladder --docs=20     # OCR accuracy per difficulty level (needs tesseract-ocr and tesseract-ocr-ara)
 pnpm pdd:figures   # re-captures the annotated screenshots in docs/pdd-assets (needs `pnpm dev` running)
 pnpm pdd           # regenerates docs/pdd.md, .data/Automation-Lab-PDD.docx and .pdf from scripts/build-pdd.ts
 pnpm db:reset      # drops everything (dev only), then db:migrate + db:seed again
 ```
+
+## The challenge
+
+The lab doubles as a public, scored challenge. A participant signs up, picks a scenario,
+opens a **scored run**, works the queue — by hand or with a bot — and closes it. Closing
+returns a score out of 100, a breakdown, and a list of what went wrong. At or above the
+pass mark the run earns a certificate with a code anyone can verify.
+
+| Scenario | Queue | Items | Par | Reading PDFs |
+|---|---|---|---|---|
+| `invoice-processing` — Accounts payable | `invoices-pending` | 12 | 90s/item | required |
+| `vendor-onboarding` — Supplier onboarding | `vendor-applications` | 10 | 120s/item | required |
+| `goods-receipt` — Warehouse | `deliveries-awaiting-grn` | 8 | 60s/item | no |
+| `sourcing-award` — Sourcing | `rfqs-open` | 6 | 75s/item | no |
+
+Slugs, weights and pass marks are a public contract like rule IDs: a published leaderboard
+entry and a certificate both refer to a scenario version, so changing what a slug means
+invalidates them. Bump `version` instead.
+
+**Five judging parameters.** Accuracy (are the values right), decisions (approve, reject,
+pay, hold, refuse), exceptions (the deliberate problems: caught, missed, invented — scored
+as an F1), coverage (how much of the queue), and time (against par). Weights differ per
+scenario: 40/20/25/10/5 where documents must be read, 45/25/10/15/5 where they need not be.
+
+**No oracle while the run is open.** During a scored run the application returns the
+business result — the invoice matched, the receipt posted — but never the grade. Only the
+first submission for a document counts. The score, the breakdown and the misses all arrive
+at close. A participant may hold only one open run at a time.
+
+**The channel is recorded, not declared.** Every audited action carries whether it came
+through the screens or through a bearer token, so a run is placed on the UI or the API
+leaderboard by what actually happened rather than by what the participant claimed.
+
+**Opt-in leaderboard.** Nothing is published until the owner publishes it, and unpublishing
+removes it again. The board shows the alias and location from the profile, never the email.
+Only a participant's best run per scenario appears.
+
+**Certificates.** A passing scored run issues a code (idempotent — re-closing does not mint
+a second one) in an alphabet without look-alike characters. `/verify/{code}` is public and
+unauthenticated, shows the name, the scenario and the score, and serves the certificate as
+a PDF. An invented code answers 404.
+
+**Documents.** Each scenario generates its own PDD at `/challenges/{slug}/pdd.pdf` from the
+same scenario definition the grader uses, so the document cannot describe a process the
+grader does not measure. `/challenges/{slug}/sdd.docx` is a solution design skeleton with
+the facts filled in and the thinking left blank — designing the solution is the exercise.
+
+**The walkthrough** on a scenario page is a side panel of steps with the endpoints and
+selectors for each. It never overlays the page and never intercepts pointer events, so a
+bot driving the screens is unaffected whether it is open or closed.
 
 ## How the pieces fit
 
@@ -176,8 +243,13 @@ inside `#validation-errors`, one `<li>` per violation with `data-rule-id` and
 `data-severity`. `GET /api/rules` and `/rules` list them.
 
 **Identity.** `src/lib/identity/index.ts` is the only place a provider is chosen. The app
-consumes `{ userId, email, roles, entitlements }` and nothing else. Adding WorkOS / Clerk
-/ Auth0 or LTI 1.3 is a new module beside `local.ts` plus one `case`.
+consumes `{ userId, email, roles, entitlements }` and nothing else. `accounts` is the public
+provider: email and password, hashed with scrypt (`scrypt$N$r$p$salt$hash`, compared in
+constant time), sign-up at `/register`, profile at `/account`. `local` reads the fixture
+file and is development-only; in development it runs *alongside* `accounts`, so the fixture
+logins and self-service sign-up both work without switching. `IDENTITY_PROVIDER` overrides
+the choice. Adding WorkOS / Clerk / Auth0 or LTI 1.3 is a new module beside `local.ts` plus
+one `case`.
 
 ## REST API
 
@@ -227,6 +299,15 @@ validation rule blocks the write.
 | GET | `/api/queues/{queue}/download?level=N` | ZIP of a queue's documents with a JSON manifest |
 | GET, POST | `/api/webhooks`, DELETE `/api/webhooks/{id}` | HMAC-signed event delivery |
 | GET | `/api/rules` | validation rules as JSON |
+| GET | `/api/scenarios` | the challenge catalogue: slugs, queues, sizes, weights, pass marks |
+| GET, POST | `/api/challenge/runs` | your runs; open one (`{ scenario, mode, level? }`), `409` while one is open |
+| GET, PATCH | `/api/challenge/runs/{id}` | poll a run; `{ publish }` opts it on or off the board |
+| POST | `/api/challenge/runs/{id}/close` | close the run and receive the score, breakdown and certificate |
+| POST | `/api/challenge/runs/{id}/abandon` | drop a run without a score |
+| GET | `/api/leaderboard?scenario=&channel=` | public board, published runs only |
+| POST | `/api/vendors/{code}/approve`, `/reject` | decide a pending vendor application |
+| POST | `/api/deliveries/{id}/refuse` | refuse a delivery (over-delivery beyond tolerance) |
+| POST | `/api/sandbox/reset` | wipe and regenerate your sandbox |
 | POST | `/api/jobs/run` | process queued jobs (Vercel Cron; `Authorization: Bearer $CRON_SECRET`) |
 
 **Queues.** `invoices-pending`, `pos-awaiting-invoice`, `vendor-applications`,
@@ -248,6 +329,11 @@ human to correct and resubmit.
 set for the cohort and hand out download URLs at that level; pass `?level=N` to override.
 `POST /api/extractions` accepts the `level` the bot read, and scores are reported per level.
 
+**Runs over the API.** A bot opens a run with `POST /api/challenge/runs`, which returns the
+target references it will be judged on, works only those, then closes it. `GET` on the run
+reports `status`, `processedCount` and elapsed time while it is open — enough for a
+performer to know it is being scored, and nothing about how well.
+
 **Instructor view.** `/instructor` (staff only) lists the cohort with sandbox status,
 documents processed, average score, defects caught and accuracy per difficulty level, and
 sets the cohort's exercise level; `/instructor/export.csv` exports it with per-level columns.
@@ -257,6 +343,8 @@ sets the cohort's exercise level; `/instructor/export.csv` exports it with per-l
 1. Create the Vercel project from this repository (framework: Next.js).
 2. Provision Postgres (Neon / Vercel Postgres) and set `DATABASE_URL`.
 3. Set `SESSION_SECRET`, `CRON_SECRET`, `APP_ORIGIN=https://automationlab.mohammedshaker.com`.
+   `IDENTITY_PROVIDER` defaults to `accounts` in production. Size the event with
+   `SANDBOX_ACTIVE_POS` (default 60) and set `STAFF_EMAILS` for the instructor screens.
 4. Run `pnpm db:migrate && pnpm db:seed` once against the production database.
 5. Chromium: install `@sparticuz/chromium` (`pnpm add @sparticuz/chromium`) so the render
    job can run inside the function; the renderer picks it up automatically. Alternatively
@@ -267,9 +355,10 @@ sets the cohort's exercise level; `/instructor/export.csv` exports it with per-l
 7. `vercel.json` schedules `/api/jobs/run` every five minutes to drain the queue.
 8. Point `automationlab.mohammedshaker.com` at the project.
 
-Identity remains the local provider until the courses platform is decided
-(`docs/handoff.md`, section 5). Do not expose the local provider publicly: it refuses to
-start with `NODE_ENV=production` unless `ALLOW_LOCAL_IDENTITY_IN_PROD=1`.
+The public challenge runs on the `accounts` provider, which is the production default. The
+local fixture provider refuses to start with `NODE_ENV=production` unless
+`ALLOW_LOCAL_IDENTITY_IN_PROD=1`; do not set it. An institutional provider (hosted IdP or
+LTI 1.3) is still open — see `docs/handoff.md`, section 5.
 
 ## Docker
 

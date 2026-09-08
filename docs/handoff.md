@@ -1,7 +1,7 @@
 # Automation Lab — handoff
 
-**Date:** 2026-09-07
-**Status:** P0, P1, P2 and P3 implemented in this repository. P4 is specified in `docs/pdd.md` section 4.
+**Date:** 2026-09-08
+**Status:** P0, P1, P2, P3 and P5 (the public challenge) implemented in this repository. P4 — production identity, hosting and integration — is specified in `docs/pdd.md` section 4.
 **Owner:** Mohammed Shaker
 **Companion documents:** `docs/spec.md` — the full design spec. Read it second. `docs/pdd.md` — the Process Definition Document: AS-IS and TO-BE processes students automate, annotated screenshots of every screen and document, and the P2/P3/P4 roadmap with acceptance criteria.
 
@@ -38,12 +38,18 @@ two different hosting platforms are in play and it is easy to conflate them.
 
 ## 3. Current state
 
-This repository holds P0 to P3: the foundation, the full document cycle, the REST API with
-grading and the Validation Station, and the difficulty ladder with Arabic-first documents.
-See `README.md` for what is implemented and how to run it. Not yet done: P4 (production
-identity, Vercel project, DNS record, production database, S3-compatible blob store, rate
-limits, flaky mode, gradebook integration) and the course material itself — the exercise
-briefs, starter UiPath projects and the marking scheme that turns a score into a grade.
+This repository holds P0 to P3 and P5: the foundation, the full document cycle, the REST API
+with grading and the Validation Station, the difficulty ladder with Arabic-first documents,
+and the public challenge — self-service accounts, four scored scenarios, a five-parameter
+grader, an opt-in leaderboard and verifiable certificates. See `README.md` for what is
+implemented and how to run it.
+
+Not yet done: P4 (Vercel project, DNS record, production database, S3-compatible blob store,
+rate limits, flaky mode, an institutional identity provider and gradebook integration) and
+the course material itself — the exercise briefs, starter UiPath projects and the marking
+scheme that turns a score into a grade. P5 shipped ahead of P4 deliberately: the challenge
+only needs an account and a database, and it is the piece that makes the lab worth putting
+in front of people.
 
 ---
 
@@ -108,6 +114,12 @@ Because it is undecided, P0 builds an `IdentityProvider` interface. The applicat
 ever consumes `{ userId, email, roles, entitlements }`. Swapping providers later touches one
 module (`src/lib/identity`). **This does not block anything.**
 
+P5 settled the *public* half of it: the challenge runs on self-service email-and-password
+accounts (`accounts`), which need no third party and no purchase decision. A course cohort
+arriving later through an LMS or a hosted IdP is an additional provider, not a replacement —
+the two can coexist, and a participant who signed up for the hackathon keeps their runs and
+their certificates.
+
 ---
 
 ## 6. Blockers — needed from Mohammed
@@ -119,7 +131,11 @@ module (`src/lib/identity`). **This does not block anything.**
    so no project could be created and nothing could be deployed. Either authorize the
    Vercel integration, or go the git-push route with a one-time manual deploy.
 
-Neither blocks local scaffolding. P0 runs on `localhost:3000`.
+3. **A decision on where the public challenge is announced**, and when. The platform is
+   ready and the certificates are verifiable; what is missing is a date, a domain record and
+   whoever countersigns the certificates for the chapter.
+
+Neither of the first two blocks local scaffolding. P0 runs on `localhost:3000`.
 
 ---
 
@@ -274,6 +290,90 @@ Chromium render pipeline. Both are in.
 
 ---
 
+## 7e. P5 — the public challenge — done in this repository
+
+The lab was built for a cohort. P5 turns it into something a stranger can find, use and
+prove they used: the same sandbox, wrapped in a scored, timed, verifiable challenge. It is
+what a UiPath community chapter can run as a hackathon.
+
+- **Self-service accounts** (`src/lib/identity/accounts.ts`). Email and password, hashed
+  with scrypt (`scrypt$N$r$p$salt$hash`) and compared in constant time. No third-party
+  sign-in: this is a public event for people who may not have — or want to use — a Google
+  account, and one more consent screen between a participant and their first invoice is one
+  too many. A profile carries a display name, a leaderboard alias and a location; the
+  leaderboard shows the alias and the location, never the email. `accounts` is the
+  production default; the fixture provider stays for development and runs *beside* it, so
+  the smoke tests and the sign-up form both work without switching providers.
+- **Four scenarios** (`src/lib/challenge/scenarios.ts`), each with its steps, the rules in
+  scope, a par time per item, a queue and a target size: accounts payable
+  (`invoice-processing`, 12 invoices, documents must be read), supplier onboarding
+  (`vendor-onboarding`, 10 applications, documents must be read), warehouse
+  (`goods-receipt`, 8 deliveries) and sourcing (`sourcing-award`, 6 requests). Slugs,
+  weights and pass marks are a public contract: a certificate and a board entry both point
+  at a scenario version, so a changed meaning invalidates them. Bump `version` instead.
+- **Runs** (`src/lib/challenge/runs.ts`). A run is opened against a scenario in `practice`
+  or `scored` mode, fixes its target references at that moment, starts a clock, and is
+  closed or abandoned. One open run per participant; a second start answers `409`. Starting
+  a scored run whose queue is too short answers `queue_short` rather than handing out a run
+  that cannot be finished — which is why the sandbox generator now *guarantees* queue
+  depths instead of leaving them to the seed.
+- **Five judging parameters** (`src/lib/challenge/score.ts`): accuracy (values against
+  ground truth), decisions (approve, reject, pay, hold, refuse), exceptions (the seeded
+  problems, scored as an F1 over caught / missed / invented), coverage (how much of the
+  queue) and time (against par). Weights are 40/20/25/10/5 where documents must be read and
+  45/25/10/15/5 where they need not be, because a scenario with no reading in it should not
+  award a quarter of its marks for catching document defects.
+- **No oracle while the run is open.** During a scored run the application returns the
+  business result and withholds the grade; only the first submission for a document counts.
+  Without this a participant can brute-force an invoice by resubmitting until the score
+  moves, which measures patience rather than automation.
+- **The channel is observed, not declared.** Every audited action records whether it arrived
+  through the screens or through a bearer token (`LabSession.channel`), and the run reads it
+  back from its own audit trail. A UI board and an API board therefore mean something: a run
+  cannot be entered on the wrong one by claiming.
+- **Opt-in leaderboard** (`/leaderboard`). Nothing is published until its owner publishes it
+  and unpublishing removes it again; only a participant's best run per scenario is shown.
+  Ranking people who did not ask to be ranked is the fastest way to make a public event feel
+  hostile.
+- **Certificates** (`src/lib/challenge/certificate.ts`). A passing scored run mints a code in
+  an alphabet without look-alike characters — idempotently, so re-closing never issues a
+  second one. `/verify/{code}` is public and unauthenticated, names the holder, the scenario
+  and the score, and serves a PDF; an invented code answers 404. The certificate is
+  deliberately the one document in the lab that is *not* watermarked `SPECIMEN`: it is a real
+  statement about a real run, and it is the artefact a chapter leader endorses.
+- **Per-scenario documents.** `/challenges/{slug}/pdd.pdf` is generated from the same
+  scenario definition the grader uses, so the process document cannot describe a process the
+  grader does not measure. `/challenges/{slug}/sdd.docx` is a solution design skeleton with
+  the facts filled in and the thinking left blank — handing over a finished design would
+  remove the exercise.
+- **A walkthrough bots can ignore.** The scenario page carries a side panel of steps with
+  the endpoints and selectors for each. It never overlays the page and never intercepts
+  pointer events, so a UI bot behaves identically whether it is open or closed.
+- **The run API** (`/api/scenarios`, `/api/challenge/runs`, `/{id}`, `/close`, `/abandon`,
+  `/api/leaderboard`). An unattended performer opens a run, receives the references it will
+  be judged on, works them, and closes for the score. Polling a run reports status, items
+  processed and elapsed time — enough to know it is being scored, nothing about how well.
+- **Verified end to end.** `pnpm challenge:smoke` signs up through the sign-up form, waits
+  for the sandbox, mints a token, opens a scored goods-receipt run, works the queue
+  *correctly* over the API, closes it, and asserts it passes — a smoke test that only ever
+  submits rubbish proves the grader rejects rubbish, not that it rewards good work. It then
+  verifies the certificate publicly and checks the leaderboard opt-in and opt-out.
+
+Two things the scoring work surfaced that are worth remembering:
+
+1. **A grader can contradict itself.** The first goods-receipt scorer paid decision points
+   for refusing an over-delivery and took accuracy and coverage points away for the same
+   act, so the correct play was to score badly on purpose. Accuracy now excludes refused
+   notes from its denominator and coverage counts an item as covered when it was received
+   *or* refused. Any new scenario needs the same check: play it perfectly on paper and
+   confirm the perfect play scores 100.
+2. **A scenario has to be possible.** Supplier onboarding was unplayable at first because the
+   vendors in it came from the shared corpus, which is read-only through `TenantDb`. Vendor
+   applications are now generated into the participant's own tenant and the queue only lists
+   rows they can write. Check writability before a queue is a scenario.
+
+---
+
 ## 8. Risks and gotchas
 
 - **Arabic and RTL.** Bilingual PDF templates are the hardest technical piece. Do not defer
@@ -289,6 +389,13 @@ Chromium render pipeline. Both are in.
 - **Fake financial data.** Plausible IBANs and tax IDs must never be indexable or mistakable
   for real documents. Watermark plus `noindex` are non-negotiable.
 - **Do not "consolidate" the lab onto the VPS to save money.** See section 4.
+- **A public event is a provisioning event.** Every sign-up provisions a sandbox and renders
+  its documents. `SANDBOX_ACTIVE_POS` sizes the cycle down (default 60) and the challenge
+  scenarios were sized to fit a small sandbox for exactly this reason; measure a burst of
+  concurrent sign-ups before advertising a date.
+- **Certificates are the one unwatermarked document.** Anything printed on one is a claim
+  the lab is making in public. Keep the code alphabet, the idempotent issue and the public
+  verification page as they are.
 
 ---
 
