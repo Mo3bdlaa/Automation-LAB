@@ -233,7 +233,7 @@ export function openApiDocument(origin: string) {
             required: ["scenario"],
             properties: { scenario: { type: "string", example: "invoice-processing" }, mode: { type: "string", enum: ["practice", "scored"], default: "practice" }, level: { type: "integer", minimum: 1, maximum: 5 } },
           }),
-          responses: { "201": jsonOk("The open run.", ref("ChallengeRun")), "409": jsonOk("A run is already open, or the queue is too short.", ref("Error")), ...errorResponses },
+          responses: { ...errorResponses, "201": jsonOk("The open run.", ref("ChallengeRun")), "409": jsonOk("A run is already open, or the queue is too short.", ref("Error")) },
         },
       },
       "/api/challenge/runs/{id}": {

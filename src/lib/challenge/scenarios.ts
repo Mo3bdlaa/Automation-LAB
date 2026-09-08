@@ -132,7 +132,7 @@ export const SCENARIOS: Scenario[] = [
     difficulty: 2,
     parSecondsPerItem: 120,
     queue: "vendor-applications",
-    targetSize: 8,
+    targetSize: 10,
     documentUnderstanding: true,
     weights: WEIGHTS_WITH_DU,
     steps: [
@@ -171,7 +171,7 @@ export const SCENARIOS: Scenario[] = [
     difficulty: 1,
     parSecondsPerItem: 60,
     queue: "deliveries-awaiting-grn",
-    targetSize: 10,
+    targetSize: 8,
     documentUnderstanding: false,
     weights: WEIGHTS_WITHOUT_DU,
     steps: [

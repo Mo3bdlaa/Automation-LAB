@@ -34,3 +34,18 @@ describe("scenario catalogue", () => {
     expect(scenarioBySlug("nope")).toBeNull();
   });
 });
+
+describe("scenario sizing", () => {
+  it("never asks for more work than a fresh sandbox guarantees", async () => {
+    const { SANDBOX_SIZES } = await import("../generator/sandbox");
+    const guaranteed: Record<string, number> = {
+      "invoices-pending": 12,
+      "vendor-applications": SANDBOX_SIZES.vendorApplications,
+      "deliveries-awaiting-grn": SANDBOX_SIZES.deliveriesAwaitingGrn,
+      "rfqs-open": SANDBOX_SIZES.openRfqs,
+    };
+    for (const s of SCENARIOS) {
+      expect(`${s.slug}:${s.targetSize <= guaranteed[s.queue]}`).toBe(`${s.slug}:true`);
+    }
+  });
+});

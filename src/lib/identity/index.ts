@@ -6,7 +6,24 @@ export * from "./types";
 
 /** True when people can sign themselves up, which the login page needs to know. */
 export function selfServiceSignUp(): boolean {
-  return identityProvider().id === "accounts";
+  return identityProvider().id.includes("accounts");
+}
+
+/**
+ * Tries the fixture first and registered accounts second, so a development
+ * instance can do both without two login pages.
+ */
+function withSelfService(fixture: IdentityProvider, accounts: IdentityProvider): IdentityProvider {
+  return {
+    id: `${fixture.id}+${accounts.id}`,
+    loginFields: fixture.loginFields,
+    async login(input) {
+      return (await fixture.login(input)) ?? (await accounts.login(input));
+    },
+    async resolve(userId) {
+      return (await fixture.resolve(userId)) ?? (await accounts.resolve(userId));
+    },
+  };
 }
 
 let provider: IdentityProvider | null = null;
@@ -25,7 +42,10 @@ export function identityProvider(): IdentityProvider {
       provider = createAccountsProvider();
       return provider;
     case "local":
-      provider = createLocalProvider();
+      // Development runs both: the fixture accounts keep the smoke tests and
+      // the documentation figures working, while self-service sign-up stays
+      // testable without switching providers.
+      provider = withSelfService(createLocalProvider(), createAccountsProvider());
       return provider;
     default:
       throw new Error(`Unknown IDENTITY_PROVIDER "${which}". Implemented: accounts, local.`);

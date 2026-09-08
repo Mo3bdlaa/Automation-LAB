@@ -405,6 +405,22 @@ export function generateOpenRfq(r: Rng, ctx: CycleContext, orderDate: string, mk
   return { rfq, quotes };
 }
 
+/**
+ * Adds a delivered note with no goods receipt to a cycle whose order has been
+ * sent but nothing has arrived against it yet. Used to top the warehouse queue
+ * up to its guaranteed size: what a scenario promises has to be there.
+ */
+export function addPendingDelivery(r: Rng, cycle: GenCycle, vendor: GenVendor): boolean {
+  // An approved order counts too: it becomes "sent" the moment goods ship,
+  // which is what adding a delivery note means.
+  if (cycle.deliveryNotes.length > 0 || (cycle.po.status !== "sent" && cycle.po.status !== "approved")) return false;
+  cycle.po.status = "sent";
+  const deliveryDate = toWorkingDay(addDays(cycle.po.expectedDeliveryDate, r.int(-2, 5)));
+  const delivered = cycle.po.lines.map((l) => ({ line: l, qty: r.chance(0.75) ? l.quantity : Math.max(1, Math.floor(l.quantity * r.float(0.5, 0.9))) }));
+  cycle.deliveryNotes.push(dnFrom(r, vendor, delivered, deliveryDate, cycle.po.deliveryLocationCode, "delivered"));
+  return true;
+}
+
 function dnFrom(r: Rng, vendor: GenVendor, delivered: { line: GenPoLine; qty: number }[], deliveryDate: string, locationCode: string, status: GenDeliveryNote["status"]): GenDeliveryNote {
   return {
     number: vendorDnNumber(r, deliveryDate),

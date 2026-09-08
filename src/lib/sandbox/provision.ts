@@ -9,8 +9,25 @@ import type { Tenant, DocumentKind } from "@/db/schema";
 import { clearTenantRows, ensureSharedTenant } from "../corpus/persist";
 import {
   assignInvoiceRegistrations, deliveryNoteGroundTruth, generateSandbox, grnGroundTruth, invoiceGroundTruth, purchaseOrderGroundTruth, quoteGroundTruth, receiptGroundTruth, rfqGroundTruth,
+  vendorDocumentGroundTruth,
   type GroundTruthField,
 } from "../generator/sandbox";
+import { generateVendorDocuments } from "../generator/cycle";
+import { Rng } from "../generator/rng";
+
+/** Which rule refuses an application, so a refusal can be graded against a rule ID. */
+const DEFECT_RULE: Record<"expired_registration" | "expired_tax_certificate" | "duplicate_tax_id" | "blacklisted", string> = {
+  expired_registration: "VEND-CR-EXP",
+  expired_tax_certificate: "VEND-TAX-CERT-EXP",
+  duplicate_tax_id: "VEND-DUP-TAXID",
+  blacklisted: "VEND-BLACKLIST",
+};
+
+function chunks<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
 import type { TaxCode } from "../generator/money";
 import { enqueue } from "../jobs/queue";
 import { blobStore } from "../blob";
@@ -50,7 +67,7 @@ export async function provisionSandbox(tenantId: string, log: (m: string) => voi
   };
   const set = generateSandbox(tenant.seed, ctx);
   const registrations = assignInvoiceRegistrations(set);
-  log(`generated ${set.cycles.length} purchase orders with their cycle for tenant ${tenant.slug}`);
+  log(`generated ${set.cycles.length} purchase orders with their cycle and ${set.vendorApplications.length} supplier applications for tenant ${tenant.slug}`);
   await setStatus(tenantId, { progress: 25, statusMessage: "Writing documents" });
 
   const vendorByCode = new Map(vendors.map((v) => [v.code, v]));
@@ -96,6 +113,48 @@ export async function provisionSandbox(tenantId: string, log: (m: string) => voi
   };
 
   await db.transaction(async (tx) => {
+    // Supplier applications, in the student's own tenant so they can actually
+    // be approved or refused, with the certificates that came with them.
+    for (const [i, application] of set.vendorApplications.entries()) {
+      const v = application.vendor;
+      const [row] = await tx
+        .insert(schema.vendors)
+        .values({
+          tenantId, code: v.code, name: v.name, nameAr: v.nameAr, documentLanguage: v.documentLanguage, legalForm: v.legalForm, category: v.category,
+          crNumber: v.crNumber, crExpiry: v.crExpiry, taxId: v.taxId, taxCertExpiry: v.taxCertExpiry, iban: v.iban, bankName: v.bankName, swift: v.swift,
+          currency: v.currency, paymentTermsDays: v.paymentTermsDays, contactName: v.contactName, email: v.email, phone: v.phone,
+          addressLine: v.addressLine, city: v.city, country: v.country, rating: v.rating, blacklisted: v.blacklisted, status: "pending",
+        })
+        .returning({ id: schema.vendors.id });
+      const docs = generateVendorDocuments(new Rng(tenant.seed).fork(`application-docs:${i}`), v);
+      const vdRows = await tx
+        .insert(schema.vendorDocuments)
+        .values(docs.map((d) => ({ tenantId, vendorId: row.id, kind: d.kind, number: d.number, issuedDate: d.issuedDate, expiryDate: d.expiryDate, issuer: d.issuer, attributes: d.attributes })))
+        .returning({ id: schema.vendorDocuments.id, kind: schema.vendorDocuments.kind });
+      const docRows = await tx
+        .insert(schema.documents)
+        .values(vdRows.map((r) => ({ tenantId, kind: r.kind, number: docs.find((d) => d.kind === r.kind)!.number, sourceId: r.id, vendorId: row.id, language: v.documentLanguage })))
+        .returning({ id: schema.documents.id, kind: schema.documents.kind });
+      const gt = docRows.flatMap((dr) =>
+        vendorDocumentGroundTruth(v, docs.find((d) => d.kind === dr.kind)!).map((g) => ({
+          tenantId, documentId: dr.id, field: g.field, value: g.value, alternates: g.field === "vendor.name" && v.nameAr ? [v.nameAr] : [],
+        })),
+      );
+      for (const batch of chunks(gt, 500)) await tx.insert(schema.groundTruth).values(batch);
+      // The reason an application should be refused is recorded like any other
+      // seeded defect, so grading can tell a caught refusal from a lucky one.
+      if (application.defect) {
+        const licence = docRows.find((d) => d.kind === "vendor_licence");
+        if (licence) {
+          await tx.insert(schema.seededDefects).values({
+            tenantId, documentId: licence.id, defectType: application.defect,
+            severity: application.defect === "duplicate_tax_id" || application.defect === "blacklisted" ? "critical" : "error",
+            details: { vendorCode: v.code, ruleId: DEFECT_RULE[application.defect] },
+          });
+        }
+      }
+    }
+
     for (const cycle of set.cycles) {
       const po = cycle.po;
       const vendor = vendorByCode.get(po.vendorCode)!;

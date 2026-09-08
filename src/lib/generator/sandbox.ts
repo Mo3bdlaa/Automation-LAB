@@ -6,10 +6,31 @@
  */
 import { Rng } from "./rng";
 import { addDays, businessNumber, CORPUS_TODAY, toWorkingDay } from "./dates";
-import { generatePo, type GenPo, type PoGenContext, type GenVendor } from "./corpus";
-import { generateCycle, generateOpenRfq, generateOrphanInvoice, seqNumber, type CycleContext, type GenCycle, type GenInvoice, type GenQuote, type GenDeliveryNote, type GenGrn, type GenRfq, type GenPayment, type GenReceipt } from "./cycle";
+import { generatePo, generateVendors, type GenPo, type PoGenContext, type GenVendor } from "./corpus";
+import { addPendingDelivery, generateCycle, generateOpenRfq, generateOrphanInvoice, seqNumber, type CycleContext, type GenCycle, type GenInvoice, type GenQuote, type GenDeliveryNote, type GenGrn, type GenRfq, type GenPayment, type GenReceipt } from "./cycle";
 
-export const SANDBOX_SIZES = { activePos: 60, orphanInvoices: 6, openRfqs: 4 } as const;
+/**
+ * How much work a sandbox holds.
+ *
+ * These are minimums the generator guarantees, not averages: a scored run
+ * refuses to start on a short queue, and "your queue happened to come out
+ * small" is not something a participant can act on. Every scenario's target
+ * size must stay at or below the queue it draws from.
+ */
+export const SANDBOX_SIZES = {
+  /**
+   * Purchase orders with a full cycle behind them. Each one costs roughly five
+   * rendered PDFs, so a public event with hundreds of participants can lower it
+   * with SANDBOX_ACTIVE_POS without touching the queue guarantees below.
+   */
+  activePos: Number(process.env.SANDBOX_ACTIVE_POS ?? 60) || 60,
+  orphanInvoices: 6,
+  openRfqs: 8,
+  /** Delivered notes with no goods receipt: the warehouse queue. */
+  deliveriesAwaitingGrn: 10,
+  /** Supplier applications in the student's own tenant, so they can be decided. */
+  vendorApplications: 12,
+} as const;
 
 export interface GroundTruthField {
   field: string;
@@ -22,8 +43,21 @@ export interface GroundTruthField {
   alternates?: string[];
 }
 
+/**
+ * A supplier application waiting to be judged: a vendor record in the student's
+ * own tenant, with the compliance documents that came with it, and sometimes a
+ * reason it should be refused.
+ */
+export interface GenVendorApplication {
+  vendor: GenVendor;
+  /** Why this application should be refused, or null when it is sound. */
+  defect: "expired_registration" | "expired_tax_certificate" | "duplicate_tax_id" | "blacklisted" | null;
+}
+
 export interface SandboxSet {
   cycles: GenCycle[];
+  /** Supplier applications pending a decision. */
+  vendorApplications: GenVendorApplication[];
   /** RFQs with quotes received and no award yet. */
   openRfqs: { rfq: GenRfq; quotes: GenQuote[] }[];
   /** Invoices with no PO or from a vendor that is not in the master. */
@@ -32,6 +66,48 @@ export interface SandboxSet {
 
 export interface SandboxContext extends PoGenContext {
   deliveryLocations: string[];
+}
+
+/**
+ * Supplier applications for the onboarding scenario. They live in the student's
+ * own tenant - the shared corpus is read-only, so an application drawn from it
+ * could never be approved or refused - and about half of them carry a reason to
+ * be refused, because a queue where everything passes teaches nothing.
+ *
+ * Codes are numbered from V-20001 so they collide neither with the shared
+ * corpus (V-00001 upwards) nor with suppliers a student creates (V-10001).
+ */
+export function generateVendorApplications(rng: Rng, corpus: GenVendor[], n: number = SANDBOX_SIZES.vendorApplications): GenVendorApplication[] {
+  const active = corpus.filter((v) => v.status === "active");
+  const generated = generateVendors(rng.fork("vendors"), n);
+  return generated.map((v, i) => {
+    const r = rng.fork(`application:${i}`);
+    const defect = r.weighted([
+      [null, 10],
+      ["expired_registration" as const, 4],
+      ["expired_tax_certificate" as const, 3],
+      ["duplicate_tax_id" as const, 2],
+      ["blacklisted" as const, 1],
+    ]);
+    const vendor: GenVendor = { ...v, code: `V-${20001 + i}`, status: "pending", blacklisted: false };
+    switch (defect) {
+      case "expired_registration":
+        vendor.crExpiry = addDays(CORPUS_TODAY, -r.int(10, 400));
+        break;
+      case "expired_tax_certificate":
+        vendor.taxCertExpiry = addDays(CORPUS_TODAY, -r.int(10, 300));
+        break;
+      case "duplicate_tax_id":
+        vendor.taxId = r.pick(active).taxId;
+        break;
+      case "blacklisted":
+        vendor.blacklisted = true;
+        break;
+      default:
+        break;
+    }
+    return { vendor, defect };
+  });
 }
 
 export function generateSandbox(seed: number, ctx: SandboxContext, n: number = SANDBOX_SIZES.activePos): SandboxSet {
@@ -77,12 +153,21 @@ export function generateSandbox(seed: number, ctx: SandboxContext, n: number = S
     const date = addDays(CORPUS_TODAY, -r.int(0, 60));
     orphanInvoices.push(generateOrphanInvoice(r, vendor, ctx.items, date, i % 3 === 0 ? "vendor_not_in_master" : "invoice_no_po"));
   }
+  // Top the warehouse queue up to its guaranteed depth. Cycles are visited in
+  // order, so the same seed always tops up the same ones.
+  const pendingDeliveries = () => cycles.filter((c) => c.deliveryNotes.some((d) => d.status === "delivered") && c.grns.length === 0).length;
+  for (const [i, cycle] of cycles.entries()) {
+    if (pendingDeliveries() >= SANDBOX_SIZES.deliveriesAwaitingGrn) break;
+    const vendor = ctx.vendors.find((v) => v.code === cycle.po.vendorCode);
+    if (vendor) addPendingDelivery(rng.fork(`topup:delivery:${i}`), cycle, vendor);
+  }
+
   const openRfqs = Array.from({ length: SANDBOX_SIZES.openRfqs }, (_, i) => {
     const r = rng.fork(`open-rfq:${i}`);
     const date = toWorkingDay(addDays(CORPUS_TODAY, -r.int(0, 20)));
     return generateOpenRfq(r, cctx, date, (rr, d) => generatePo(rr, ctx, { number: `RFQ-TEMPLATE-${i}`, orderDate: d, status: "draft", historical: false }));
   });
-  return { cycles, orphanInvoices, openRfqs };
+  return { cycles, orphanInvoices, openRfqs, vendorApplications: generateVendorApplications(rng.fork("applications"), ctx.vendors) };
 }
 
 /** Internal AP registration numbers for invoices, assigned in received-date order. */
