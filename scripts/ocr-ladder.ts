@@ -25,6 +25,7 @@ import { closeRenderer } from "../src/lib/documents/renderer";
 import { closeDegrader, rasterisePages } from "../src/lib/documents/degrade";
 import { LEVELS } from "../src/lib/documents/levels";
 import { normaliseText } from "../src/lib/grading/normalise";
+import { hashString } from "../src/lib/generator/rng";
 
 const arg = (name: string, fallback: number) => {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -42,6 +43,19 @@ function haveTesseract(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * The bucket a document is reported under. Arabic-first documents are split by
+ * their numeral system, because that - not the script - is what decides whether
+ * an engine can read them: averaging the two together hides a bimodal
+ * population behind one number and invites the wrong conclusion.
+ * Mirrors the rule in src/lib/documents/templates/i18n.ts.
+ */
+function bucketFor(documentLanguage: string, vendorKey: string): string {
+  if (documentLanguage !== "ar") return documentLanguage;
+  const eastern = hashString(`automation-lab:eastern-digits:${vendorKey}`) % 100 < 40;
+  return eastern ? "ar (eastern digits)" : "ar (western digits)";
 }
 
 /** Tesseract language data for a document, by the script it was printed in. */
@@ -94,12 +108,16 @@ async function main() {
   const totals = new Map<number, number[]>(LEVELS.map((l) => [l, []]));
   // Kept apart so a weak result in one script cannot hide behind the other.
   const byScript = new Map<string, Map<number, number[]>>();
+  const vendorKeys = new Map<string, string>(
+    (await db.select({ id: schema.vendors.id, code: schema.vendors.code, taxId: schema.vendors.taxId }).from(schema.vendors)).map((v) => [v.id, v.code ?? v.taxId ?? ""]),
+  );
 
   for (const [i, doc] of docs.entries()) {
     const truth = await db.select().from(schema.groundTruth).where(eq(schema.groundTruth.documentId, doc.id));
     // Either script of a bilingual value counts: the document prints both.
     const values = truth.map((t) => [t.value, ...(t.alternates ?? [])]);
-    if (!byScript.has(doc.language)) byScript.set(doc.language, new Map(LEVELS.map((l) => [l, []])));
+    const bucket = bucketFor(doc.language, vendorKeys.get(doc.vendorId ?? "") ?? "");
+    if (!byScript.has(bucket)) byScript.set(bucket, new Map(LEVELS.map((l) => [l, []])));
     for (const level of LEVELS) {
       let [file] = await db.select().from(schema.documentFiles).where(and(eq(schema.documentFiles.documentId, doc.id), eq(schema.documentFiles.level, level)));
       if (!file) {
@@ -112,7 +130,7 @@ async function main() {
       const [png] = await rasterisePages(bytes, DPI);
       const r = recall(ocr(png, workDir, langFor(doc.language)), values);
       totals.get(level)!.push(r);
-      byScript.get(doc.language)!.get(level)!.push(r);
+      byScript.get(bucket)!.get(level)!.push(r);
       process.stdout.write(`\r${i + 1}/${docs.length} ${doc.number} L${level} ${(r * 100).toFixed(0)}%   `);
     }
   }
@@ -120,20 +138,45 @@ async function main() {
 
   const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
   console.log(`\n\nOCR recall of ground-truth values, ${docs.length} invoices at ${DPI} dpi\n`);
-  let previous = Infinity;
-  let monotonic = true;
   for (const level of LEVELS) {
     const m = mean(totals.get(level)!);
     console.log(`  L${level}  ${(m * 100).toFixed(1).padStart(5)}%   ${"█".repeat(Math.round(m * 40))}`);
-    if (m > previous + 0.005) monotonic = false;
-    previous = m;
   }
-  console.log("\nBy the script the vendor printed in:");
+
+  /**
+   * Is any level materially easier to read than the level before it?
+   *
+   * Compared per document rather than between the two averages, and against the
+   * sampling error rather than a fixed margin. Both matter: the same documents
+   * are read at every level, so a paired comparison removes the difference
+   * between an easy invoice and a hard one, and a small sample of a population
+   * this spread out moves several points between runs on noise alone. A fixed
+   * margin therefore fails an honest run at random, which is worse than no
+   * check - a flaky acceptance test gets ignored.
+   *
+   * L1 and L2 in particular are expected to tie: level 1 is measured by OCR of
+   * a rasterised page too, so the only difference between them is faint blur.
+   * The ladder's real step is the text layer disappearing, which this test does
+   * not see, and levels 4 and 5, which it does.
+   */
+  const regressions: string[] = [];
+  console.log("\nStep from each level to the next, paired per document:");
+  for (let i = 1; i < LEVELS.length; i++) {
+    const [before, after] = [totals.get(LEVELS[i - 1])!, totals.get(LEVELS[i])!];
+    const diffs = after.map((v, j) => v - before[j]);
+    const d = mean(diffs);
+    const se = diffs.length > 1 ? Math.sqrt(diffs.reduce((a, x) => a + (x - d) ** 2, 0) / (diffs.length - 1) / diffs.length) : Infinity;
+    const verdict = d > 2 * se ? "HARDER TO EXPLAIN" : d < -2 * se ? "falls" : "ties";
+    console.log(`  L${LEVELS[i - 1]} → L${LEVELS[i]}  ${(d * 100 >= 0 ? "+" : "") + (d * 100).toFixed(1).padStart(5)} points (2 s.e. ${(se * 200).toFixed(1)})  ${verdict}`);
+    if (d > 2 * se) regressions.push(`L${LEVELS[i - 1]} → L${LEVELS[i]}`);
+  }
+  const monotonic = regressions.length === 0;
+  console.log("\nBy what the vendor printed:");
   for (const [lang, m] of [...byScript.entries()].sort()) {
     const n = m.get(1)!.length;
-    console.log(`  ${lang.padEnd(9)} (${String(n).padStart(2)} docs)  ${LEVELS.map((l) => `L${l} ${(mean(m.get(l)!) * 100).toFixed(0).padStart(3)}%`).join("  ")}`);
+    console.log(`  ${lang.padEnd(20)} (${String(n).padStart(2)} docs)  ${LEVELS.map((l) => `L${l} ${(mean(m.get(l)!) * 100).toFixed(0).padStart(3)}%`).join("  ")}`);
   }
-  console.log(`\nMonotonic decrease from L1 to L5: ${monotonic ? "yes" : "NO"}`);
+  console.log(`\nNo level reads better than the one before it: ${monotonic ? "yes" : `NO - ${regressions.join(", ")}`}`);
   await closeDegrader();
   await closeRenderer();
   await pool.end();

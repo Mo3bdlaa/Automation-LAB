@@ -220,7 +220,16 @@ download, a queue ZIP, an invoice page or the validation station; the first requ
 Which OCR or extraction engine to point at these documents is the student's decision, and
 part of the exercise. `pnpm ocr:ladder` is the lab's own check that the ladder is real: it
 renders every level, reads it back with Tesseract and reports the share of ground-truth
-values the OCR output contains.
+values the OCR output contains, split by what the vendor printed. It asserts that no level
+reads better than the one before it, paired per document and measured against the sampling
+error rather than a fixed margin.
+
+One result is worth knowing before you set an exercise: with Tesseract, the cost is the
+**numeral system, not the script**. Across all 105 Arabic-first invoices at level 1, those
+printed with Western digits score 91.4 % — as well as an English document — and those
+printed with Eastern Arabic-Indic digits (٠١٢) score 27.2 %, falling to 2.9 % on the numeric
+fields. That is roughly one document in eight, and it is a difficulty a student can solve by
+changing engine or preprocessing, which is the judgement the exercise is meant to teach.
 
 **Arabic-first documents.** Each vendor prints in its own script (`documentLanguage`:
 about half bilingual, a third Arabic-first, a fifth English). An Arabic-first document is

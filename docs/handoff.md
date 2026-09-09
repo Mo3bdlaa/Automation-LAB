@@ -270,23 +270,45 @@ Chromium render pipeline. Both are in.
   read from, and both the dashboard and the CSV export report accuracy per level.
 - **Acceptance measured, not asserted.** `pnpm ocr:ladder` renders every level, reads page 1
   back with Tesseract and reports the share of ground-truth values the OCR text contains, by
-  the script the vendor printed in. Which engine a *student* points at these documents is
+  what the vendor printed. Which engine a *student* points at these documents is
   their decision and part of the exercise; Tesseract is here because it is free and
   scriptable, and the lab needs some way to prove its own ladder is real.
-  On a 15-invoice mixed sample at 300 dpi: L1 80.1 %, L2 80.0 %, L3 79.0 %, L4 64.3 %,
-  L5 48.2 % — monotonic. On 8 Arabic-first invoices: L1 51.0 %, L2 52.8 %, L3 49.0 %,
-  L4 36.1 %, L5 23.5 %.
+  The check that no level reads *better* than the one before it is paired per document and
+  measured against the sampling error, not a fixed margin. Both matter: the same documents
+  are read at every level, so pairing removes the difference between an easy invoice and a
+  hard one, and a population this spread out moves several points between runs on noise
+  alone — a fixed margin failed an honest 24-document run at random, and a flaky acceptance
+  test gets ignored. Levels 1 and 2 are expected to tie, because level 1 is measured through
+  OCR of a rasterised page too and the only difference is faint blur. On 24 invoices the
+  steps are L1→L2 −1.0 points (2 s.e. 1.0), L2→L3 −2.4 (2.0), L3→L4 −10.9 (4.1),
+  L4→L5 −7.5 (5.7): the ladder's weight is in levels 4 and 5.
+  On a 30-invoice mixed sample at 300 dpi: L1 79.0 %, L2 78.8 %, L3 76.5 %, L4 62.6 %,
+  L5 51.5 % — monotonic, and within a point or two of the earlier 15-invoice run, so the
+  curve is stable. By what the vendor printed: English 93 / 92 / 91 / 76 / 69 %, bilingual
+  80 / 79 / 77 / 61 / 50 %, Arabic-first 58 / 64 / 59 / 50 / 36 %.
   Three findings worth keeping:
   1. A *clean* synthetic scan costs OCR almost nothing. The real step for a bot is between
      level 1 and level 2, where the text layer disappears, and again at level 4 where
      perspective and shadow start to bite.
-  2. Arabic costs about half the recall at every level with this engine, and collapses at
-     level 5. Engine choice and configuration matter far more than the level does — which
-     is the judgement the exercise is meant to teach.
-  3. Individual Arabic documents range from 20 % to 100 % at level 1. Inspecting the weakest
-     one, it comes from a vendor that prints Eastern Arabic numerals (٠١٢), which this engine
-     reads badly. Worth confirming across a larger sample before it goes in a lecture, but it
-     is exactly the kind of failure a student should meet and solve.
+  2. **It is not Arabic that costs recall — it is the numeral system.** An earlier reading of
+     this, that Arabic costs about half the recall, was wrong: it averaged a bimodal
+     population into one number. Splitting *all 105* Arabic-first invoices at level 1 by
+     whether the vendor prints Eastern Arabic-Indic digits (٠١٢): with Western digits
+     **91.4 %** overall and 87.5 % on numeric fields; with Eastern digits **27.2 %** overall
+     and **2.9 %** on numeric fields. An Arabic-first document printed with Western digits
+     reads as well as an English one (91.4 against 93). Tesseract with `ara+eng` essentially
+     cannot read Eastern digits at all — 2.9 % is a floor, not a degradation, and the 27 %
+     that remains is the Arabic *words* still being read around numbers that are lost.
+     `pnpm ocr:ladder` now reports the two Arabic groups separately, because averaging them
+     is what produced the wrong conclusion in the first place.
+  3. So engine choice and configuration dominate the difficulty level, which is the judgement
+     the exercise is meant to teach: a student who notices the digits and switches engine,
+     adds a digit-aware pass, or folds the numerals before matching recovers almost
+     everything, and one who blames "Arabic OCR" gets nowhere. Roughly two vendors in five
+     printing Arabic-first use Eastern digits, and about three vendors in ten print
+     Arabic-first, so this hits around one document in eight — a difficulty spike, not a
+     wall, and the bilingual documents (about half the corpus) always print both scripts
+     with the alternates recorded in ground truth.
 
 ---
 
