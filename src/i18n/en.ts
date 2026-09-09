@@ -320,6 +320,16 @@ export const en = {
     documentPane: "Document",
     noExtractionYet: "No extraction on file yet. Submit one from the invoice page or the API.",
   },
+  botCredential: {
+    title: "Robot login",
+    intro:
+      "A separate username and password for your UiPath robot to sign in with. It works in your sandbox and everything it does counts for you, so you never have to put your own password in a workflow. Issuing a new password revokes the old one.",
+    email: "Robot email",
+    reveal: "Issue a password",
+    regenerate: "Issue a new password",
+    create: "Create a robot login",
+    plaintextWarning: "Copy this now. It is not shown again.",
+  },
   tokens: {
     title: "API tokens",
     intro: "Bots authenticate with a bearer token: Authorization: Bearer al_… . A token is shown once, is scoped to your sandbox, and can be revoked at any time.",

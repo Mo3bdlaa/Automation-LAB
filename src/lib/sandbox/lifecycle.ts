@@ -11,7 +11,7 @@ import { ensureSharedTenant } from "../corpus/persist";
 import { seedForUser } from "../generator/rng";
 import { enqueue } from "../jobs/queue";
 import { kickJobs } from "../jobs/runner";
-import { hasLabAccess, type Principal } from "../identity/types";
+import { hasLabAccess, personUserId, type Principal } from "../identity/types";
 
 export function tenantSlugFor(userId: string): string {
   return `u-${userId.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
@@ -22,17 +22,25 @@ export async function findTenantForUser(userId: string): Promise<Tenant | null> 
   return t ?? null;
 }
 
-/** Find or create the user's tenant. Creation enqueues provisioning. */
+/**
+ * Find or create the tenant this principal works in. Creation enqueues
+ * provisioning.
+ *
+ * A robot credential resolves to its owner's tenant rather than getting one of
+ * its own — the whole point of it is to work in the same sandbox as the person
+ * who created it.
+ */
 export async function ensureTenantForPrincipal(p: Principal): Promise<Tenant | null> {
-  const existing = await findTenantForUser(p.userId);
+  const owner = personUserId(p);
+  const existing = await findTenantForUser(owner);
   if (existing) return existing;
   if (!hasLabAccess(p)) return null;
   const [created] = await db
     .insert(schema.tenants)
-    .values({ slug: tenantSlugFor(p.userId), kind: "student", ownerUserId: p.userId, seed: seedForUser(p.userId), status: "provisioning", statusMessage: "Queued" })
+    .values({ slug: tenantSlugFor(owner), kind: "student", ownerUserId: owner, seed: seedForUser(owner), status: "provisioning", statusMessage: "Queued" })
     .onConflictDoNothing()
     .returning();
-  const tenant = created ?? (await findTenantForUser(p.userId));
+  const tenant = created ?? (await findTenantForUser(owner));
   if (created) {
     await enqueue("provision_sandbox", {}, { tenantId: created.id, priority: 10 });
     kickJobs();

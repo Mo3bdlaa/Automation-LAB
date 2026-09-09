@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { requireLab, audit } from "@/lib/auth/server";
 import { requestReset } from "@/lib/sandbox/lifecycle";
 import { createApiToken, revokeApiToken } from "@/lib/api/tokens";
+import { issueBotCredential } from "@/lib/identity/accounts";
+import { personUserId } from "@/lib/identity/types";
 
 export async function resetSandboxAction(): Promise<void> {
   const session = await requireLab();
@@ -29,4 +31,17 @@ export async function revokeTokenAction(formData: FormData): Promise<void> {
   await revokeApiToken(session.principal.userId, id);
   await audit(session, "token.revoke", "api_token", id);
   redirect("/sandbox?revoked=1");
+}
+
+/**
+ * Issues a fresh password for the robot login and shows it once.
+ *
+ * Also the way a leaked one is revoked: the old password stops working the
+ * moment a new one is issued.
+ */
+export async function regenerateBotPasswordAction(): Promise<void> {
+  const session = await requireLab();
+  const { password } = await issueBotCredential(personUserId(session.principal));
+  await audit(session, "bot.credential.issue", "account", personUserId(session.principal));
+  redirect(`/sandbox?bot=${encodeURIComponent(password)}`);
 }

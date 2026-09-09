@@ -64,6 +64,13 @@
       "when": 1788964167059,
       "tag": "0008_dataset_version",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788964788487,
+      "tag": "0009_bot_credentials",
+      "breakpoints": true
     }
   ]
 }

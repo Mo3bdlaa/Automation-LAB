@@ -11,6 +11,7 @@
  */
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { challengeRuns, type ChallengeRun } from "@/db/schema";
+import { personUserId } from "@/lib/identity/types";
 import type { LabSession } from "@/lib/auth/server";
 import { queueSources } from "@/lib/api/work-items";
 import { isLevel, type Level } from "@/lib/documents/levels";
@@ -27,7 +28,7 @@ export type StartResult = { ok: true; run: ChallengeRun } | ({ ok: false } & Sta
 /** The run a person currently has open, if any. */
 export async function activeRun(session: LabSession): Promise<ChallengeRun | null> {
   const [row] = await session.tdb.list(challengeRuns, {
-    where: and(eq(challengeRuns.userId, session.principal.userId), eq(challengeRuns.status, "running"))!,
+    where: and(eq(challengeRuns.userId, personUserId(session.principal)), eq(challengeRuns.status, "running"))!,
     orderBy: [{ column: challengeRuns.startedAt, direction: "desc" }],
     limit: 1,
   });
@@ -36,12 +37,12 @@ export async function activeRun(session: LabSession): Promise<ChallengeRun | nul
 
 export async function runById(session: LabSession, id: string): Promise<ChallengeRun | null> {
   const row = await session.tdb.one(challengeRuns, eq(challengeRuns.id, id));
-  return row && row.userId === session.principal.userId ? row : null;
+  return row && row.userId === personUserId(session.principal) ? row : null;
 }
 
 export async function runsFor(session: LabSession, limit = 25): Promise<ChallengeRun[]> {
   return session.tdb.list(challengeRuns, {
-    where: eq(challengeRuns.userId, session.principal.userId),
+    where: eq(challengeRuns.userId, personUserId(session.principal)),
     orderBy: [{ column: challengeRuns.startedAt, direction: "desc" }],
     limit,
   });
@@ -50,7 +51,7 @@ export async function runsFor(session: LabSession, limit = 25): Promise<Challeng
 /** Best completed scored run per scenario for this person. */
 export async function personalBests(session: LabSession): Promise<Map<string, ChallengeRun>> {
   const rows = await session.tdb.list(challengeRuns, {
-    where: and(eq(challengeRuns.userId, session.principal.userId), eq(challengeRuns.mode, "scored"), eq(challengeRuns.status, "completed"))!,
+    where: and(eq(challengeRuns.userId, personUserId(session.principal)), eq(challengeRuns.mode, "scored"), eq(challengeRuns.status, "completed"))!,
     orderBy: [{ column: challengeRuns.score, direction: "desc" }],
   });
   const best = new Map<string, ChallengeRun>();
@@ -84,7 +85,7 @@ export async function startRun(session: LabSession, scenario: Scenario, opts: { 
   }
   const targets = sources.slice(0, scenario.targetSize).map((s) => s.reference);
   const [run] = await session.tdb.insert(challengeRuns, {
-    userId: session.principal.userId,
+    userId: personUserId(session.principal),
     scenario: scenario.slug,
     mode: opts.mode,
     level,

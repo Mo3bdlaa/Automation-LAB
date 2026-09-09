@@ -25,6 +25,18 @@ export interface Principal {
   displayName: string;
   roles: Role[];
   entitlements: Entitlement[];
+  /** Set when this principal is a robot credential: the person it belongs to. */
+  botOf?: string | null;
+}
+
+/**
+ * Who this is, as a person. A robot credential is not a separate participant:
+ * it shares its owner's sandbox, and its runs, scores and certificates are
+ * theirs. Use this anywhere identity means "whose is this?" rather than "who
+ * signed in?".
+ */
+export function personUserId(p: Pick<Principal, "userId" | "botOf">): string {
+  return p.botOf ?? p.userId;
 }
 
 export interface LoginField {

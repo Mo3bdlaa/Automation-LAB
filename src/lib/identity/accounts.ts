@@ -76,7 +76,59 @@ function toPrincipal(a: typeof schema.accounts.$inferSelect): Principal {
     displayName: a.displayName,
     roles,
     entitlements: a.status === "active" ? [{ ...challengeEntitlement(), role: roles.includes("instructor") ? "instructor" : "student" }] : [],
+    botOf: a.botOf,
   };
+}
+
+/** Robot logins live on their own domain so they can never collide with a person's. */
+export const BOT_EMAIL_DOMAIN = "bots.automation-lab.local";
+
+export interface BotCredential {
+  email: string;
+  /** Shown once, at creation. Only its hash is kept. */
+  password: string;
+}
+
+/**
+ * Create or replace the robot credential for a person.
+ *
+ * A UiPath process driving the screens has to sign in through the form, and the
+ * alternative to this is a participant typing their own password into a
+ * workflow they will screen-share, commit, or hand to a teammate. The robot
+ * gets its own login, works in its owner's sandbox, and everything it does
+ * counts for the owner.
+ *
+ * Regenerating replaces the password, which is also how a leaked one is
+ * revoked.
+ */
+export async function issueBotCredential(ownerUserId: string): Promise<BotCredential> {
+  const [owner] = await db.select().from(schema.accounts).where(eq(schema.accounts.userId, ownerUserId));
+  if (!owner) throw new Error(`No account ${ownerUserId}`);
+  if (owner.botOf) throw new Error("A robot credential cannot own another one.");
+  const password = randomBytes(18).toString("base64url");
+  const passwordHash = await hashPassword(password);
+  const [existing] = await db.select().from(schema.accounts).where(eq(schema.accounts.botOf, ownerUserId));
+  if (existing) {
+    await db.update(schema.accounts).set({ passwordHash }).where(eq(schema.accounts.userId, existing.userId));
+    return { email: existing.email, password };
+  }
+  const userId = `bot_${randomUUID()}`;
+  const email = `${userId.replace(/_/g, "-")}@${BOT_EMAIL_DOMAIN}`;
+  await db.insert(schema.accounts).values({
+    userId,
+    email,
+    passwordHash,
+    displayName: `${owner.displayName} (robot)`,
+    roles: owner.roles,
+    botOf: ownerUserId,
+  });
+  return { email, password };
+}
+
+/** The robot credential belonging to a person, if they have one. */
+export async function botCredentialFor(ownerUserId: string): Promise<{ email: string } | null> {
+  const [row] = await db.select({ email: schema.accounts.email }).from(schema.accounts).where(eq(schema.accounts.botOf, ownerUserId));
+  return row ?? null;
 }
 
 export function normaliseEmail(email: string): string {
@@ -131,6 +183,11 @@ export async function register(input: RegistrationInput): Promise<RegistrationRe
       lastLoginAt: new Date(),
     })
     .returning();
+  // Every participant gets a robot login from the start, so the credential is
+  // simply there when they wire up UiPath. The password is issued on demand
+  // from the sandbox page rather than at sign-up, where it would scroll past
+  // unread and be lost.
+  await issueBotCredential(row.userId);
   return { ok: true, principal: toPrincipal(row) };
 }
 

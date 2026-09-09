@@ -3,7 +3,9 @@ import { requireLab } from "@/lib/auth/server";
 import { recentJobs } from "@/lib/jobs/queue";
 import { sandboxProgress } from "@/lib/sandbox/lifecycle";
 import { Button, Dl, Flash, Page, Pill } from "@/components/ui";
-import { createTokenAction, resetSandboxAction, revokeTokenAction } from "./actions";
+import { createTokenAction, regenerateBotPasswordAction, resetSandboxAction, revokeTokenAction } from "./actions";
+import { botCredentialFor } from "@/lib/identity/accounts";
+import { personUserId } from "@/lib/identity/types";
 import { listApiTokens } from "@/lib/api/tokens";
 import { LinkButton, Input, Section, TableWrap } from "@/components/ui";
 
@@ -11,9 +13,16 @@ export default async function SandboxPage({ searchParams }: { searchParams: Prom
   const { t } = await i18n();
   const session = await requireLab();
   const sp = await searchParams;
-  const [progress, jobs, tokens] = await Promise.all([sandboxProgress(session.tenant), recentJobs(session.tenant.id, 15), listApiTokens(session.principal.userId)]);
+  const [progress, jobs, tokens, bot] = await Promise.all([
+    sandboxProgress(session.tenant),
+    recentJobs(session.tenant.id, 15),
+    listApiTokens(session.principal.userId),
+    botCredentialFor(personUserId(session.principal)),
+  ]);
   const newToken = typeof sp.token === "string" ? sp.token : null;
+  const newBotPassword = typeof sp.bot === "string" ? sp.bot : null;
   const tt = t.tokens;
+  const tb = t.botCredential;
   const ts = t.sandbox;
   const busy = session.tenant.status === "provisioning";
   return (
@@ -42,6 +51,35 @@ export default async function SandboxPage({ searchParams }: { searchParams: Prom
           </Button>
         </form>
       </div>
+      <Section title={tb.title} testId="bot-credential">
+        <p className="mb-2 max-w-3xl text-sm text-muted">{tb.intro}</p>
+        {bot ? (
+          <>
+            <p className="text-sm">
+              <span className="text-muted">{tb.email}: </span>
+              <code id="bot-email" data-testid="bot-email">{bot.email}</code>
+            </p>
+            {newBotPassword ? (
+              <div id="new-bot-password" data-testid="new-bot-password" className="flash my-3" data-status="success">
+                <div className="mb-1 font-semibold">{tb.plaintextWarning}</div>
+                <code id="new-bot-password-value" data-testid="new-bot-password-value" className="break-all">
+                  {newBotPassword}
+                </code>
+              </div>
+            ) : null}
+            <form action={regenerateBotPasswordAction} className="mt-3">
+              <Button testId="bot-password-regenerate" variant="secondary">
+                {newBotPassword ? tb.regenerate : tb.reveal}
+              </Button>
+            </form>
+          </>
+        ) : (
+          <form action={regenerateBotPasswordAction}>
+            <Button testId="bot-password-regenerate">{tb.create}</Button>
+          </form>
+        )}
+      </Section>
+
       <Section
         title={tt.title}
         testId="api-tokens"

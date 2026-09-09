@@ -2,7 +2,7 @@
   "name": "automation-lab",
   "version": "0.1.0",
   "private": true,
-  "description": "Automation Lab — practice sandbox for the Document Understanding / RPA course",
+  "description": "Automation Lab \u2014 practice sandbox for the Document Understanding / RPA course",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -22,7 +22,8 @@
     "challenge:smoke": "node scripts/challenge-smoke.mjs",
     "ocr:ladder": "tsx scripts/ocr-ladder.ts",
     "pdd": "tsx scripts/build-pdd.ts",
-    "pdd:figures": "tsx scripts/render-pdd-samples.ts && node scripts/capture-pdd-figures.mjs"
+    "pdd:figures": "tsx scripts/render-pdd-samples.ts && node scripts/capture-pdd-figures.mjs",
+    "bot:smoke": "node scripts/bot-credential-smoke.mjs"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",

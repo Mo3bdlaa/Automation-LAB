@@ -96,6 +96,14 @@ export const accounts = pgTable(
     location: text("location"),
     roles: jsonb("roles").$type<string[]>().notNull().default(sql`'["student"]'::jsonb`),
     status: text("status", { enum: ["active", "suspended"] }).notNull().default("active"),
+    /**
+     * Set when this account is a robot credential rather than a person: the
+     * user id of the person it belongs to. UiPath has to type a username and a
+     * password into the login form, and nobody should be putting their own
+     * password in a workflow they share. The robot signs in as itself, works in
+     * its owner's sandbox, and everything it does counts for the owner.
+     */
+    botOf: text("bot_of"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   },
