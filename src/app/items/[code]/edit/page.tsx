@@ -12,7 +12,7 @@ export default async function ItemEditPage({ params }: { params: Promise<{ code:
   const { code } = await params;
   const i = await session.tdb.one(items, eq(items.code, decodeURIComponent(code)));
   if (!i) notFound();
-  if (session.tdb.isReadOnlyRow(i)) redirect(`/items/${encodeURIComponent(i.code)}`);
+  if (session.tdb.isReadOnlyRow(items, i)) redirect(`/items/${encodeURIComponent(i.code)}`);
   return (
     <Page title={`${t.items.editItem} · ${i.code}`}>
       <ItemForm t={t} mode="edit" item={i} />

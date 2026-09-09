@@ -13,7 +13,7 @@ export async function submitExtractionAction(internalNumber: string, _prev: Form
   const session = await requireLab();
   const values = formValues(formData);
   const inv = await session.tdb.one(invoices, eq(invoices.internalNumber, internalNumber));
-  if (!inv || session.tdb.isReadOnlyRow(inv)) return failedState([{ ruleId: "INV-NOT-FOUND", severity: "error", message: "Invoice not found." }], values);
+  if (!inv || session.tdb.isReadOnlyRow(invoices, inv)) return failedState([{ ruleId: "INV-NOT-FOUND", severity: "error", message: "Invoice not found." }], values);
   if (!["pending_extraction", "extracted", "exception", "matched"].includes(inv.status)) {
     return failedState([{ ruleId: "INV-STATE", severity: "error", message: `Invoice is ${inv.status}; extraction is closed.` }], values);
   }
@@ -34,7 +34,7 @@ export async function rematchAction(formData: FormData): Promise<void> {
   const session = await requireLab();
   const internalNumber = String(formData.get("internalNumber") ?? "");
   const inv = await session.tdb.one(invoices, eq(invoices.internalNumber, internalNumber));
-  if (!inv || session.tdb.isReadOnlyRow(inv) || inv.status === "pending_extraction") redirect(`/invoices/${encodeURIComponent(internalNumber)}`);
+  if (!inv || session.tdb.isReadOnlyRow(invoices, inv) || inv.status === "pending_extraction") redirect(`/invoices/${encodeURIComponent(internalNumber)}`);
 
   const doc = await session.tdb.one(documents, and(eq(documents.kind, "invoice"), eq(documents.sourceId, inv.id))!);
   const last = doc

@@ -49,7 +49,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
           </thead>
           <tbody>
             {rows.map((i) => (
-              <tr key={i.id} id={`items-row-${i.code}`} data-testid={`items-row-${i.code}`} data-code={i.code} data-shared={session.tdb.isReadOnlyRow(i) ? "1" : "0"}>
+              <tr key={i.id} id={`items-row-${i.code}`} data-testid={`items-row-${i.code}`} data-code={i.code} data-shared={session.tdb.isReadOnlyRow(items, i) ? "1" : "0"}>
                 <td id={`items-cell-${i.code}-code`} data-testid={`items-cell-${i.code}-code`}>
                   <Link href={`/items/${encodeURIComponent(i.code)}`}>{i.code}</Link>
                 </td>
@@ -72,7 +72,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
                   <Link id={`items-action-view-${i.code}`} data-testid={`items-action-view-${i.code}`} href={`/items/${encodeURIComponent(i.code)}`} className="me-2 underline">
                     {t.common.view}
                   </Link>
-                  {!session.tdb.isReadOnlyRow(i) ? (
+                  {!session.tdb.isReadOnlyRow(items, i) ? (
                     <Link id={`items-action-edit-${i.code}`} data-testid={`items-action-edit-${i.code}`} href={`/items/${encodeURIComponent(i.code)}/edit`} className="underline">
                       {t.common.edit}
                     </Link>

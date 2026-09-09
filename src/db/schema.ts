@@ -2,12 +2,20 @@
  * Automation Lab — database schema.
  *
  * Every business table carries `tenant_id`. There are two kinds of tenant:
- *   - the single `shared` tenant holding the read-only corpus (vendors, items,
- *     employees, history) that every student sees, and
- *   - one `student` tenant per user holding their active working set.
+ *   - the single `shared` tenant holding the master data set — vendors, items,
+ *     employees and the whole transaction set with its rendered documents —
+ *     which every participant works on, and
+ *   - one `student` tenant per participant holding only what they changed and
+ *     what they created.
+ *
+ * A participant does not get a copy of the master set. They read it directly,
+ * and a change to a master row is stored as a patch in `entity_overlays`,
+ * applied on read for that participant alone. So a thousand participants share
+ * one rendered corpus, and "reset my sandbox" is a delete of their own rows.
  *
  * Application code never touches these tables directly; it goes through
- * `TenantDb` in ./tenant.ts, which injects the tenant guard on every query.
+ * `TenantDb` in ./tenant.ts, which injects the tenant guard on every query and
+ * resolves the overlay.
  */
 import {
   pgTable,
@@ -949,6 +957,32 @@ export const jobs = pgTable(
   (t) => [index("jobs_status_run_after_idx").on(t.status, t.runAfter, t.priority)],
 );
 
+/**
+ * One participant's change to a row of the shared master set.
+ *
+ * `patch` holds only the columns they changed, merged over the master row on
+ * read. Storing the delta rather than a copy keeps every id stable, so the
+ * lines, documents and ground truth hanging off a master row keep resolving
+ * without being copied too.
+ */
+export const entityOverlays = pgTable(
+  "entity_overlays",
+  {
+    tenantId: tenantId(),
+    /** The SQL table the row lives in, e.g. "invoices". */
+    entity: text("entity").notNull(),
+    /** The master row's id. Ids are never rewritten, which is the point. */
+    entityId: uuid("entity_id").notNull(),
+    patch: jsonb("patch").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("entity_overlays_pk").on(t.tenantId, t.entity, t.entityId),
+    index("entity_overlays_entity_idx").on(t.entity, t.entityId),
+  ],
+);
+
 export const auditLog = pgTable(
   "audit_log",
   {
@@ -1034,3 +1068,4 @@ export type Account = typeof accounts.$inferSelect;
 export type ChallengeRun = typeof challengeRuns.$inferSelect;
 export type Tenant = typeof tenants.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
+export type EntityOverlay = typeof entityOverlays.$inferSelect;

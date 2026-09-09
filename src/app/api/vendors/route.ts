@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     q ? or(ilike(vendors.name, `%${q}%`), ilike(vendors.code, `%${q}%`), ilike(vendors.taxId, `%${q}%`)) : undefined,
     status ? eq(vendors.status, status) : undefined,
   );
-  return listRoute(req, s, vendors, { where, orderBy: [{ column: vendors.code }], serialise: (v) => serialiseVendor(v, s.tdb.isReadOnlyRow(v)) });
+  return listRoute(req, s, vendors, { where, orderBy: [{ column: vendors.code }], serialise: (v) => serialiseVendor(v, s.tdb.isReadOnlyRow(vendors, v)) });
 }
 
 export const VendorBody = z.object({

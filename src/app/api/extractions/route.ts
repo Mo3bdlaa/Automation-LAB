@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { invoices } from "@/db/schema";
+import { documents, invoices } from "@/db/schema";
 import { apiSession } from "@/lib/auth/server";
 import { conflict, created, notFound, problem, readJson } from "@/lib/api/http";
 import { extractionToInvoice, flattenApiExtraction } from "@/lib/services/extraction";
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
   if ("documentId" in parsed.data) {
     const doc = await documentById(s, parsed.data.documentId);
     if (!doc) return notFound("Document");
-    if (s.tdb.isReadOnlyRow(doc)) return problem(403, "read_only", "Shared corpus records cannot be changed.");
+    if (s.tdb.isReadOnlyRow(documents, doc)) return problem(403, "read_only", "Shared corpus records cannot be changed.");
     const fields = Object.fromEntries(Object.entries(parsed.data.fields).map(([k, v]) => [k, String(v)]));
     const outcome = await submitDocumentExtraction(s, doc, fields, "api", { confidence: parsed.data.confidence, level });
     return created({
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
 
   const inv = await s.tdb.one(invoices, eq(invoices.internalNumber, internalNumber));
   if (!inv) return notFound("Invoice");
-  if (s.tdb.isReadOnlyRow(inv)) return problem(403, "read_only", "Shared corpus records cannot be changed.");
+  if (s.tdb.isReadOnlyRow(invoices, inv)) return problem(403, "read_only", "Shared corpus records cannot be changed.");
   if (!["pending_extraction", "extracted", "exception", "matched"].includes(inv.status)) {
     return conflict(`Invoice ${internalNumber} is ${inv.status}; extraction is closed.`, { status: inv.status });
   }

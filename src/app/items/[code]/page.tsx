@@ -13,7 +13,7 @@ export default async function ItemDetailPage({ params, searchParams }: { params:
   const sp = await searchParams;
   const i = await session.tdb.one(items, eq(items.code, decodeURIComponent(code)));
   if (!i) notFound();
-  const readOnly = session.tdb.isReadOnlyRow(i);
+  const readOnly = session.tdb.isReadOnlyRow(items, i);
   const ti = t.items;
   return (
     <Page

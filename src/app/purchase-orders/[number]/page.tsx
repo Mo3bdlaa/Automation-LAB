@@ -29,7 +29,7 @@ export default async function PoDetailPage({ params, searchParams }: { params: P
   const itemIds = lines.map((l) => l.itemId).filter(Boolean) as string[];
   const its = itemIds.length ? await session.tdb.list(items, { where: inArray(items.id, itemIds) }) : [];
   const item = (id: string | null) => its.find((i) => i.id === id);
-  const readOnly = session.tdb.isReadOnlyRow(po);
+  const readOnly = session.tdb.isReadOnlyRow(purchaseOrders, po);
   const tp = t.po;
   const [rfq, dns, gs, invs] = await Promise.all([
     session.tdb.one(rfqs, eq(rfqs.purchaseOrderId, po.id)),

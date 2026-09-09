@@ -157,7 +157,7 @@ export interface DecisionOutcome {
 
 /** Approve, reject or pay. State transitions are enforced here, not in the UI. */
 export async function decideInvoice(session: LabSession, inv: Invoice, decision: Decision): Promise<DecisionOutcome> {
-  if (session.tdb.isReadOnlyRow(inv)) return { ok: false, error: "read_only", message: "Shared corpus records cannot be changed." };
+  if (session.tdb.isReadOnlyRow(invoices, inv)) return { ok: false, error: "read_only", message: "Shared corpus records cannot be changed." };
 
   if (decision === "approve") {
     if (!["matched", "exception", "extracted"].includes(inv.status)) return { ok: false, error: "invalid_state", message: `An invoice in status ${inv.status} cannot be approved.` };

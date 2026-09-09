@@ -34,7 +34,7 @@ export type GrnResult =
  * robot records it as a business exception on the queue item.
  */
 export async function refuseDelivery(session: LabSession, dn: DeliveryNote, reason: string, ruleIds: string[] = []): Promise<{ ok: true } | { ok: false; message: string }> {
-  if (session.tdb.isReadOnlyRow(dn)) return { ok: false, message: "Shared corpus records cannot be changed." };
+  if (session.tdb.isReadOnlyRow(deliveryNotes, dn)) return { ok: false, message: "Shared corpus records cannot be changed." };
   const existing = await session.tdb.list(grns, { where: eq(grns.deliveryNoteId, dn.id), limit: 1 });
   if (existing.length) return { ok: false, message: `Delivery ${dn.number} already has goods receipt ${existing[0].number}.` };
   await audit(session, "delivery.refuse", "delivery_note", dn.number, { reason, ruleIds });
@@ -49,7 +49,7 @@ export async function postGoodsReceipt(
   const tdb = session.tdb;
   const dn = await tdb.one(deliveryNotes, eq(deliveryNotes.id, deliveryNoteId));
   if (!dn) return { ok: false, error: "not_found", message: "Delivery note not found." };
-  if (tdb.isReadOnlyRow(dn)) return { ok: false, error: "read_only", message: "Shared corpus records cannot be changed." };
+  if (tdb.isReadOnlyRow(deliveryNotes, dn)) return { ok: false, error: "read_only", message: "Shared corpus records cannot be changed." };
   const existing = await tdb.one(grns, eq(grns.deliveryNoteId, dn.id));
   if (existing) return { ok: false, error: "already_posted", message: `Goods receipt ${existing.number} is already posted for this delivery note.` };
 

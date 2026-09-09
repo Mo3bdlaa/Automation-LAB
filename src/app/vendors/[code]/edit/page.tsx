@@ -12,7 +12,7 @@ export default async function VendorEditPage({ params }: { params: Promise<{ cod
   const { code } = await params;
   const v = await session.tdb.one(vendors, eq(vendors.code, decodeURIComponent(code)));
   if (!v) notFound();
-  if (session.tdb.isReadOnlyRow(v)) redirect(`/vendors/${encodeURIComponent(v.code)}`);
+  if (session.tdb.isReadOnlyRow(vendors, v)) redirect(`/vendors/${encodeURIComponent(v.code)}`);
   return (
     <Page title={`${t.vendors.editVendor} · ${v.code}`}>
       <VendorForm t={t} mode="edit" vendor={v} />

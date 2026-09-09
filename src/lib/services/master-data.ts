@@ -74,7 +74,7 @@ export async function saveVendor(session: LabSession, mode: "create" | "edit", o
   }
   const current = await tdb.one(vendors, eq(vendors.code, originalCode!));
   if (!current) return { ok: false, error: "not_found", message: `Vendor ${originalCode} not found.` };
-  if (tdb.isReadOnlyRow(current)) return { ok: false, error: "read_only", message: "Shared corpus records are read-only. Create a vendor in your sandbox instead." };
+  if (tdb.isReadOnlyRow(vendors, current)) return { ok: false, error: "read_only", message: "Shared corpus records are read-only. Create a vendor in your sandbox instead." };
   const [updated] = await tdb.update(vendors, row, eq(vendors.id, current.id));
   await audit(session, "vendor.update", "vendor", code, { warnings: result.violations.map((v) => v.ruleId) });
   return { ok: true, row: updated };
@@ -105,7 +105,7 @@ export async function saveItem(session: LabSession, mode: "create" | "edit", ori
   }
   const current = await tdb.one(items, eq(items.code, originalCode!));
   if (!current) return { ok: false, error: "not_found", message: `Item ${originalCode} not found.` };
-  if (tdb.isReadOnlyRow(current)) return { ok: false, error: "read_only", message: "Shared corpus records are read-only. Create an item in your sandbox instead." };
+  if (tdb.isReadOnlyRow(items, current)) return { ok: false, error: "read_only", message: "Shared corpus records are read-only. Create an item in your sandbox instead." };
   const [updated] = await tdb.update(items, row, eq(items.id, current.id));
   await audit(session, "item.update", "item", code);
   return { ok: true, row: updated };

@@ -63,7 +63,7 @@ export async function queueSources(session: LabSession, queue: WorkItemQueue, le
       // the shared corpus is read-only, so it could never be decided and has no
       // business being in a queue that asks for a decision.
       const all = await tdb.list(vendors, { where: eq(vendors.status, "pending"), orderBy: [{ column: vendors.code }] });
-      const rows = all.filter((v) => !tdb.isReadOnlyRow(v));
+      const rows = all.filter((v) => !tdb.isReadOnlyRow(vendors, v));
       const docs = rows.length ? await tdb.list(documents, { where: and(inArray(documents.vendorId, rows.map((r) => r.id)), sql`${documents.kind} like 'vendor_%'`)! }) : [];
       return rows.map((v) => ({
         reference: v.code,

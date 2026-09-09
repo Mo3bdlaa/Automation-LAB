@@ -116,7 +116,7 @@ export async function approvePurchaseOrder(session: LabSession, number: string):
   const tdb = session.tdb;
   const po = await tdb.one(purchaseOrders, eq(purchaseOrders.number, number));
   if (!po) return { ok: false, error: "not_found", message: `Purchase order ${number} not found.` };
-  if (tdb.isReadOnlyRow(po)) return { ok: false, error: "read_only", message: "Shared corpus records cannot be changed." };
+  if (tdb.isReadOnlyRow(purchaseOrders, po)) return { ok: false, error: "read_only", message: "Shared corpus records cannot be changed." };
   if (po.status !== "draft") return { ok: false, error: "invalid_state", message: `Purchase order ${number} is ${po.status}, not draft.` };
 
   const vendor = await tdb.one(vendors, eq(vendors.id, po.vendorId));

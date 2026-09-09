@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     q ? or(ilike(items.name, `%${q}%`), ilike(items.code, `%${q}%`)) : undefined,
     category ? eq(items.category, category) : undefined,
   );
-  return listRoute(req, s, items, { where, orderBy: [{ column: items.code }], serialise: (i) => serialiseItem(i, s.tdb.isReadOnlyRow(i)) });
+  return listRoute(req, s, items, { where, orderBy: [{ column: items.code }], serialise: (i) => serialiseItem(i, s.tdb.isReadOnlyRow(items, i)) });
 }
 
 export const ItemBody = z.object({

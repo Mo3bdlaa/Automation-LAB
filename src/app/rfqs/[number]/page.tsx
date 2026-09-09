@@ -28,7 +28,7 @@ export default async function RfqDetailPage({ params, searchParams }: { params: 
   const qDocs = qs.length ? await session.tdb.list(documents, { where: and(eq(documents.kind, "quote"), inArray(documents.sourceId, qs.map((q) => q.id)))! }) : [];
   const qFiles = qDocs.length ? await session.tdb.list(documentFiles, { where: inArray(documentFiles.documentId, qDocs.map((d) => d.id)) }) : [];
   const emps = await session.tdb.list(employees, { where: inArray(employees.id, [rfq.buyerId, rfq.requesterId].filter(Boolean) as string[]) });
-  const canAward = !session.tdb.isReadOnlyRow(rfq) && rfq.status !== "awarded" && rfq.status !== "cancelled";
+  const canAward = !session.tdb.isReadOnlyRow(rfqs, rfq) && rfq.status !== "awarded" && rfq.status !== "cancelled";
   return (
     <Page
       title={rfq.number}

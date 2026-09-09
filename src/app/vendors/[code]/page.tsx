@@ -14,7 +14,7 @@ export default async function VendorDetailPage({ params, searchParams }: { param
   const sp = await searchParams;
   const v = await session.tdb.one(vendors, eq(vendors.code, decodeURIComponent(code)));
   if (!v) notFound();
-  const readOnly = session.tdb.isReadOnlyRow(v);
+  const readOnly = session.tdb.isReadOnlyRow(vendors, v);
   const tv = t.vendors;
   const vdocs = await session.tdb.list(vendorDocuments, { where: eq(vendorDocuments.vendorId, v.id) });
   const docRows = vdocs.length ? await session.tdb.list(documents, { where: inArray(documents.sourceId, vdocs.map((d) => d.id)) }) : [];

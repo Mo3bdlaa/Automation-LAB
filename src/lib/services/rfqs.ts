@@ -17,7 +17,7 @@ export async function awardQuote(session: LabSession, rfqNumber: string, quoteId
   const tdb = session.tdb;
   const rfq = await tdb.one(rfqs, eq(rfqs.number, rfqNumber));
   if (!rfq) return { ok: false, error: "not_found", message: `RFQ ${rfqNumber} not found.` };
-  if (tdb.isReadOnlyRow(rfq)) return { ok: false, error: "read_only", message: "Shared corpus records cannot be changed." };
+  if (tdb.isReadOnlyRow(rfqs, rfq)) return { ok: false, error: "read_only", message: "Shared corpus records cannot be changed." };
   if (rfq.status === "awarded" || rfq.status === "cancelled") return { ok: false, error: "invalid_state", message: `RFQ ${rfqNumber} is ${rfq.status}.` };
   const quote = await tdb.one(quotes, and(eq(quotes.id, quoteId), eq(quotes.rfqId, rfq.id))!);
   if (!quote) return { ok: false, error: "not_found", message: "Quotation not found on this RFQ." };

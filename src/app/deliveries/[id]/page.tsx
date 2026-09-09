@@ -30,7 +30,7 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
   const itemIds = lines.map((l) => l.itemId).filter(Boolean) as string[];
   const its = itemIds.length ? await session.tdb.list(items, { where: inArray(items.id, itemIds) }) : [];
   const viewLines = lines.map((l) => ({ lineNo: l.lineNo, poLineNo: poLines.find((p) => p.id === l.purchaseOrderLineId)?.lineNo ?? null, itemCode: its.find((i) => i.id === l.itemId)?.code ?? null, description: l.description, quantity: String(Number(l.quantity)), uom: l.uom }));
-  const canPost = !session.tdb.isReadOnlyRow(dn) && !grn;
+  const canPost = !session.tdb.isReadOnlyRow(deliveryNotes, dn) && !grn;
   return (
     <Page
       title={`${tc.delivery} ${dn.number}`}

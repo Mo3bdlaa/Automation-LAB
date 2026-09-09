@@ -18,7 +18,7 @@ export type DecisionResult =
 export async function decideVendorApplication(session: LabSession, code: string, decision: ApplicationDecision, reason?: string): Promise<DecisionResult> {
   const v = await session.tdb.one(vendors, eq(vendors.code, code.toUpperCase()));
   if (!v) return { ok: false, error: "not_found", message: `Vendor ${code} not found.` };
-  if (session.tdb.isReadOnlyRow(v)) return { ok: false, error: "read_only", message: "Shared corpus suppliers cannot be decided." };
+  if (session.tdb.isReadOnlyRow(vendors, v)) return { ok: false, error: "read_only", message: "Shared corpus suppliers cannot be decided." };
   if (v.status !== "pending" && v.status !== (decision === "approve" ? "active" : "blocked")) {
     return { ok: false, error: "invalid_state", message: `Vendor ${v.code} is ${v.status}; only a pending application can be decided.` };
   }

@@ -12,7 +12,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ code: string }
   const { code } = await ctx.params;
   const i = await s.tdb.one(items, eq(items.code, decodeURIComponent(code).toUpperCase()));
   if (!i) return notFound("Item");
-  return ok({ item: serialiseItem(i, s.tdb.isReadOnlyRow(i)) });
+  return ok({ item: serialiseItem(i, s.tdb.isReadOnlyRow(items, i)) });
 }
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ code: string }> }) {

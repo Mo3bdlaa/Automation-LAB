@@ -12,7 +12,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ code: string }
   const { code } = await ctx.params;
   const v = await s.tdb.one(vendors, eq(vendors.code, decodeURIComponent(code).toUpperCase()));
   if (!v) return notFound("Vendor");
-  return ok({ vendor: serialiseVendor(v, s.tdb.isReadOnlyRow(v)), documents: await serialiseVendorDocuments(s, v.id) });
+  return ok({ vendor: serialiseVendor(v, s.tdb.isReadOnlyRow(vendors, v)), documents: await serialiseVendorDocuments(s, v.id) });
 }
 
 /** Partial update: fields left out keep their stored value, then the full rule set runs. */
