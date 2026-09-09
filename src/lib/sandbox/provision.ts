@@ -1,7 +1,14 @@
 /**
- * Sandbox provisioning: generates a student's working set from the shared
- * corpus and their seed, and resets it to identical starting conditions.
- * Runs only inside a background job, never in a request.
+ * Building the master set, and clearing a participant's work.
+ *
+ * The transaction set — orders, deliveries, invoices, their documents and the
+ * ground truth behind them — is generated once into the shared tenant and read
+ * by everyone. A participant is not given a copy of it: they work on the same
+ * rows, and what they change is stored as a patch (see src/db/tenant.ts).
+ *
+ * So provisioning a participant has nothing to generate, and resetting them is
+ * a delete of their own rows rather than a regeneration. `buildMasterSet` runs
+ * from `pnpm db:seed`, not from a signup.
  */
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db/client";
@@ -40,12 +47,20 @@ async function setStatus(tenantId: string, patch: Partial<Pick<Tenant, "status" 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 
-/** Generate the student's working set from the shared corpus and their seed. */
-export async function provisionSandbox(tenantId: string, log: (m: string) => void = () => {}): Promise<void> {
+/**
+ * Generate the transaction set into the shared tenant: the orders, quotations,
+ * deliveries, invoices and supplier applications everyone works on, with their
+ * documents, ground truth and seeded defects.
+ *
+ * Rendered once for every participant there will ever be, which is the whole
+ * point: this used to run per signup, 374 documents at a time.
+ */
+export async function buildMasterSet(log: (m: string) => void = () => {}): Promise<void> {
+  const tenantId = await ensureSharedTenant();
   const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.id, tenantId));
-  if (!tenant) throw new Error(`Tenant ${tenantId} not found`);
-  const shared = await ensureSharedTenant();
-  await setStatus(tenantId, { status: "provisioning", progress: 5, statusMessage: "Loading shared corpus" });
+  if (!tenant) throw new Error("Shared tenant not found");
+  const shared = tenantId;
+  await setStatus(tenantId, { status: "provisioning", progress: 5, statusMessage: "Loading master data" });
 
   const vendors = await db.select().from(schema.vendors).where(eq(schema.vendors.tenantId, shared));
   const items = await db.select().from(schema.items).where(eq(schema.items.tenantId, shared));
@@ -113,8 +128,10 @@ export async function provisionSandbox(tenantId: string, log: (m: string) => voi
   };
 
   await db.transaction(async (tx) => {
-    // Supplier applications, in the student's own tenant so they can actually
-    // be approved or refused, with the certificates that came with them.
+    // Supplier applications, pending, with the certificates that came with
+    // them. They sit in the master set like everything else: approving or
+    // refusing one is recorded as that participant's patch, so everyone gets
+    // the same queue and nobody's decision is visible to anyone else.
     for (const [i, application] of set.vendorApplications.entries()) {
       const v = application.vendor;
       const [row] = await tx
@@ -304,15 +321,40 @@ async function insertInvoice(
   return row.id;
 }
 
-/** Wipe the student's rows and blobs, then provision again from the same seed. */
+/**
+ * A participant's sandbox needs nothing generated: the master set is already
+ * there and already rendered. This exists so the signup path, the job handler
+ * and the status screens keep their shape.
+ */
+export async function provisionSandbox(tenantId: string, log: (m: string) => void = () => {}): Promise<void> {
+  const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.id, tenantId));
+  if (!tenant) throw new Error(`Tenant ${tenantId} not found`);
+  if (tenant.kind === "shared") return buildMasterSet(log);
+  const shared = await ensureSharedTenant();
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(schema.documents)
+    .where(eq(schema.documents.tenantId, shared));
+  if (!n) throw new Error("The master set is empty. Run `pnpm db:seed` first.");
+  await setStatus(tenantId, { status: "ready", progress: 100, statusMessage: null, provisionedAt: new Date() });
+  log(`tenant ${tenant.slug} is ready against a master set of ${n} documents`);
+  await emitWebhook({ tenant: { id: tenantId } }, "sandbox.ready", { tenantId, documents: n });
+}
+
+/**
+ * Undo a participant's work: their own rows, their patches over the master set,
+ * and any blobs they produced. The master set is untouched, so this is a delete
+ * rather than the minutes-long regeneration it used to be.
+ */
 export async function resetSandbox(tenantId: string, log: (m: string) => void = () => {}): Promise<void> {
   await setStatus(tenantId, { status: "provisioning", progress: 0, statusMessage: "Resetting" });
   await db.delete(schema.jobs).where(and(eq(schema.jobs.tenantId, tenantId), eq(schema.jobs.kind, "render_document"), inArray(schema.jobs.status, ["queued", "failed"])));
+  await db.delete(schema.entityOverlays).where(eq(schema.entityOverlays.tenantId, tenantId));
   await clearTenantRows(tenantId);
   await blobStore().deletePrefix(`tenants/${tenantId}`);
   await db.update(schema.tenants).set({ resetCount: sql`${schema.tenants.resetCount} + 1` }).where(eq(schema.tenants.id, tenantId));
   log(`tenant ${tenantId} cleared`);
-  await provisionSandbox(tenantId, log);
+  await setStatus(tenantId, { status: "ready", progress: 100, statusMessage: null, provisionedAt: new Date() });
 }
 
 
