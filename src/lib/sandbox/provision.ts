@@ -60,6 +60,11 @@ export async function buildMasterSet(log: (m: string) => void = () => {}): Promi
   const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.id, tenantId));
   if (!tenant) throw new Error("Shared tenant not found");
   const shared = tenantId;
+  // A rebuild is a new build of the data everyone works on. Bumping here rather
+  // than at the end means a half-finished rebuild is still a distinct version,
+  // never silently the previous one.
+  const datasetVersion = tenant.datasetVersion + 1;
+  await db.update(schema.tenants).set({ datasetVersion }).where(eq(schema.tenants.id, tenantId));
   await setStatus(tenantId, { status: "provisioning", progress: 5, statusMessage: "Loading master data" });
 
   const vendors = await db.select().from(schema.vendors).where(eq(schema.vendors.tenantId, shared));
@@ -339,6 +344,36 @@ export async function provisionSandbox(tenantId: string, log: (m: string) => voi
   await setStatus(tenantId, { status: "ready", progress: 100, statusMessage: null, provisionedAt: new Date() });
   log(`tenant ${tenant.slug} is ready against a master set of ${n} documents`);
   await emitWebhook({ tenant: { id: tenantId } }, "sandbox.ready", { tenantId, documents: n });
+}
+
+/**
+ * Clear everyone's in-flight work, so the master set underneath it can be
+ * rebuilt.
+ *
+ * Participants' goods receipts point at the master set's delivery notes, so
+ * regenerating it while that work exists fails on a foreign key rather than
+ * quietly leaving stale rows. Clearing first makes the consequence explicit:
+ * rebuilding the documents resets what everyone is part-way through.
+ *
+ * What survives is what a rebuild has no business touching — accounts, API
+ * tokens, and every completed run with its score and its certificate. Those
+ * are statements about work already finished, and each one records the build it
+ * was earned against.
+ */
+export async function clearAllParticipantWork(log: (m: string) => void = () => {}): Promise<void> {
+  const tenants = await db.select().from(schema.tenants).where(eq(schema.tenants.kind, "student"));
+  for (const t of tenants) {
+    await db.delete(schema.entityOverlays).where(eq(schema.entityOverlays.tenantId, t.id));
+    await db.delete(schema.workItems).where(eq(schema.workItems.tenantId, t.id));
+    // A run still open refers to targets that are about to stop existing.
+    await db
+      .update(schema.challengeRuns)
+      .set({ status: "abandoned", completedAt: new Date() })
+      .where(and(eq(schema.challengeRuns.tenantId, t.id), eq(schema.challengeRuns.status, "running")));
+    await clearTenantRows(t.id);
+    await blobStore().deletePrefix(`tenants/${t.id}`);
+  }
+  if (tenants.length) log(`cleared in-flight work for ${tenants.length} participant${tenants.length === 1 ? "" : "s"}; runs and certificates kept`);
 }
 
 /**

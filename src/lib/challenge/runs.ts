@@ -91,6 +91,7 @@ export async function startRun(session: LabSession, scenario: Scenario, opts: { 
     targets,
     status: "running",
     startedAt: new Date(),
+    datasetVersion: await currentDatasetVersion(),
   });
   return { ok: true, run };
 }
@@ -127,14 +128,28 @@ export interface BoardRow {
   completedAt: Date;
 }
 
+/**
+ * Which build of the master set is live. Everything scored is stamped with it,
+ * so regenerating the documents starts a clean board rather than mixing runs
+ * against different data into one ranking.
+ */
+export async function currentDatasetVersion(): Promise<number> {
+  const { db, schema } = await import("@/db/client");
+  const { ensureSharedTenant } = await import("@/lib/corpus/persist");
+  const shared = await ensureSharedTenant();
+  const [row] = await db.select({ v: schema.tenants.datasetVersion }).from(schema.tenants).where(eq(schema.tenants.id, shared));
+  return row?.v ?? 1;
+}
+
 export const BOARD_QUERY_LIMIT = 200;
 
 /**
  * The public board reads across every tenant on purpose, so it uses the raw
  * client. It only ever exposes runs whose owner opted in.
  */
-export async function leaderboard(scenario: string, channel: "ui" | "api" | "all" = "all", limit = 50): Promise<BoardRow[]> {
+export async function leaderboard(scenario: string, channel: "ui" | "api" | "all" = "all", limit = 50, datasetVersion?: number): Promise<BoardRow[]> {
   const { db, schema } = await import("@/db/client");
+  const dataset = datasetVersion ?? (await currentDatasetVersion());
   const rows = await db
     .select({
       runId: schema.challengeRuns.id,
@@ -153,6 +168,7 @@ export async function leaderboard(scenario: string, channel: "ui" | "api" | "all
         eq(schema.challengeRuns.mode, "scored"),
         eq(schema.challengeRuns.publish, true),
         channel === "all" ? sql`true` : eq(schema.challengeRuns.channel, channel),
+        eq(schema.challengeRuns.datasetVersion, dataset),
         sql`${schema.challengeRuns.score} is not null`,
       ),
     )

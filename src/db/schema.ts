@@ -53,6 +53,13 @@ export const tenants = pgTable(
     progress: integer("progress").notNull().default(0),
     statusMessage: text("status_message"),
     resetCount: integer("reset_count").notNull().default(0),
+    /**
+     * On the shared tenant: which build of the master set this is. Bumped every
+     * time the transaction set is regenerated, so an event can swap the
+     * documents and start a clean board without invalidating a certificate
+     * already issued against the previous build. Meaningless on a participant.
+     */
+    datasetVersion: integer("dataset_version").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     provisionedAt: timestamp("provisioned_at", { withTimezone: true }),
   },
@@ -912,6 +919,12 @@ export const challengeRuns = pgTable(
     }>(),
     /** Opt in to appear on the public leaderboard. */
     publish: boolean("publish").notNull().default(false),
+    /**
+     * The build of the master set this run was worked against. Boards are per
+     * build, so regenerating the documents starts a clean board and leaves
+     * every certificate already issued meaning exactly what it meant.
+     */
+    datasetVersion: integer("dataset_version").notNull().default(1),
     /** Set when the run earns a certificate; the code is what /verify checks. */
     certificateCode: text("certificate_code"),
     certificateIssuedAt: timestamp("certificate_issued_at", { withTimezone: true }),

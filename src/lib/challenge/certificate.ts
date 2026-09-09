@@ -60,6 +60,12 @@ export interface CertificateFacts {
   itemsInScope: number;
   /** Short digest of the run id, so two certificates can never collide visually. */
   reference: string;
+  /**
+   * The build of the master set this was earned against. Printed because the
+   * documents can be regenerated between events: without it a certificate says
+   * what was scored but not what was scored on.
+   */
+  datasetVersion: number;
 }
 
 /**
@@ -93,5 +99,6 @@ export async function certificateByCode(code: string): Promise<CertificateFacts 
     itemsProcessed: run.processedCount,
     itemsInScope: run.targets.length,
     reference: createHash("sha256").update(run.id).digest("hex").slice(0, 8).toUpperCase(),
+    datasetVersion: run.datasetVersion,
   };
 }

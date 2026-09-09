@@ -134,6 +134,7 @@ export const ar: Dictionary = {
     boardEmpty: "لم ينشر أحد جولة في هذا السيناريو بعد. كن الأول.",
     rank: "#",
     participant: "المشارك",
+    dataset: "مجموعة المستندات",
     duration: "الزمن",
     channel: "طريقة التنفيذ",
     level: "المستوى",

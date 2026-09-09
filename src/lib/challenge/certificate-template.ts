@@ -66,7 +66,7 @@ html, body { margin: 0; padding: 0; }
         <div class="verify code">${esc(facts.code)}</div>
         <div style="margin-top:2mm;max-width:150mm">${esc(CERTIFICATE_ISSUER_NOTE)}</div>
       </div>
-      <div class="seal"><b>${facts.score.toFixed(0)}</b>${esc(issued)}<br>ref ${esc(facts.reference)}</div>
+      <div class="seal"><b>${facts.score.toFixed(0)}</b>${esc(issued)}<br>ref ${esc(facts.reference)}<br>set ${facts.datasetVersion}</div>
     </div>
   </div>
 </div>`;

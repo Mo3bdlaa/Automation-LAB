@@ -132,6 +132,7 @@ export const en = {
     boardEmpty: "Nobody has published a run for this scenario yet. Be first.",
     rank: "#",
     participant: "Participant",
+    dataset: "Document set",
     duration: "Time",
     channel: "Driven by",
     level: "Level",

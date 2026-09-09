@@ -58,6 +58,12 @@ export default async function VerifyPage({ params }: { params: Promise<{ code: s
             <dt className="text-muted">{tc.duration}</dt>
             <dd>{formatDuration(facts.durationMs)}</dd>
           </div>
+          <div>
+            <dt className="text-muted">{tc.dataset}</dt>
+            <dd id="verify-dataset" data-testid="verify-dataset" data-version={facts.datasetVersion}>
+              {facts.datasetVersion}
+            </dd>
+          </div>
         </dl>
         <p className="mt-4 text-xs text-muted" id="verify-note" data-testid="verify-note">
           {CERTIFICATE_ISSUER_NOTE}

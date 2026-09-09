@@ -15,13 +15,17 @@
  */
 import { pool } from "../src/db/client";
 import { seedSharedCorpus } from "../src/lib/corpus/persist";
-import { buildMasterSet } from "../src/lib/sandbox/provision";
+import { buildMasterSet, clearAllParticipantWork } from "../src/lib/sandbox/provision";
 import { runJobs } from "../src/lib/jobs/runner";
 import { closeRenderer } from "../src/lib/documents/renderer";
 import { closeDegrader } from "../src/lib/documents/degrade";
 
 async function main() {
   const force = process.argv.includes("--force");
+  // Before the master set can be replaced, the work standing on it has to go:
+  // a participant's goods receipt references a delivery note that is about to
+  // be deleted. Runs, scores and certificates are kept.
+  if (force) await clearAllParticipantWork((m) => console.log(m));
   const report = await seedSharedCorpus({ force, log: (m) => console.log(m) });
   if (!report.skipped) console.table(report.counts);
   if (report.skipped && !force) {
