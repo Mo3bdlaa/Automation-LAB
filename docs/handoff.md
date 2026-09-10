@@ -1,7 +1,7 @@
 # Automation Lab — handoff
 
-**Date:** 2026-09-08
-**Status:** P0, P1, P2, P3 and P5 (the public challenge) implemented in this repository. P4 — production identity, hosting and integration — is specified in `docs/pdd.md` section 4.
+**Date:** 2026-09-10
+**Status:** P0, P1, P2, P3, P5 (the public challenge) and P6 (shared master set, hosting readiness) implemented in this repository. What remains before launch is a deployment and a mail server — see `docs/deploy.md`.
 **Owner:** Mohammed Shaker
 **Companion documents:** `docs/spec.md` — the full design spec. Read it second. `docs/pdd.md` — the Process Definition Document: AS-IS and TO-BE processes students automate, annotated screenshots of every screen and document, and the P2/P3/P4 roadmap with acceptance criteria.
 
@@ -393,6 +393,67 @@ Two things the scoring work surfaced that are worth remembering:
    vendors in it came from the shared corpus, which is read-only through `TenantDb`. Vendor
    applications are now generated into the participant's own tenant and the queue only lists
    rows they can write. Check writability before a queue is a scenario.
+
+---
+
+## 7f. P6 — one master set, and ready to host — done in this repository
+
+The lab was built for a cohort of thirty. The decision to run it as an open practice site —
+"like ACME and RPA Challenge" — changed the economics, and this phase followed the change.
+
+- **The transaction set is shared, not copied.** Every signup used to generate and render
+  374 documents, taking 1.5 to 4 minutes before anyone could start and 32 MB at level 1
+  alone. A full run of all four scenarios touches 36 of them. At a thousand participants
+  that is 374,000 renders of what could be one corpus. It is now built once by
+  `pnpm db:seed`: measured at 76 seconds for the corpus, the transaction set and 287
+  rendered documents, for every participant there will ever be.
+- **A participant's changes are patches, not copies** (`entity_overlays`, `src/db/tenant.ts`).
+  The blocker was never storage, it was that a participant must be able to change what they
+  see. They read the master rows directly and a change is stored as a delta merged back on
+  read for them alone. A delta rather than a copy so ids never move, which means the lines,
+  documents and ground truth hanging off a row keep resolving with nothing else to migrate.
+  The part that needed proving was filtering: an invoice you approved must stop appearing in
+  a query for pending invoices, and that filter is written by the query builder against the
+  master row. Resolving reads through a CTE that shadows the table name makes the same
+  `where "invoices"."status" = …` bind to the merged row, so all 28 call sites work
+  untouched. Verified end to end: one participant posts eight goods receipts and scores 100,
+  a second then finds the same eight deliveries untouched and also scores 100. Two full runs
+  cost 32 overlay rows and moved total storage from 26 MB to 27 MB.
+- **Document sets are versioned.** An event may change the data, so every result records
+  which build it was scored against. Boards are per build; a certificate already issued keeps
+  verifying and now names what it was earned on. Rebuilding also turned out to be *impossible*
+  rather than merely disruptive, which only showed up by trying it: a participant's goods
+  receipt references a delivery note in the master set, so replacing that set failed on a
+  foreign key. Clearing everyone's in-flight work first makes the consequence explicit.
+  Accounts, tokens and completed runs with their certificates survive.
+- **Robot credentials.** Bearer tokens only ever worked for the REST API. Driving the
+  *screens* meant putting your own password into a workflow you would screen-share or
+  commit. Every account now gets its own login on a separate domain, created at sign-up,
+  resolving to its owner's sandbox rather than getting one of its own. `personUserId()` is
+  what identity means wherever the question is "whose is this?" rather than "who signed
+  in?" — runs, scores, certificates.
+- **Rate limiting that does not break the site.** An open site pointed at by robots needs
+  limits that stop an attack without stopping the thing the site is for, and those pull in
+  opposite directions. Tight where credentials are guessed (10 sign-ins per 15 minutes, 5
+  sign-ups an hour, per address — counted by address rather than the email typed, or anyone
+  could lock a participant out of their own account). Generous where the work happens (600
+  a minute per account; a twelve-invoice run uses under a fifth). Counters are in Postgres,
+  not memory, because serverless requests land in different instances. Enforced in
+  `apiSession()`, which every API route already goes through, so a new endpoint is covered
+  the day it is written.
+- **No browser in production.** `pnpm db:seed --levels` produces difficulty levels 2 to 5
+  up front — measured at 55 a minute, so about 25 minutes for the whole set. They used to be
+  generated on first request, which would have meant Chromium inside a serverless function.
+  Now there is nothing left to render at request time.
+- **An S3-compatible blob store** (`createS3BlobStore`), written against the REST API with
+  SigV4 signing rather than the AWS SDK, which is 15 MB of dependency for four verbs. Works
+  with R2, B2, MinIO or S3. `BLOB_STORE=local` now refuses to start in production, because a
+  serverless function's disk does not survive the request and it would serve 404s from
+  another instance rather than failing honestly. `pnpm blob:check` proves a real bucket
+  works in two seconds — the unit tests run against a stand-in server and cannot prove that
+  AWS accepts the signature.
+- **`docs/deploy.md`** — Vercel, Neon, R2, with the document set built locally and never on
+  the server, and a list of the things that will bite.
 
 ---
 

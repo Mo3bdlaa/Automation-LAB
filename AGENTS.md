@@ -13,6 +13,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Read `docs/handoff.md` (decisions and rationale) and `docs/spec.md` (design) before changing architecture.
 - Every interactive element gets both `id` and `data-testid` per `docs/selectors.md`. Rule IDs in `src/lib/validation/rules.ts` and `src/lib/validation/matching.ts` are a public contract: never rename one.
 - Never import `@/db/client` from pages, components or route handlers. Use `TenantDb` (`src/db/tenant.ts`); `src/db/scoping.test.ts` enforces this.
+- The transaction set is shared by everyone and never copied per participant. A change to a master row is a patch in `entity_overlays`, merged on read by `TenantDb`. Two consequences: never write code that copies master rows into a participant's tenant, and never bypass `TenantDb` for a read of an overlaid table — a raw query returns the master value and will show an invoice you approved as still pending.
+- `personUserId(principal)` is what identity means wherever the question is "whose is this?" rather than "who signed in?" — runs, scores, certificates, tenant lookup. A robot credential shares its owner's sandbox and must never be treated as a separate participant.
+- Rendering happens at seed time, never at request time in production. Nothing on the request path may start Chromium: `pnpm db:seed --levels` produces every difficulty level up front so the deployed app needs no browser.
 - Business logic lives in `src/lib/services/`. UI server actions and API routes are thin wrappers over it: never implement a rule in one path only.
 - Every API route needs a path in `src/lib/api/openapi.ts`; `src/lib/api/openapi.test.ts` fails when the two drift.
 - Nothing reachable from a page or route module may import `playwright-core` statically. The renderer and the job handlers load it dynamically; a static import breaks the standalone build.

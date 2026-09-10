@@ -8,6 +8,7 @@ is what turns the sandbox into a scored, verifiable challenge.
 
 - Design spec: [`docs/spec.md`](docs/spec.md)
 - Handoff and decisions: [`docs/handoff.md`](docs/handoff.md)
+- Deploying it: [`docs/deploy.md`](docs/deploy.md)
 - Selector convention for bots: [`docs/selectors.md`](docs/selectors.md)
 - Identifier formats (IBAN, tax ID, CR number): [`docs/data-formats.md`](docs/data-formats.md)
 - Process Definition Document (AS-IS, TO-BE, phase roadmap, 14 annotated screenshots): [`docs/pdd.md`](docs/pdd.md), Word and PDF versions via `pnpm pdd`
@@ -75,7 +76,7 @@ pnpm install
 cp .env.example .env            # adjust DATABASE_URL if needed
 createdb automationlab           # or: psql -c "create database automationlab"
 pnpm db:migrate                  # applies drizzle/ migrations
-pnpm db:seed                     # shared corpus (idempotent; --force to regenerate)
+pnpm db:seed --levels            # master set + every difficulty level (idempotent)
 pnpm dev                         # http://localhost:3000
 ```
 
@@ -115,6 +116,9 @@ node scripts/e2e-smoke.mjs   # browser smoke test of the whole cycle against `pn
 pnpm serve:prod 3000         # assembles the standalone build and serves it (frees the port first)
 pnpm api:smoke               # mints a token, then drives the whole REST API with bearer auth
 pnpm challenge:smoke         # signs up, opens a scored run, works it over the API, checks score, certificate and board
+pnpm bot:smoke               # a robot credential signs in and lands in its owner's sandbox
+pnpm blob:check              # writes, reads, compares and deletes one object in the configured store
+pnpm db:seed --force --levels  # regenerate the document set (bumps the build number)
 pnpm ocr:ladder --docs=20     # OCR accuracy per difficulty level (needs tesseract-ocr and tesseract-ocr-ara)
 pnpm pdd:figures   # re-captures the annotated screenshots in docs/pdd-assets (needs `pnpm dev` running)
 pnpm pdd           # regenerates docs/pdd.md, .data/Automation-Lab-PDD.docx and .pdf from scripts/build-pdd.ts
@@ -173,11 +177,27 @@ bot driving the screens is unaffected whether it is open or closed.
 
 ## How the pieces fit
 
-**Tenancy.** One `shared` tenant holds the read-only corpus. Each student gets a
-`student` tenant. `TenantDb` reads from `{own, shared}` and writes only to `own`; rows
-from the shared tenant are visible but immutable through the app. Student-created
-vendors are numbered from `V-10001`, items from `ITM-900001`, purchase orders as
-`PO-YYYY-9xxxx`, so they never collide with generated data.
+**Tenancy, and why nothing is copied.** One `shared` tenant holds the whole master set:
+the corpus *and* the transaction set everyone works on — orders, deliveries, invoices,
+supplier applications, their documents and ground truth. Each participant gets a `student`
+tenant holding only what they changed and what they created.
+
+A participant is never given a copy. They read the master rows directly, and a change to
+one is stored in `entity_overlays` as a patch merged back on read for them alone. Ids
+never move, so the lines, documents and ground truth hanging off a row keep resolving with
+nothing else to migrate. `TenantDb` (`src/db/tenant.ts`) resolves reads through a CTE that
+shadows the table name, so a `WHERE "invoices"."status" = …` written by the query builder
+filters on the *merged* value and the overlay stays invisible above that layer.
+
+This is why signing up is instant and a thousand participants cost one rendered corpus.
+Participant-created vendors are numbered from `V-10001`, items from `ITM-900001`, purchase
+orders as `PO-YYYY-9xxxx`, so they never collide with the master set.
+
+**Document sets are versioned.** The shared tenant carries a build number, bumped whenever
+the transaction set is regenerated. Every run records the build it was worked against, the
+leaderboard shows one build at a time, and the certificate prints it. So the documents can
+be swapped between events: the board starts clean and certificates already issued keep
+verifying, now naming what they were earned on.
 
 **Determinism.** All generation uses a seeded RNG (`src/lib/generator/rng.ts`). The shared
 corpus seed is a constant; a student's seed is a hash of their user id. Reset wipes the
@@ -358,27 +378,28 @@ performer to know it is being scored, and nothing about how well.
 documents processed, average score, defects caught and accuracy per difficulty level, and
 sets the cohort's exercise level; `/instructor/export.csv` exports it with per-level columns.
 
-## Deploying to Vercel
+## Deploying
 
-1. Create the Vercel project from this repository (framework: Next.js).
-2. Provision Postgres (Neon / Vercel Postgres) and set `DATABASE_URL`.
-3. Set `SESSION_SECRET`, `CRON_SECRET`, `APP_ORIGIN=https://automationlab.mohammedshaker.com`.
-   `IDENTITY_PROVIDER` defaults to `accounts` in production. Size the event with
-   `SANDBOX_ACTIVE_POS` (default 60) and set `STAFF_EMAILS` for the instructor screens.
-4. Run `pnpm db:migrate && pnpm db:seed` once against the production database.
-5. Chromium: install `@sparticuz/chromium` (`pnpm add @sparticuz/chromium`) so the render
-   job can run inside the function; the renderer picks it up automatically. Alternatively
-   run `pnpm worker` on any always-on host pointed at the same database and blob store,
-   and set `JOBS_KICK=0` on Vercel.
-6. Blob store: `BLOB_STORE=local` only works on a persistent disk. Add an S3-compatible
-   implementation of `BlobStore` (`src/lib/blob/index.ts`) before rendering in production.
-7. `vercel.json` schedules `/api/jobs/run` every five minutes to drain the queue.
-8. Point `automationlab.mohammedshaker.com` at the project.
+Full instructions, with the things that will bite: **[`docs/deploy.md`](docs/deploy.md)**.
 
-The public challenge runs on the `accounts` provider, which is the production default. The
-local fixture provider refuses to start with `NODE_ENV=production` unless
-`ALLOW_LOCAL_IDENTITY_IN_PROD=1`; do not set it. An institutional provider (hosted IdP or
-LTI 1.3) is still open — see `docs/handoff.md`, section 5.
+The shape of it: **Vercel** for the app, **Neon** for Postgres, **Cloudflare R2** for the
+documents, and you build the document set on your own machine and never on the server.
+
+That last part is what makes it cheap. The transaction set is shared and fixed until you
+change it, so generating it, rendering the PDFs and producing difficulty levels 2 to 5 all
+happen once, locally, via `pnpm db:seed --levels`. The deployed app only reads the result —
+no Chromium, no render queue, no background worker in production. R2 rather than S3
+because this site's job is handing people PDFs and R2 charges nothing for egress.
+
+Two guards exist to make a misconfiguration fail loudly rather than quietly: the local
+fixture identity provider refuses to start under `NODE_ENV=production`, and so does
+`BLOB_STORE=local`, because a serverless function's disk does not survive the request and
+would serve 404s from a different instance. Do not set the escape hatches.
+
+Run `pnpm blob:check` before the seed — it proves the bucket takes writes in two seconds
+rather than after twenty minutes of rendering — and `pnpm challenge:smoke` against the
+deployed URL afterwards, which signs up, runs a scored challenge end to end and verifies
+the certificate.
 
 ## Docker
 

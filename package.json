@@ -23,7 +23,8 @@
     "ocr:ladder": "tsx scripts/ocr-ladder.ts",
     "pdd": "tsx scripts/build-pdd.ts",
     "pdd:figures": "tsx scripts/render-pdd-samples.ts && node scripts/capture-pdd-figures.mjs",
-    "bot:smoke": "node scripts/bot-credential-smoke.mjs"
+    "bot:smoke": "node scripts/bot-credential-smoke.mjs",
+    "blob:check": "tsx scripts/blob-check.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",
