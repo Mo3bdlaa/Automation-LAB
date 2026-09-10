@@ -3,11 +3,14 @@
 The short version: **Vercel for the app, Neon for the database, Cloudflare R2 for the
 documents, and you build the document set on your own machine and never on the server.**
 
-That last part is what makes this cheap and simple. The transaction set is shared by
-everyone and fixed until you decide to change it, so all the heavy work — generating it,
-rendering ~287 PDFs, producing difficulty levels 2 to 5 — happens once, wherever you are
-sitting, and the deployed app only ever reads the result. Nothing on Vercel needs a
-browser, a render queue, or a background worker.
+That last part is what makes this cheap and simple. The document set is shared by everyone
+and fixed until you decide to change it, so all the heavy work — generating it, rendering
+the PDFs, producing difficulty levels 2 to 5 — happens once, wherever you are sitting, and
+the deployed app only ever reads the result. Nothing on Vercel needs a browser, a render
+queue, or a background worker.
+
+Measured on a full build: **1,334 documents × 5 difficulty levels = 6,750 files, 794 MB**,
+and a **43 MB** database. That is the whole site, for every participant there will ever be.
 
 ---
 
@@ -16,8 +19,8 @@ browser, a render queue, or a background worker.
 | Piece | Why | Cost at this size |
 |---|---|---|
 | **Vercel** | Runs the Next.js app. Matches mohammedshaker.com's platform and shares its apex domain. | Free tier is enough to start |
-| **Neon Postgres** | The database. Serverless-friendly, and Vercel's own Postgres offering *is* Neon. | Free tier ≈ 0.5 GB, far more than needed |
-| **Cloudflare R2** | The rendered PDFs. ~200 MB for every document at every level, for the whole site. | Free below 10 GB, **and no egress charge** |
+| **Neon Postgres** | The database. Serverless-friendly, and Vercel's own Postgres offering *is* Neon. | Free tier ≈ 0.5 GB; the seeded database is 43 MB |
+| **Cloudflare R2** | The rendered PDFs: 794 MB measured, for the whole site. | Free below 10 GB, **and no egress charge** |
 
 R2 rather than S3 specifically because this site's job is handing people PDFs, and S3
 bills for every byte leaving the bucket. R2 does not. Any S3-compatible store works —
@@ -56,7 +59,7 @@ export S3_REGION=auto
 export S3_ACCESS_KEY_ID=…
 export S3_SECRET_ACCESS_KEY=…
 
-pnpm blob:check      # proves the bucket accepts writes before you spend 20 minutes
+pnpm blob:check      # proves the bucket accepts writes before you spend an hour rendering
 pnpm db:migrate
 pnpm db:seed --levels
 ```
@@ -66,8 +69,14 @@ bytes and deletes it. Credentials that are wrong will fail in two seconds instea
 after the whole seed.
 
 `--levels` produces difficulty levels 2 to 5 up front. Without it they are generated on
-first request, which would mean Chromium on Vercel; with it there is nothing left to
-render at request time. Expect roughly 20 minutes and ~200 MB.
+first request, which would mean Chromium on Vercel; with it there is nothing left to render
+at request time.
+
+Budget **about an hour and a half** for it and let it run — roughly 55 files a minute,
+5,336 of them, and it includes the 1,000 vendor compliance documents that were previously
+only rendered when someone opened them. It is resumable: anything already produced is
+skipped, so if it stops you can simply run it again. Level 2 is by far the largest at
+414 MB, because a clean 300 dpi scan compresses worse than the photographs above it.
 
 ## 5. Vercel project
 
@@ -138,7 +147,8 @@ Do it deliberately, and not while an event is running.
 - **A public R2 bucket.** Every generated invoice becomes world-readable. Keep it private
   and let the app serve documents.
 - **Forgetting `--levels`.** Everything works until someone requests a level-3 document,
-  which then tries to start Chromium in a serverless function.
+  which then tries to start Chromium in a serverless function. It is not only the invoices:
+  a vendor's commercial licence at level 3 goes down the same path.
 - **Reusing the development `SESSION_SECRET`.** It is in the repository. Anyone could mint
   a session cookie.
 

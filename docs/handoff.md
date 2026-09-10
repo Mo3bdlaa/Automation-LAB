@@ -442,9 +442,14 @@ The lab was built for a cohort of thirty. The decision to run it as an open prac
   `apiSession()`, which every API route already goes through, so a new endpoint is covered
   the day it is written.
 - **No browser in production.** `pnpm db:seed --levels` produces difficulty levels 2 to 5
-  up front — measured at 55 a minute, so about 25 minutes for the whole set. They used to be
-  generated on first request, which would have meant Chromium inside a serverless function.
-  Now there is nothing left to render at request time.
+  up front. They used to be generated on first request, which would have meant Chromium
+  inside a serverless function; now there is nothing left to render at request time.
+  Measured on a full build: 1,334 documents at five levels is 6,750 files and **794 MB**,
+  against a 43 MB database — the whole site, for every participant there will ever be. It
+  takes about an hour and a half at roughly 55 files a minute, and is resumable, because it
+  also renders the 1,000 vendor compliance documents that used to be produced only when
+  someone opened one. Level 2 dominates the storage at 414 MB: a clean 300 dpi scan
+  compresses worse than the photographs above it.
 - **An S3-compatible blob store** (`createS3BlobStore`), written against the REST API with
   SigV4 signing rather than the AWS SDK, which is 15 MB of dependency for four verbs. Works
   with R2, B2, MinIO or S3. `BLOB_STORE=local` now refuses to start in production, because a
