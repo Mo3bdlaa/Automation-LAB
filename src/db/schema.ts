@@ -986,6 +986,24 @@ export const jobs = pgTable(
  * lines, documents and ground truth hanging off a master row keep resolving
  * without being copied too.
  */
+/**
+ * Fixed-window counters for rate limiting.
+ *
+ * In Postgres rather than memory because the app is meant to run on serverless
+ * functions, where each request may land in a different instance and an
+ * in-memory counter protects nothing.
+ */
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    /** Policy plus subject, e.g. "login:198.51.100.7" or "api:acct_123". */
+    bucket: text("bucket").primaryKey(),
+    count: integer("count").notNull().default(0),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("rate_limits_window_idx").on(t.windowStart)],
+);
+
 export const entityOverlays = pgTable(
   "entity_overlays",
   {
@@ -1090,3 +1108,4 @@ export type ChallengeRun = typeof challengeRuns.$inferSelect;
 export type Tenant = typeof tenants.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
 export type EntityOverlay = typeof entityOverlays.$inferSelect;
+export type RateLimit = typeof rateLimits.$inferSelect;

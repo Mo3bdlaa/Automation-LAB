@@ -14,7 +14,7 @@ export default async function LoginPage() {
   return (
     <Page title={t.login.title}>
       <p className="mb-4 max-w-xl text-sm text-muted">{t.login.intro}</p>
-      <LoginForm fields={provider.loginFields ?? []} labels={{ submit: t.login.submit, failed: t.login.failed, noAccess: t.login.noAccess }} />
+      <LoginForm fields={provider.loginFields ?? []} labels={{ submit: t.login.submit, failed: t.login.failed, noAccess: t.login.noAccess, tooMany: t.login.tooMany }} />
       {selfServiceSignUp() ? (
         <p className="mt-4 text-sm" id="login-register-link" data-testid="login-register-link">
           {t.login.noAccount} <Link href="/register">{t.login.createOne}</Link>

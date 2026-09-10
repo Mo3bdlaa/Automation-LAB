@@ -1,4 +1,6 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { clientAddress, consume } from "@/lib/api/rate-limit";
 import { i18n } from "@/i18n/server";
 import { LinkButton, Page } from "@/components/ui";
 import { formatDuration } from "@/components/challenge";
@@ -12,6 +14,11 @@ export const dynamic = "force-dynamic";
  * without an account, and see exactly what it claims - no more than that.
  */
 export default async function VerifyPage({ params }: { params: Promise<{ code: string }> }) {
+  // A certificate code is short enough to guess at, so checking one is
+  // throttled per address. Generous for a person following a link, useless for
+  // walking the code space.
+  const attempt = await consume("verify", clientAddress(new Request("https://lab.invalid", { headers: await headers() })));
+  if (!attempt.ok) notFound();
   const { t } = await i18n();
   const tc = t.challenge;
   const { code } = await params;

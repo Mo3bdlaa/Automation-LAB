@@ -57,6 +57,7 @@ export const ar: Dictionary = {
     intro: "سجّل الدخول لتكمل التحدي من حيث توقفت.",
     submit: "دخول",
     failed: "فشل تسجيل الدخول. تحقق من البريد وكلمة المرور.",
+    tooMany: "محاولات دخول كثيرة من هذا الجهاز. انتظر بضع دقائق ثم أعد المحاولة.",
     noAccess: "هذا الحساب لا يملك وصولاً إلى المختبر.",
     devHint: "حسابات التطوير: student@lab.local / student، instructor@lab.local / instructor.",
     noAccount: "ليس لديك حساب؟",

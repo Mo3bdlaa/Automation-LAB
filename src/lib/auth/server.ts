@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import { db, schema } from "@/db/client";
 import { forTenant, type TenantDb } from "@/db/tenant";
 import type { Tenant } from "@/db/schema";
-import { identityProvider, hasLabAccess, type Principal } from "../identity";
+import { identityProvider, hasLabAccess, personUserId, type Principal } from "../identity";
 import { SESSION_COOKIE, decodeSession, encodeSession, SESSION_TTL_SECONDS } from "../identity/session";
 import { ensureTenantForPrincipal, tenantContext } from "../sandbox/lifecycle";
 
@@ -69,13 +69,21 @@ const getTokenPrincipal = cache(async (): Promise<Principal | null> => {
 /**
  * Auth for API routes: an API token takes precedence over the session cookie,
  * so a bot and a browser can hold different identities in the same client.
- * Returns a 401 or 403 response instead of redirecting.
+ * Returns a 401, 403 or 429 response instead of redirecting.
+ *
+ * Rate limiting lives here because every API route already comes through it,
+ * so a new endpoint is covered the day it is written rather than the day
+ * someone remembers to add it.
  */
 export async function apiSession(): Promise<LabSession | Response> {
   // A bearer token means a robot came in through the API; a cookie on an API
   // route means the screens are calling their own endpoints.
   const tokenPrincipal = await getTokenPrincipal();
   const principal = tokenPrincipal ?? (await getPrincipal());
+  const { limitApiRequest } = await import("../api/rate-limit");
+  const h = await headers();
+  const limited = await limitApiRequest(new Request("https://lab.invalid", { headers: h }), principal ? personUserId(principal) : null);
+  if (limited) return limited;
   const unauth = (status: number, error: string) => Response.json({ error }, { status, headers: { "Cache-Control": "no-store", "WWW-Authenticate": status === 401 ? 'Bearer realm="Automation Lab"' : "" } });
   if (!principal) return unauth(401, "unauthenticated");
   if (!hasLabAccess(principal)) return unauth(403, "no_lab_access");

@@ -55,6 +55,7 @@ export const en = {
     intro: "Sign in to pick up a challenge where you left it.",
     submit: "Sign in",
     failed: "Sign-in failed. Check your email and password.",
+    tooMany: "Too many sign-in attempts from here. Wait a few minutes and try again.",
     noAccess: "This account does not have access to the lab.",
     devHint: "Development accounts: student@lab.local / student, instructor@lab.local / instructor.",
     noAccount: "No account yet?",

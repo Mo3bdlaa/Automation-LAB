@@ -17,6 +17,10 @@ const ALLOWED = [
   // Infrastructure that owns its own scoping: tokens are per user, queues and
   // webhooks are written with an explicit tenant id from the session.
   "src/lib/api/tokens.ts",
+  // Rate limit counters are deliberately global: the table has no tenant_id,
+  // because the traffic worth limiting is the traffic that has not proved who
+  // it is yet.
+  "src/lib/api/rate-limit.ts",
   "src/lib/api/work-items.ts",
   "src/lib/webhooks/emit.ts",
   // Lab settings are global rather than per tenant, and only staff may write

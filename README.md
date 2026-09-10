@@ -274,14 +274,25 @@ shown once, stored as a SHA-256 hash, and revocable:
 curl -H "Authorization: Bearer al_..." http://localhost:3000/api/me
 ```
 
+**Rate limits.** Aimed at abuse, not at usage: the lab exists to be hammered by
+robots. An authenticated participant gets **600 requests a minute**, counted per account
+so a classroom behind one NAT does not throttle itself — a performer working a
+twelve-invoice queue uses well under a fifth of that, while a loop with no delay in it is
+stopped. Anonymous traffic gets 120 a minute per address, certificate checks 60 per ten
+minutes, and the tight ones are the credential paths: 10 sign-in attempts per 15 minutes
+and 5 sign-ups an hour, per address. Every response carries `X-RateLimit-Limit` and
+`X-RateLimit-Remaining`; a `429` carries `Retry-After` in seconds and
+`{ error: "rate_limited", retryAfter }`. Policies live in `src/lib/api/rate-limit.ts`.
+
 **Conventions.** JSON in, JSON out. Lists take `?limit=&cursor=` and answer
 `{ items, page: { limit, total, nextCursor } }`; the cursor is opaque, and a `null`
 `nextCursor` means the end. Single resources carry a weak `ETag` and honour
 `If-None-Match`. Errors answer `{ error, message, ... }` where `error` is a stable machine
 code: `400 bad_request`, `401 unauthenticated`, `403 no_lab_access` / `no_sandbox` /
-`read_only` (a shared-corpus row), `404 not_found`, `409 conflict` (paying a paid invoice, a PDF still
-rendering — with `Retry-After`), and `422` carrying `violations` with the rule IDs when a
-validation rule blocks the write.
+`read_only` (a master-set row nobody may change, such as a document or its ground truth),
+`404 not_found`, `409 conflict` (paying a paid invoice, a PDF still rendering — with
+`Retry-After`), `422` carrying `violations` with the rule IDs when a validation rule blocks
+the write, and `429 rate_limited` with `Retry-After`.
 
 | Method | Path | Purpose |
 |---|---|---|

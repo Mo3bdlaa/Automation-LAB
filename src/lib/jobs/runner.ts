@@ -15,6 +15,10 @@ export async function runJobs(opts: { maxJobs?: number; timeBudgetMs?: number; l
   let processed = 0;
   let failed = 0;
   await requeueStale();
+  // Rolled-over rate-limit windows are dead weight. Pruned here rather than on
+  // the request path, where it would cost every caller to benefit none of them.
+  const { pruneRateLimits } = await import("../api/rate-limit");
+  await pruneRateLimits().catch(() => 0);
   while (processed + failed < maxJobs && Date.now() - start < budget) {
     const job = await claimNext();
     if (!job) break;

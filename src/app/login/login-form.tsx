@@ -4,13 +4,13 @@ import { useActionState } from "react";
 import { loginAction, type LoginState } from "./actions";
 import type { LoginField } from "@/lib/identity";
 
-export function LoginForm({ fields, labels }: { fields: LoginField[]; labels: { submit: string; failed: string; noAccess: string } }) {
+export function LoginForm({ fields, labels }: { fields: LoginField[]; labels: { submit: string; failed: string; noAccess: string; tooMany: string } }) {
   const [state, action, pending] = useActionState<LoginState, FormData>(loginAction, { error: null });
   return (
     <form id="login-form" data-testid="login-form" action={action} className="al-card max-w-sm">
       {state.error ? (
         <div id="login-error" data-testid="login-error" data-error={state.error} className="mb-3 text-sm text-error">
-          {state.error === "failed" ? labels.failed : labels.noAccess}
+          {state.error === "failed" ? labels.failed : state.error === "tooMany" ? labels.tooMany : labels.noAccess}
         </div>
       ) : null}
       {fields.map((f) => (
