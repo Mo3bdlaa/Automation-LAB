@@ -381,6 +381,12 @@ what a UiPath community chapter can run as a hackathon.
   submits rubbish proves the grader rejects rubbish, not that it rewards good work. It then
   verifies the certificate publicly and checks the leaderboard opt-in and opt-out.
 
+**Every scenario is proved winnable.** `pnpm scorer:proof` plays all four perfectly —
+submitting the ground truth, making the decision the rules call for, catching every seeded
+defect — and asserts each scores 100. It is not a formality: the first run found two real
+faults in the flagship scenario, which had been sitting at 53.5 out of 100 for a flawless
+performance. See section 7f.
+
 Two things the scoring work surfaced that are worth remembering:
 
 1. **A grader can contradict itself.** The first goods-receipt scorer paid decision points

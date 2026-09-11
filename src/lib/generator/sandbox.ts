@@ -138,10 +138,14 @@ export function generateSandbox(seed: number, ctx: SandboxContext, n: number = S
     deliveryLocations: ctx.deliveryLocations,
     seqs: { rfq: 5000, grn: 5000, payment: 5000, invoiceReg: 5000 },
   };
-  const invoiceNumbers: string[] = [];
+  // Per vendor, because the duplicate-invoice defect has to reuse a number the
+  // same vendor already used: DUP-INV checks uniqueness per vendor per year.
+  const numbersByVendor = new Map<string, string[]>();
   const cycles = pos.map((po, i) => {
-    const c = generateCycle(rng.fork(`cycle:${i}`), po, cctx, invoiceNumbers);
-    for (const inv of c.invoices) invoiceNumbers.push(inv.number);
+    const seen = numbersByVendor.get(po.vendorCode) ?? [];
+    const c = generateCycle(rng.fork(`cycle:${i}`), po, cctx, seen);
+    for (const inv of c.invoices) seen.push(inv.number);
+    numbersByVendor.set(po.vendorCode, seen);
     return c;
   });
 

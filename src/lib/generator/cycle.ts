@@ -209,6 +209,10 @@ export function applyDefect(r: Rng, inv: GenInvoice, type: DefectType, ctx: { po
       return;
     }
     case "duplicate_invoice": {
+      // Must be one of *this vendor's* earlier numbers. DUP-INV checks
+      // uniqueness per vendor per year, because an invoice number is a
+      // vendor's own sequence and two vendors sharing one is not a defect.
+      // Copying another vendor's number seeds a defect nothing can detect.
       if (ctx.existingInvoiceNumbers.length) {
         const dup = r.pick(ctx.existingInvoiceNumbers);
         inv.number = dup;
@@ -281,6 +285,7 @@ export function applyDefect(r: Rng, inv: GenInvoice, type: DefectType, ctx: { po
  *   partially_received -> + DN + GRN for part of the lines, invoice for received part
  *   received/closed -> + DN + GRN for everything, invoice(s); closed -> payment + receipt
  */
+/** `existingInvoiceNumbers` are the earlier numbers of this PO's vendor, for the duplicate defect. */
 export function generateCycle(r: Rng, po: GenPo, ctx: CycleContext, existingInvoiceNumbers: string[], defectRate = 0.3): GenCycle {
   const vendor = ctx.vendors.find((v) => v.code === po.vendorCode)!;
   const warehouse = ctx.employees.filter((e) => e.role === "warehouse").map((e) => e.code);

@@ -179,4 +179,19 @@ describe("defect grading", () => {
   it("warnings never count as findings", () => {
     expect(gradeDefects([], [{ ruleId: "TAX-CERT-EXP", severity: "warning" }]).falsePositives).toEqual([]);
   });
+
+  it("does not blame the reader for a violation the document itself carries", () => {
+    // An invoice whose goods have not been receipted raises GRN-QTY however
+    // perfectly it is read. Counting that as an invention made the exceptions
+    // parameter unwinnable: a flawless run scored 12.5 of 25 on it.
+    const baseline = [{ ruleId: "GRN-QTY", severity: "error" }];
+    const g = gradeDefects([], [{ ruleId: "GRN-QTY", severity: "error" }], baseline);
+    expect(g.falsePositives).toEqual([]);
+  });
+
+  it("still blames the reader for a violation their reading introduced", () => {
+    const baseline = [{ ruleId: "GRN-QTY", severity: "error" }];
+    const g = gradeDefects([], [{ ruleId: "GRN-QTY", severity: "error" }, { ruleId: "PO-INV-PRICE", severity: "error" }], baseline);
+    expect(g.falsePositives).toEqual(["PO-INV-PRICE"]);
+  });
 });

@@ -239,9 +239,26 @@ export interface DefectGrade {
  * the generator seeded into the document. Warnings are ignored: only blocking
  * findings count for or against.
  */
+/**
+ * Grade a match result against the defects that were deliberately seeded.
+ *
+ * `baseline`, when given, is what the same rules report about the document as
+ * it was actually printed — a perfect read. It matters because the participant
+ * does not raise violations: the match engine does, from the values they
+ * submitted. Some of those violations are simply true of the sandbox and
+ * nothing to do with the reading. An invoice whose goods have not been
+ * receipted yet raises GRN-QTY however perfectly it is read, and counting that
+ * against the reader made the exceptions parameter unwinnable.
+ *
+ * So a false positive is a violation the reading *introduced*: present in what
+ * they submitted, absent from a perfect read. Without a baseline the old,
+ * stricter definition applies, which is right for callers that have no
+ * document to compare against.
+ */
 export function gradeDefects(
   seeded: { defectType: string; details: Record<string, unknown> }[],
   reported: { ruleId: string; severity: string }[],
+  baseline?: { ruleId: string; severity: string }[],
 ): DefectGrade {
   const blocking = reported.filter((r) => r.severity !== "warning");
   const reportedIds = new Set(blocking.map((r) => r.ruleId));
@@ -251,7 +268,8 @@ export function gradeDefects(
   const caught = expected.filter((d) => reportedIds.has(d.ruleId));
   const missed = expected.filter((d) => !reportedIds.has(d.ruleId));
   const expectedIds = new Set(expected.map((d) => d.ruleId));
-  const falsePositives = [...new Set(blocking.map((r) => r.ruleId))].filter((id) => !expectedIds.has(id));
+  const inherent = new Set((baseline ?? []).filter((r) => r.severity !== "warning").map((r) => r.ruleId));
+  const falsePositives = [...new Set(blocking.map((r) => r.ruleId))].filter((id) => !expectedIds.has(id) && !inherent.has(id));
   return {
     caught,
     missed,

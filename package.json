@@ -24,7 +24,8 @@
     "pdd": "tsx scripts/build-pdd.ts",
     "pdd:figures": "tsx scripts/render-pdd-samples.ts && node scripts/capture-pdd-figures.mjs",
     "bot:smoke": "node scripts/bot-credential-smoke.mjs",
-    "blob:check": "tsx scripts/blob-check.ts"
+    "blob:check": "tsx scripts/blob-check.ts",
+    "scorer:proof": "tsx scripts/scorer-proof.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",

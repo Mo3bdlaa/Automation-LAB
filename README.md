@@ -117,6 +117,7 @@ pnpm serve:prod 3000         # assembles the standalone build and serves it (fre
 pnpm api:smoke               # mints a token, then drives the whole REST API with bearer auth
 pnpm challenge:smoke         # signs up, opens a scored run, works it over the API, checks score, certificate and board
 pnpm bot:smoke               # a robot credential signs in and lands in its owner's sandbox
+pnpm scorer:proof            # plays every scenario perfectly and asserts each one scores 100
 pnpm blob:check              # writes, reads, compares and deletes one object in the configured store
 pnpm db:seed --force --levels  # regenerate the document set (bumps the build number)
 pnpm ocr:ladder --docs=20     # OCR accuracy per difficulty level (needs tesseract-ocr and tesseract-ocr-ara)

@@ -121,7 +121,14 @@ export async function submitExtraction(
   }
   const score = scoreInvoiceExtraction(truth, fields, { alternates });
   const seeded = doc ? await session.tdb.list(seededDefects, { where: eq(seededDefects.documentId, doc.id) }) : [];
-  const defects = gradeDefects(seeded.map((d) => ({ defectType: d.defectType, details: d.details })), result.violations);
+  // What the same rules say about the document as it was printed. Anything the
+  // submission raises that this also raises was not introduced by the reading.
+  const inherent = await matchStoredInvoice(session, inv);
+  const defects = gradeDefects(
+    seeded.map((d) => ({ defectType: d.defectType, details: d.details })),
+    result.violations,
+    inherent.violations,
+  );
 
   let extractionId: string | null = null;
   if (doc) {
