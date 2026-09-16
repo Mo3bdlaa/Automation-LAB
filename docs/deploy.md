@@ -146,9 +146,16 @@ only to make a misconfiguration fail loudly instead of quietly.
 4. Settings → **Domains** → add `automationlab.mohammedshaker.com`, and add the CNAME
    Vercel shows you at your DNS provider.
 
-`vercel.json` already schedules `/api/jobs/run` every five minutes. With the documents
-pre-built there is little for it to do beyond delivering webhooks, but leave it: it is
-also what prunes expired rate-limit windows.
+`vercel.json` schedules `/api/jobs/run` once a day, which is all the Hobby plan allows —
+anything more frequent is rejected at import with *"Hobby accounts are limited to daily
+cron jobs"*.
+
+Daily is enough, because the cron is a safety net rather than the main path: jobs are run
+in-process immediately after they are enqueued (`kickJobs`), and with the document set
+pre-built the only things left in the queue are webhook deliveries and pruning expired
+rate-limit windows. The cron exists to retry a webhook whose endpoint was down and to take
+out the rate-limit rubbish. On a Pro plan you can lower it if you want failed webhooks
+retried sooner.
 
 ## 6. Check it
 
