@@ -1,0 +1,100 @@
+# Build the document set into a deployed environment.
+#
+# The seed renders thousands of PDFs over about two hours. That does not fit in
+# a serverless function, and it should not depend on somebody's laptop staying
+# open, so it runs here: a runner with Node and Chromium, a six-hour ceiling,
+# and the credentials held as repository secrets rather than typed into a shell.
+#
+# Run it from the Actions tab. It never runs on a push — replacing the documents
+# everyone is working on is a decision, not a side effect of merging.
+name: Seed the document set
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Replace the existing document set (bumps its build number, clears in-flight work, keeps runs and certificates)"
+        type: boolean
+        default: false
+      levels:
+        description: "Also produce difficulty levels 2 to 5 (needed, unless you are only topping up)"
+        type: boolean
+        default: true
+      environment:
+        description: "Which environment's secrets to use"
+        type: environment
+        default: production
+
+concurrency:
+  # Two seeds writing the same document set would interleave two different
+  # builds into one bucket.
+  group: seed-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 300
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      BLOB_STORE: s3
+      S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      S3_REGION: ${{ secrets.S3_REGION || 'auto' }}
+      S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The project depends on playwright-core, which does not carry a browser.
+      # The fonts do travel with the repository, embedded into the templates as
+      # data URIs, so Arabic cannot silently come out as empty boxes here.
+      - name: Install Chromium
+        run: pnpm exec playwright-core install --with-deps chromium
+
+      - name: Check the credentials before spending two hours
+        run: |
+          missing=0
+          for v in DATABASE_URL S3_ENDPOINT S3_BUCKET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY; do
+            if [ -z "${!v}" ]; then echo "::error::$v is not set for the '${{ inputs.environment }}' environment"; missing=1; fi
+          done
+          [ "$missing" = "0" ] || exit 1
+          # Writes one object, reads it back, compares the bytes, deletes it.
+          # Wrong keys fail here in seconds rather than after the whole render.
+          pnpm blob:check
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      - name: Build the document set
+        run: pnpm db:seed ${{ inputs.force && '--force' || '' }} ${{ inputs.levels && '--levels' || '' }}
+
+      - name: What was built
+        if: always()
+        run: |
+          node -e '
+            const { Pool } = require("pg");
+            const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+            pool.query(`
+              select f.level, count(*) files, pg_size_pretty(sum(f.size_bytes)) size
+              from document_files f group by f.level order by f.level
+            `).then(async (r) => {
+              const total = await pool.query("select count(*) files, pg_size_pretty(sum(size_bytes)) size from document_files");
+              const v = await pool.query("select dataset_version from tenants where kind = $1", ["shared"]);
+              console.table(r.rows);
+              console.log("total:", total.rows[0].files, "files,", total.rows[0].size);
+              console.log("document set build:", v.rows[0]?.dataset_version);
+              await pool.end();
+            }).catch((e) => { console.error(e.message); process.exit(0); });
+          '

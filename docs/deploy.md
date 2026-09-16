@@ -54,9 +54,40 @@ Backblaze B2, MinIO, S3 itself — the code speaks plain S3.
 Keep the bucket **private**. Documents are served through the app, which checks the
 session first — a public bucket would hand out every invoice to anyone with the URL.
 
-## 4. Build the document set (on your machine)
+## 4. Build the document set
 
-This is the one step that needs Chromium, and it runs locally.
+This is the one step that needs Chromium, and the one step that cannot run on
+Vercel: it renders thousands of PDFs over about two hours, which fits in no
+serverless function's time limit. It needs a machine with Node, a browser and
+network access — and the easiest one is GitHub's.
+
+### The easy way: the Seed workflow
+
+Put the credentials in **Settings → Secrets and variables → Actions**, under an
+environment named `production`:
+
+| Secret | Value |
+|---|---|
+| `DATABASE_URL` | the pooled Neon string |
+| `S3_ENDPOINT` | `https://<account-id>.r2.cloudflarestorage.com` — the host only, no bucket |
+| `S3_BUCKET` | your bucket name |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | from the R2 API token |
+| `S3_REGION` | optional; defaults to `auto` |
+
+Then **Actions → Seed the document set → Run workflow**, with *levels* ticked.
+It checks the credentials first, migrates, builds, and prints what it produced.
+It never runs on a push: replacing the documents everyone is working on is a
+decision, not a side effect of merging.
+
+This is also how you change the documents between events — the same button with
+*force* ticked.
+
+The secrets then live in exactly two places, GitHub and Vercel, and never in a
+shell history.
+
+### The manual way: on your own machine
+
+Same thing, if you would rather watch it run:
 
 ```bash
 export DATABASE_URL="postgres://…-pooler…/db?sslmode=require"   # the production database
@@ -138,6 +169,8 @@ If that passes against production, production works.
 ## Changing the documents later
 
 Between events, when you want fresh data:
+
+Either **Actions → Seed the document set** with *force* ticked, or locally:
 
 ```bash
 pnpm db:seed --force --levels
