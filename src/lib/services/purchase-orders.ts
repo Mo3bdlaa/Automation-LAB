@@ -2,6 +2,7 @@
  * Purchase order creation and approval. Shared by the PO screens and the API.
  */
 import { and, eq, inArray, like } from "drizzle-orm";
+import { participantPdfsEnabled } from "../documents/participant-pdfs";
 import { costCenters, deliveryLocations, documents, employees, groundTruth, items, purchaseOrderLines, purchaseOrders, vendors } from "@/db/schema";
 import type { LabSession } from "@/lib/auth/server";
 import { audit } from "@/lib/auth/server";
@@ -146,7 +147,9 @@ export async function approvePurchaseOrder(session: LabSession, number: string):
       { name: vendor?.name ?? "", taxId: vendor?.taxId ?? "", crNumber: vendor?.crNumber ?? "", iban: vendor?.iban ?? "" },
     );
     await tx.insert(groundTruth, gt.map((g) => ({ documentId: doc.id, field: g.field, value: g.value })));
-    await enqueue("render_document", { documentId: doc.id }, { tenantId: session.tenant.id, priority: 5 });
+    // Only where a browser is available; see participant-pdfs.ts. The record
+    // exists either way, and nothing in the exercise reads the printed copy.
+    if (participantPdfsEnabled()) await enqueue("render_document", { documentId: doc.id }, { tenantId: session.tenant.id, priority: 5 });
   });
   kickJobs();
   await audit(session, "po.approve", "purchase_order", number);

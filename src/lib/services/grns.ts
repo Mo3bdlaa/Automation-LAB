@@ -2,6 +2,7 @@
  * Goods receipt posting. Shared by the warehouse screen and POST /api/grns.
  */
 import { and, eq, inArray, like } from "drizzle-orm";
+import { participantPdfsEnabled } from "../documents/participant-pdfs";
 import { deliveryNoteLines, deliveryNotes, documents, grnLines, grns, groundTruth, purchaseOrderLines, purchaseOrders, type DeliveryNote } from "@/db/schema";
 import type { LabSession } from "@/lib/auth/server";
 import { audit } from "@/lib/auth/server";
@@ -119,7 +120,9 @@ export async function postGoodsReceipt(
         { documentId: doc.id, field: `lines[${i}].quantityRejected`, value: String(l.quantityRejected) },
       ]),
     ]);
-    await enqueue("render_document", { documentId: doc.id }, { tenantId: session.tenant.id, priority: 5 });
+    // Only where a browser is available; see participant-pdfs.ts. The record
+    // exists either way, and nothing in the exercise reads the printed copy.
+    if (participantPdfsEnabled()) await enqueue("render_document", { documentId: doc.id }, { tenantId: session.tenant.id, priority: 5 });
   });
   kickJobs();
   await audit(session, "grn.post", "grn", number, { deliveryNote: dn.number, lines: used.length });

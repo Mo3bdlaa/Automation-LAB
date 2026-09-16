@@ -389,7 +389,10 @@ documents, and you build the document set on your own machine and never on the s
 That last part is what makes it cheap. The transaction set is shared and fixed until you
 change it, so generating it, rendering the PDFs and producing difficulty levels 2 to 5 all
 happen once, locally, via `pnpm db:seed --levels`. The deployed app only reads the result —
-no Chromium, no render queue, no background worker in production. R2 rather than S3
+no Chromium, no render queue, no background worker in production. The one thing that cannot
+be pre-rendered is a document a participant creates (a goods receipt, or a purchase order
+they awarded); in production those are not printed, which is what `PARTICIPANT_DOCUMENT_PDFS`
+controls. The records exist and every endpoint works; only the printed copy is absent. R2 rather than S3
 because this site's job is handing people PDFs and R2 charges nothing for egress.
 
 Two guards exist to make a misconfiguration fail loudly rather than quietly: the local

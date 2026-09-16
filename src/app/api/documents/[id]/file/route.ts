@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { participantPdfsEnabled } from "@/lib/documents/participant-pdfs";
 import { documentFiles, documents } from "@/db/schema";
 import { apiSession } from "@/lib/auth/server";
 import { blobStore } from "@/lib/blob";
@@ -28,6 +29,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   if (!doc) return Response.json({ error: "not_found" }, { status: 404 });
   const file = await s.tdb.one(documentFiles, and(eq(documentFiles.documentId, doc.id), eq(documentFiles.level, level))!);
   if (!file) {
+    // Where nothing can render it, say so rather than queueing a job that will
+    // never run and answering 409 for ever. The master set is produced ahead of
+    // time, so this only reaches documents a participant created.
+    if (!participantPdfsEnabled()) {
+      return Response.json(
+        { error: "not_rendered", documentId: doc.id, level, message: "This instance does not print documents you create. The record itself is available through the API." },
+        { status: 404 },
+      );
+    }
     // Level 1 is rendered at provisioning time for most kinds; vendor
     // compliance documents and every degraded level are produced on demand.
     if (level === 1 && !EAGER_KINDS.has(doc.kind)) {

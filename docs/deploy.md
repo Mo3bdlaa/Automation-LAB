@@ -6,8 +6,16 @@ documents, and you build the document set on your own machine and never on the s
 That last part is what makes this cheap and simple. The document set is shared by everyone
 and fixed until you decide to change it, so all the heavy work — generating it, rendering
 the PDFs, producing difficulty levels 2 to 5 — happens once, wherever you are sitting, and
-the deployed app only ever reads the result. Nothing on Vercel needs a browser, a render
-queue, or a background worker.
+the deployed app only ever reads the result. No browser, no render queue and no background
+worker on Vercel.
+
+One qualification, because it is the only thing that could put Chromium back: two
+participant actions create a document of their own — posting a goods receipt, and approving
+a purchase order they awarded. Those cannot be rendered in advance, since they do not exist
+until somebody does the work. In production the lab does not print them (see
+`PARTICIPANT_DOCUMENT_PDFS` below): the receipt and the order exist with their numbers,
+lines and status, every screen and endpoint works, and only the printed copy is missing.
+Nothing in any scenario reads it.
 
 Measured on a full build: **1,334 documents × 5 difficulty levels = 6,750 files, 794 MB**,
 and a **43 MB** database. That is the whole site, for every participant there will ever be.
@@ -94,6 +102,12 @@ skipped, so if it stops you can simply run it again. Level 2 is by far the large
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | as above |
 | `STAFF_EMAILS` | your address, comma-separated — this grants the instructor screens |
 
+`PARTICIPANT_DOCUMENT_PDFS` is off in production by default, which is what keeps Chromium
+out of the deployment. Set it to `1` only somewhere a browser genuinely exists — a
+container running `pnpm worker`, or a serverless Chromium package — and understand the
+cost: eight renders for every goods-receipt run, thousands across an event, which is the
+per-participant work the shared document set was built to remove.
+
 `IDENTITY_PROVIDER` defaults to `accounts` in production; leave it unset.
 Do **not** set `ALLOW_LOCAL_IDENTITY_IN_PROD` or `ALLOW_LOCAL_BLOBS_IN_PROD` — both exist
 only to make a misconfiguration fail loudly instead of quietly.
@@ -149,6 +163,8 @@ Do it deliberately, and not while an event is running.
 - **Forgetting `--levels`.** Everything works until someone requests a level-3 document,
   which then tries to start Chromium in a serverless function. It is not only the invoices:
   a vendor's commercial licence at level 3 goes down the same path.
+- **Turning on `PARTICIPANT_DOCUMENT_PDFS` without a browser.** Goods receipts would queue
+  render jobs that never run, and their document card would wait for ever.
 - **Reusing the development `SESSION_SECRET`.** It is in the repository. Anyone could mint
   a session cookie.
 
