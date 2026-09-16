@@ -45,8 +45,11 @@ export async function resolveChromiumExecutable(): Promise<ChromiumTarget> {
     if (typeof sparticuz?.executablePath === "function") {
       return { executablePath: await sparticuz.executablePath(), args: sparticuz.args ?? [] };
     }
-  } catch {
-    /* not installed: a machine with its own browser, below */
+  } catch (e) {
+    // Worth saying out loud. Swallowing this is what made a missing browser in
+    // production look like "No Chromium found" with no clue which of the three
+    // lookups failed or why.
+    console.warn("[renderer] the serverless browser could not be used:", e instanceof Error ? e.message : e);
   }
   const candidates = [
     process.env.PLAYWRIGHT_BROWSERS_PATH && path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, "chromium"),

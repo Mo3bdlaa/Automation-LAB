@@ -19,6 +19,15 @@ const nextConfig: NextConfig = {
   // levels 2 to 5 - which on Vercel has already happened before anything is
   // deployed.
   outputFileTracingIncludes: {
+    // Only the two routes that print a PDF inside the request. The browser this
+    // package carries is 67 MB read off disk rather than imported, so tracing
+    // has to be told about it - but told once, here, and not for all ninety-odd
+    // routes, which would put it inside every function.
+    // Matched with a wildcard rather than the literal route: the square
+    // brackets of a dynamic segment are glob syntax, so "/verify/[code]/..."
+    // matches nothing at all.
+    "**/certificate.pdf/route": ["./node_modules/@sparticuz/chromium/bin/**"],
+    "**/pdd.pdf/route": ["./node_modules/@sparticuz/chromium/bin/**"],
     "/**": [
       "./templates/**",
       ...(process.env.VERCEL
