@@ -75,8 +75,10 @@ jobs:
       - name: Build the document set
         run: pnpm db:seed ${{ inputs.force && '--force' || '' }} ${{ inputs.levels && '--levels' || '' }}
 
+      # Only after a successful build: this needs the installed dependencies,
+      # and reporting on a seed that never ran is noise.
       - name: What was built
-        if: always()
+        if: success()
         run: |
           node -e '
             const { Pool } = require("pg");
