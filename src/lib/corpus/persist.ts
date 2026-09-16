@@ -51,6 +51,14 @@ export async function seedSharedCorpus(opts: { force?: boolean; log?: (m: string
   if (Number(n) > 0) {
     log("Clearing existing shared corpus…");
     await clearTenantRows(tenantId);
+    // The rendered files too, not only the rows that point at them. A rebuild
+    // produces a whole new set of document ids, so everything under this prefix
+    // is about to become unreferenced — and on object storage unreferenced
+    // means paid for. Left alone, every regeneration would strand the previous
+    // build's documents in the bucket.
+    const { blobStore } = await import("../blob");
+    await blobStore().deletePrefix(`tenants/${tenantId}`);
+    log("Cleared the previous build's rendered documents.");
   }
 
   log("Generating corpus…");
