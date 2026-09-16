@@ -206,6 +206,10 @@ Do it deliberately, and not while an event is running.
   render jobs that never run, and their document card would wait for ever.
 - **Reusing the development `SESSION_SECRET`.** It is in the repository. Anyone could mint
   a session cookie.
+- **`output: "standalone"` on Vercel.** It is set for the Dockerfile and is switched off
+  when `VERCEL` is present. Forcing it back on fails the build at the last step with a
+  missing `next-server.js.nft.json`: standalone mode produces its own server directory
+  instead of the trace files Vercel's builder reads.
 
 ## If you would rather not use Vercel
 

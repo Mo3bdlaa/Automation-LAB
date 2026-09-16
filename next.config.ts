@@ -1,9 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // Standalone output is for running the app ourselves - the Dockerfile, or any
+  // host where we start the server. Vercel builds differently: it traces the
+  // server itself and expects .nft.json files, which standalone mode does not
+  // produce, so leaving this on there fails the build at the very last step
+  // with a missing next-server.js.nft.json.
+  ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
   serverExternalPackages: ["playwright-core", "pg"],
-  // Ship the PDF templates/fonts and the dev user fixture with the standalone/serverless output.
+  // Ship the PDF templates/fonts and the dev user fixture with the standalone or
+  // serverless output.
   // playwright-core loads its driver bundle at runtime, and the degradation
   // pipeline reads pdf.js off disk to inject it into the page, so tracing has to
   // be told about both: neither is reachable through an import.

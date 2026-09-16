@@ -18,7 +18,11 @@ interface LocalUser {
 
 function loadUsers(): LocalUser[] {
   const file = process.env.LOCAL_USERS_FILE ?? path.join(process.cwd(), "config", "local-users.json");
-  return JSON.parse(readFileSync(file, "utf8")) as LocalUser[];
+  // The path is built at runtime, which makes the bundler trace the entire
+  // project into the deployment "just in case" - every source file and the
+  // public folder inside the serverless function. This provider is development
+  // only and refuses to start in production, so there is nothing to trace.
+  return JSON.parse(readFileSync(/* turbopackIgnore: true */ file, "utf8")) as LocalUser[];
 }
 
 function toPrincipal(u: LocalUser): Principal {
