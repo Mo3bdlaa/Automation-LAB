@@ -8,13 +8,28 @@ const nextConfig: NextConfig = {
   // with a missing next-server.js.nft.json.
   ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
   serverExternalPackages: ["playwright-core", "pg"],
-  // Ship the PDF templates/fonts and the dev user fixture with the standalone or
-  // serverless output.
-  // playwright-core loads its driver bundle at runtime, and the degradation
-  // pipeline reads pdf.js off disk to inject it into the page, so tracing has to
-  // be told about both: neither is reachable through an import.
+  // The fonts are read off disk when a PDF is rendered, so tracing has to be
+  // told about them: they are reached by path, not by import.
+  //
+  // The node_modules entries are for the self-hosted build only. playwright's
+  // driver and pdf.js are reached by path too, but under pnpm those paths run
+  // through the store's symlinks, and asking Vercel to package them produces
+  // "an invalid deployment package for a Serverless Function". They are only
+  // needed by the document pipeline - generating the set and degrading it to
+  // levels 2 to 5 - which on Vercel has already happened before anything is
+  // deployed.
   outputFileTracingIncludes: {
-    "/**": ["./templates/**", "./config/**", "./node_modules/.pnpm/playwright-core*/**", "./node_modules/pdfjs-dist/legacy/build/pdf.min.mjs", "./node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs"],
+    "/**": [
+      "./templates/**",
+      ...(process.env.VERCEL
+        ? []
+        : [
+            "./config/**",
+            "./node_modules/.pnpm/playwright-core*/**",
+            "./node_modules/pdfjs-dist/legacy/build/pdf.min.mjs",
+            "./node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+          ]),
+    ],
   },
   async headers() {
     // Belt and braces: every response is noindex. Fake IBANs and tax IDs must
