@@ -63,8 +63,7 @@ network access — and the easiest one is GitHub's.
 
 ### The easy way: the Seed workflow
 
-Put the credentials in **Settings → Secrets and variables → Actions**, under an
-environment named `production`:
+Put the credentials in **Settings → Secrets and variables → Actions → New repository secret**, five of them:
 
 | Secret | Value |
 |---|---|
