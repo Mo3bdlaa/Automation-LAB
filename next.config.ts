@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // produce, so leaving this on there fails the build at the very last step
   // with a missing next-server.js.nft.json.
   ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
-  serverExternalPackages: ["playwright-core", "pg"],
+  serverExternalPackages: ["playwright-core", "pg", "@sparticuz/chromium"],
   // The fonts are read off disk when a PDF is rendered, so tracing has to be
   // told about them: they are reached by path, not by import.
   //

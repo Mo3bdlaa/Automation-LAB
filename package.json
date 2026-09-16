@@ -2,7 +2,7 @@
   "name": "automation-lab",
   "version": "0.1.0",
   "private": true,
-  "description": "Automation Lab \u2014 practice sandbox for the Document Understanding / RPA course",
+  "description": "Automation Lab — practice sandbox for the Document Understanding / RPA course",
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "next dev",
@@ -29,6 +29,7 @@
     "scorer:proof": "tsx scripts/scorer-proof.ts"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^153.0.0",
     "@tailwindcss/postcss": "^4.3.3",
     "docx": "^9.7.1",
     "drizzle-orm": "^0.45.2",

@@ -21,19 +21,32 @@ async function playwright() {
   return (await import("playwright-core")).chromium;
 }
 
-export async function resolveChromiumExecutable(): Promise<string> {
+export interface ChromiumTarget {
+  executablePath: string;
+  /** Flags the host itself requires, ahead of ours. */
+  args: string[];
+}
+
+export async function resolveChromiumExecutable(): Promise<ChromiumTarget> {
   const fromEnv = process.env.CHROMIUM_EXECUTABLE_PATH;
   if (fromEnv) {
     if (!existsSync(fromEnv)) throw new Error(`CHROMIUM_EXECUTABLE_PATH does not exist: ${fromEnv}`);
-    return fromEnv;
+    return { executablePath: fromEnv, args: [] };
   }
+  // A serverless host has no browser on the filesystem, so this package carries
+  // one and unpacks it into /tmp. The specifier is a literal because the
+  // bundler has to be able to trace it: written dynamically it was invisible,
+  // and the two routes that print a PDF - the certificate and a scenario's
+  // process document - shipped without a browser and answered 500.
+  // It brings its own flags for the sandbox it runs in; those go first.
   try {
-    // Optional dependency for serverless hosts. Resolved at runtime so bundlers do not try to trace it.
-    const specifier = ["@sparticuz", "chromium"].join("/");
-    const mod = (await import(/* webpackIgnore: true */ /* turbopackIgnore: true */ specifier)) as { default?: { executablePath: () => Promise<string> } };
-    if (mod?.default?.executablePath) return await mod.default.executablePath();
+    const mod = await import("@sparticuz/chromium");
+    const sparticuz = mod.default;
+    if (typeof sparticuz?.executablePath === "function") {
+      return { executablePath: await sparticuz.executablePath(), args: sparticuz.args ?? [] };
+    }
   } catch {
-    /* not installed */
+    /* not installed: a machine with its own browser, below */
   }
   const candidates = [
     process.env.PLAYWRIGHT_BROWSERS_PATH && path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, "chromium"),
@@ -42,10 +55,10 @@ export async function resolveChromiumExecutable(): Promise<string> {
     "/usr/bin/chromium-browser",
     "/usr/bin/google-chrome",
   ].filter(Boolean) as string[];
-  for (const c of candidates) if (existsSync(c)) return c;
+  for (const c of candidates) if (existsSync(c)) return { executablePath: c, args: [] };
   try {
     const p = (await playwright()).executablePath();
-    if (p && existsSync(p)) return p;
+    if (p && existsSync(p)) return { executablePath: p, args: [] };
   } catch {
     /* no registry */
   }
@@ -60,12 +73,13 @@ export async function sharedBrowser(): Promise<Browser> {
 async function getBrowser(): Promise<Browser> {
   if (!browserPromise) {
     browserPromise = (async () => {
-      const executablePath = await resolveChromiumExecutable();
+      const { executablePath, args: hostArgs } = await resolveChromiumExecutable();
       const chromium = await playwright();
       const b = await chromium.launch({
         executablePath,
         headless: true,
         args: [
+          ...hostArgs,
           "--no-sandbox",
           "--disable-dev-shm-usage",
           "--font-render-hinting=none",
