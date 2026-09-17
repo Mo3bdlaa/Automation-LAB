@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { and, eq, inArray } from "drizzle-orm";
 import { deliveryNotes, invoices, items, purchaseOrders, rfqs, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
@@ -5,18 +6,27 @@ import { getPrincipal, requireLab } from "@/lib/auth/server";
 import { Landing } from "./landing";
 import { activeRun } from "@/lib/challenge/runs";
 import { RunBanner } from "./challenges/run-banner";
-import { sandboxProgress } from "@/lib/sandbox/lifecycle";
 import { Page, Section, Tile } from "@/components/ui";
 import { COMPANY } from "@/lib/generator/vocab";
 
+/** A row of the queue: how many, what it is, and where it goes. */
+interface QueueRow {
+  key: string;
+  count: number;
+  title: string;
+  detail: string;
+  href: string;
+  tone: "error" | "warning" | "info";
+}
+
 export default async function DashboardPage() {
   const { t, locale } = await i18n();
-  // Signed out, this is the front door of a public challenge rather than a
-  // locked application: show what is on offer instead of a login wall.
+  // Signed out, this is the front door of a public site rather than a locked
+  // application: show what is on offer instead of a login wall.
   if (!(await getPrincipal())) return <Landing t={t} />;
+
   const session = await requireLab();
   const open = await activeRun(session);
-  const progress = await sandboxProgress(session.tenant);
   const provisioning = session.tenant.status === "provisioning";
   const tdb = session.tdb;
   const [vendorCount, pendingVendors, itemCount, poCount, openRfqs, pendingInvoices, exceptionInvoices, approvedInvoices, awaitingGrn] = await Promise.all([
@@ -30,67 +40,82 @@ export default async function DashboardPage() {
     tdb.count(invoices, eq(invoices.status, "approved")),
     tdb.count(deliveryNotes, and(eq(deliveryNotes.status, "delivered"))!),
   ]);
-  const posAwaitingInvoice = (await tdb.list(purchaseOrders, { where: and(eq(purchaseOrders.historical, false), inArray(purchaseOrders.status, ["received", "partially_received"]))! })).length;
   const td = t.dashboard;
+
+  /*
+   * The queue, worst first.
+   *
+   * This replaced a grid of eight equal tiles, which told you what existed but
+   * not what to do — and on a screen whose entire purpose is a day's work,
+   * that is the wrong question answered. The order is by how much else each
+   * one holds up: a held invoice blocks a payment that is already due, an
+   * unread one has not started costing anything yet.
+   */
+  const queue: QueueRow[] = ([
+    { key: "exceptions", count: exceptionInvoices, title: td.exceptionsTitle, detail: td.exceptionsDetail, href: "/invoices?status=exception", tone: "error" },
+    { key: "pending", count: pendingInvoices, title: td.pendingTitle, detail: td.pendingDetail, href: "/invoices?status=pending_extraction", tone: "warning" },
+    { key: "deliveries", count: awaitingGrn, title: td.deliveriesTitle, detail: td.deliveriesDetail, href: "/deliveries?status=delivered", tone: "warning" },
+    { key: "vendors", count: pendingVendors, title: td.vendorsTitle, detail: td.vendorsDetail, href: "/vendors?status=pending", tone: "info" },
+    { key: "rfqs", count: openRfqs, title: td.rfqsTitle, detail: td.rfqsDetail, href: "/rfqs?status=open", tone: "info" },
+    { key: "approved", count: approvedInvoices, title: td.approvedTitle, detail: td.approvedDetail, href: "/invoices?status=approved", tone: "info" },
+  ] satisfies QueueRow[]).filter((r) => r.count > 0);
+
   return (
-    <Page title={td.title} subtitle={`${td.welcome}, ${session.principal.displayName} · ${td.company} ${locale === "ar" ? COMPANY.nameAr : COMPANY.name}`}>
+    <Page title={`${td.welcome}, ${session.principal.displayName}`} subtitle={`${td.company} ${locale === "ar" ? COMPANY.nameAr : COMPANY.name}`}>
       {provisioning ? <meta httpEquiv="refresh" content="3" /> : null}
       {open ? <RunBanner t={t} run={{ id: open.id, scenario: open.scenario, mode: open.mode, startedAt: open.startedAt.toISOString(), targets: open.targets.length }} /> : null}
-      <section className="al-card mb-5" id="sandbox-status" data-testid="sandbox-status" data-status={session.tenant.status} data-progress={session.tenant.progress} data-documents={progress.documents} data-rendered={progress.rendered}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2>{td.sandboxStatus}</h2>
-            {provisioning ? (
-              <p className="text-sm" id="sandbox-status-message" data-testid="sandbox-status-message">
-                {td.provisioning} · {session.tenant.statusMessage} · {session.tenant.progress}%
-              </p>
-            ) : session.tenant.status === "failed" ? (
-              <p className="text-sm text-error" id="sandbox-status-message" data-testid="sandbox-status-message">
-                {td.failed}: {session.tenant.statusMessage}
-              </p>
-            ) : (
-              <p className="text-sm text-success" id="sandbox-status-message" data-testid="sandbox-status-message">
-                {td.ready}
-              </p>
-            )}
-          </div>
-          <div className="text-right text-xs text-muted">
-            <div id="sandbox-render-progress" data-testid="sandbox-render-progress">
-              PDFs {progress.rendered}/{progress.documents}
-            </div>
-            <div>
-              {td.seed}: <code id="sandbox-seed" data-testid="sandbox-seed">{session.tenant.seed}</code>
-            </div>
-          </div>
-        </div>
-        {provisioning || progress.rendered < progress.documents ? (
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-border">
-            <div className="h-1.5 bg-primary" style={{ width: `${provisioning ? session.tenant.progress : Math.round((100 * progress.rendered) / Math.max(1, progress.documents))}%` }} />
-          </div>
-        ) : null}
-      </section>
 
-      <Section title="Work queues" testId="dashboard-queues">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Tile testId="tile-invoices-pending" href="/invoices?status=pending_extraction" title="Invoices" subtitle="Pending extraction" count={pendingInvoices} />
-          <Tile testId="tile-invoices-exception" href="/invoices?status=exception" title="Invoices" subtitle="Match exceptions" count={exceptionInvoices} />
-          <Tile testId="tile-invoices-approved" href="/invoices?status=approved" title="Invoices" subtitle="Approved, awaiting payment" count={approvedInvoices} />
-          <Tile testId="tile-pos-awaiting-invoice" href="/purchase-orders?status=received" title="Purchase orders" subtitle="Received, awaiting invoice" count={posAwaitingInvoice} />
-          <Tile testId="tile-deliveries-pending" href="/deliveries?status=delivered" title="Deliveries" subtitle="Awaiting goods receipt" count={awaitingGrn} />
-          <Tile testId="tile-rfqs-open" href="/rfqs?status=open" title="RFQs" subtitle="Open for award" count={openRfqs} />
-          <Tile testId="tile-vendors-pending" href="/vendors?status=pending" title="Vendor applications" subtitle="Pending approval" count={pendingVendors} />
-          <Tile testId="tile-rules" href="/rules" title="Validation rules" subtitle="Rule IDs your bot can branch on" />
+      <section className="al-card mb-5 p-0" id="dashboard-queues" data-testid="dashboard-queues">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-3">
+          <h2>{td.queueTitle}</h2>
+          <span className="flex-1 text-sm text-muted">{td.queueLead}</span>
+          <Link href="/invoices" className="text-[13px] font-medium">
+            {td.queueOpen}
+          </Link>
         </div>
-      </Section>
+
+        {queue.length === 0 ? (
+          <p className="px-5 py-6 text-sm text-muted" id="queue-empty" data-testid="queue-empty">
+            {td.queueEmpty}
+          </p>
+        ) : (
+          queue.map((row) => (
+            <Link
+              key={row.key}
+              id={`queue-${row.key}`}
+              data-testid={`queue-${row.key}`}
+              data-count={row.count}
+              href={row.href}
+              className="flex items-center gap-4 border-b border-border px-5 py-3 text-ink no-underline last:border-b-0 hover:bg-surface-2"
+            >
+              <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: TONE[row.tone] }} aria-hidden="true" />
+              <span className="mono w-11 text-end text-[1.1875rem] font-medium">{row.count}</span>
+              <span className="flex flex-1 flex-col gap-0.5">
+                <span className="text-sm font-semibold">{row.title}</span>
+                <span className="text-[12.5px] text-muted">{row.detail}</span>
+              </span>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--al-faint)" strokeWidth="1.8" aria-hidden="true" className="rtl:-scale-x-100">
+                <path d="m6 3 5 5-5 5" />
+              </svg>
+            </Link>
+          ))
+        )}
+      </section>
 
       <Section title={td.counts} testId="dashboard-counts">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Tile testId="tile-vendors" href="/vendors" title={t.nav.vendors} subtitle="Shared corpus + your sandbox" count={vendorCount} />
-          <Tile testId="tile-items" href="/items" title={t.nav.items} subtitle="Catalogue" count={itemCount} />
-          <Tile testId="tile-purchase-orders" href="/purchase-orders" title={t.nav.purchaseOrders} subtitle="Your working set" count={poCount} />
-          <Tile testId="tile-api-sandbox" href="/api/sandbox" title="API" subtitle="GET /api/sandbox · /api/rules · /api/documents/{id}/file" />
+          <Tile testId="tile-vendors" href="/vendors" title={t.nav.vendors} subtitle={`${pendingVendors} ${t.vendors.status}`} count={vendorCount} />
+          <Tile testId="tile-items" href="/items" title={t.nav.items} subtitle={t.items.title} count={itemCount} />
+          <Tile testId="tile-purchase-orders" href="/purchase-orders" title={t.nav.purchaseOrders} subtitle={t.nav.purchaseOrders} count={poCount} />
+          <Tile testId="tile-rules" href="/rules" title={t.nav.rules} subtitle={t.rules.intro} />
         </div>
       </Section>
     </Page>
   );
 }
+
+const TONE = {
+  error: "var(--al-error)",
+  warning: "var(--al-warning)",
+  info: "var(--al-primary)",
+} as const;

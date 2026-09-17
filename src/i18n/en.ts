@@ -1,7 +1,57 @@
 export const en = {
   appName: "Automation Lab",
+  appShortName: "Al-Nahda",
   tagline: "Document Understanding & RPA practice sandbox",
-  specimen: "SPECIMEN — TRAINING ONLY",
+  specimen: "Training data",
+  specimenLong:
+    "Al-Nahda Trading & Contracting Co. is a fictional company. Every vendor, order, invoice and tax number in this system is generated for training and has no bearing on any real business. Automation Lab is an independent practice environment and is not affiliated with any RPA vendor.",
+  navGroups: {
+    modules: "Modules",
+    procureToPay: "Procure to pay",
+    masterData: "Master data",
+    reference: "Reference",
+    staff: "Instructor",
+  },
+  footer: {
+    status: "Status",
+  },
+  home: {
+    kicker: "Free practice environment",
+    title: "A real ERP to practise on.",
+    lead:
+      "Automation Lab runs the purchasing and payables system of Al-Nahda Trading & Contracting — vendors, quotations, purchase orders, deliveries, goods receipts, invoices and payments. Every screen works. Every document is one your bot will have to read.",
+    lead2: "The company is invented and so is its data. The work is not.",
+    ctaPrimary: "Create a free account",
+    ctaSecondary: "See the challenge",
+    ctaNote: "No card, no approval, no waiting — your workspace is ready the moment you sign up.",
+    pillars: [
+      {
+        title: "A system, not a form",
+        body:
+          "Nine linked modules with real referential integrity. A purchase order your bot approves is the same order the goods receipt checks against and the invoice is matched to. Break the chain and the system tells you, the way a real one would.",
+      },
+      {
+        title: "Documents that fight back",
+        body:
+          "Every invoice, quotation and licence exists as a PDF at five difficulty levels — from a clean digital print to a creased, skewed phone photograph in Arabic. Your extraction has to survive all of them.",
+      },
+      {
+        title: "Built for unattended bots",
+        body:
+          "Every screen has an endpoint behind it, documented and stable. Issue your bot its own credential, let it sign in on its own, and drive the whole workflow without a browser in sight.",
+      },
+    ],
+    previewTab: "Held 18",
+    challengeKicker: "The challenge",
+    challengeTitle: "Four scenarios, scored on accuracy and speed.",
+    challengeLead: "Run them whenever you like, as often as you like. Pass one and the lab issues a certificate anybody can verify.",
+    challengeCta: "Open the challenge",
+  },
+  search: {
+    prompt: "Type a document number — an invoice, an order, a request for quotation, a delivery note, a goods receipt, a vendor code or an item code.",
+    nothing: "Nothing in your workspace carries that number.",
+    hint: "References look like INV-24-0416, PO-24-0231, RFQ-24-0044, DN-24-0188 or V-0184. Item codes have no prefix.",
+  },
   nav: {
     dashboard: "Dashboard",
     challenges: "Challenges",
@@ -32,6 +82,8 @@ export const en = {
     save: "Save",
     cancel: "Cancel",
     search: "Search",
+    searchPlaceholder: "Search an order, invoice, vendor or item code",
+    breadcrumb: "Breadcrumb",
     filter: "Filter",
     previous: "Previous",
     next: "Next",
@@ -149,13 +201,29 @@ export const en = {
     guideShow: "Show walkthrough",
   },
   dashboard: {
+    queueTitle: "Your queue",
+    queueLead: "Ordered by what blocks the most downstream work",
+    queueEmpty: "Nothing is waiting on you. Every queue in the department is clear.",
+    queueOpen: "Open worklist",
+    exceptionsTitle: "Invoices held as match exceptions",
+    exceptionsDetail: "Price, quantity or tax disagrees with the order or the receipt",
+    pendingTitle: "Invoices waiting to be read",
+    pendingDetail: "Arrived by email, nothing extracted yet",
+    deliveriesTitle: "Deliveries awaiting a goods receipt",
+    deliveriesDetail: "Received at the yard, not yet posted against the order",
+    vendorsTitle: "Supplier applications to review",
+    vendorsDetail: "Commercial licence and tax certificate attached",
+    rfqsTitle: "Quotations open for award",
+    rfqsDetail: "Compare what came back and raise the order",
+    approvedTitle: "Approved, awaiting payment",
+    approvedDetail: "Cleared the match, not yet paid",
     title: "Dashboard",
     welcome: "Welcome",
     sandboxStatus: "Sandbox status",
     provisioning: "Your sandbox is being provisioned. This page refreshes automatically.",
     ready: "Ready",
     failed: "Provisioning failed",
-    counts: "Working set",
+    counts: "Across the workspace",
     quickLinks: "Quick links",
     seed: "Seed",
     company: "You are working at",
