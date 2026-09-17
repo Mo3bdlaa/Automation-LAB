@@ -1,24 +1,34 @@
 # Deploying Automation Lab
 
 The short version: **Vercel for the app, Neon for the database, Cloudflare R2 for the
-documents, and you build the document set on your own machine and never on the server.**
+documents, and the document set is built once, elsewhere, and never on the server.**
 
 That last part is what makes this cheap and simple. The document set is shared by everyone
 and fixed until you decide to change it, so all the heavy work — generating it, rendering
-the PDFs, producing difficulty levels 2 to 5 — happens once, wherever you are sitting, and
-the deployed app only ever reads the result. No browser, no render queue and no background
-worker on Vercel.
+the PDFs, producing difficulty levels 2 to 5 — happens once, on a machine with a browser,
+and the deployed app only ever reads the result. No render queue and no background worker
+on Vercel.
 
-One qualification, because it is the only thing that could put Chromium back: two
-participant actions create a document of their own — posting a goods receipt, and approving
-a purchase order they awarded. Those cannot be rendered in advance, since they do not exist
-until somebody does the work. In production the lab does not print them (see
+Two qualifications.
+
+**Two documents are printed on demand**, because they cannot exist in advance: a
+certificate, which names a particular person and score, and a scenario's process document,
+which carries the site's own address. Those render inside the request, so the deployment
+does carry a browser — `@sparticuz/chromium`, a Chromium packaged for serverless that
+unpacks itself into `/tmp`. It is traced into exactly those two functions and nowhere else;
+see *Things that will bite*.
+
+**Two participant actions create a document of their own** — posting a goods receipt, and
+approving a purchase order they awarded. In production the lab does not print those (see
 `PARTICIPANT_DOCUMENT_PDFS` below): the receipt and the order exist with their numbers,
 lines and status, every screen and endpoint works, and only the printed copy is missing.
-Nothing in any scenario reads it.
+Nothing in any scenario reads it. This is a cost decision rather than a capability one —
+eight renders for every goods-receipt run is the per-participant work the shared document
+set was built to remove.
 
-Measured on a full build: **1,334 documents × 5 difficulty levels = 6,750 files, 794 MB**,
-and a **43 MB** database. That is the whole site, for every participant there will ever be.
+Measured on the build now deployed: **1,335 documents × 5 difficulty levels = 6,675 files,
+745 MB**, and a **46 MB** database. That is the whole site, for every participant there
+will ever be.
 
 ---
 
@@ -27,8 +37,8 @@ and a **43 MB** database. That is the whole site, for every participant there wi
 | Piece | Why | Cost at this size |
 |---|---|---|
 | **Vercel** | Runs the Next.js app. Matches mohammedshaker.com's platform and shares its apex domain. | Free tier is enough to start |
-| **Neon Postgres** | The database. Serverless-friendly, and Vercel's own Postgres offering *is* Neon. | Free tier ≈ 0.5 GB; the seeded database is 43 MB |
-| **Cloudflare R2** | The rendered PDFs: 794 MB measured, for the whole site. | Free below 10 GB, **and no egress charge** |
+| **Neon Postgres** | The database. Serverless-friendly, and Vercel's own Postgres offering *is* Neon. | Free tier ≈ 0.5 GB; the seeded database is 46 MB |
+| **Cloudflare R2** | The rendered PDFs: 745 MB measured, for the whole site. | Free below 10 GB, **and no egress charge** |
 
 R2 rather than S3 specifically because this site's job is handing people PDFs, and S3
 bills for every byte leaving the bucket. R2 does not. Any S3-compatible store works —
@@ -132,11 +142,9 @@ skipped, so if it stops you can simply run it again. Level 2 is by far the large
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | as above |
 | `STAFF_EMAILS` | your address, comma-separated — this grants the instructor screens |
 
-`PARTICIPANT_DOCUMENT_PDFS` is off in production by default, which is what keeps Chromium
-out of the deployment. Set it to `1` only somewhere a browser genuinely exists — a
-container running `pnpm worker`, or a serverless Chromium package — and understand the
-cost: eight renders for every goods-receipt run, thousands across an event, which is the
-per-participant work the shared document set was built to remove.
+`PARTICIPANT_DOCUMENT_PDFS` is off in production by default. The deployment does have a
+browser, so turning it on would work — the reason to leave it off is cost, not capability:
+eight renders for every goods-receipt run, thousands across an event.
 
 `IDENTITY_PROVIDER` defaults to `accounts` in production; leave it unset.
 Do **not** set `ALLOW_LOCAL_IDENTITY_IN_PROD` or `ALLOW_LOCAL_BLOBS_IN_PROD` — both exist
@@ -200,7 +208,8 @@ Do it deliberately, and not while an event is running.
 - **A public R2 bucket.** Every generated invoice becomes world-readable. Keep it private
   and let the app serve documents.
 - **Forgetting `--levels`.** Everything works until someone requests a level-3 document,
-  which then tries to start Chromium in a serverless function. It is not only the invoices:
+  which then tries to degrade it inside a serverless function — a browser-driven pipeline
+  that is nothing like printing one page, and will time out. It is not only the invoices:
   a vendor's commercial licence at level 3 goes down the same path.
 - **Turning on `PARTICIPANT_DOCUMENT_PDFS` without a browser.** Goods receipts would queue
   render jobs that never run, and their document card would wait for ever.
@@ -210,6 +219,20 @@ Do it deliberately, and not while an event is running.
   when `VERCEL` is present. Forcing it back on fails the build at the last step with a
   missing `next-server.js.nft.json`: standalone mode produces its own server directory
   instead of the trace files Vercel's builder reads.
+- **Touching how the browser reaches the two PDF routes.** Three separate things have to
+  hold, and each one has already broken this in production once:
+  - `@sparticuz/chromium` is listed in `serverExternalPackages`, or Next bundles it and
+    the 67 MB payload it reads *by path* is left behind.
+  - `outputFileTracingIncludes` copies `node_modules/@sparticuz/chromium/bin/**` into the
+    two functions that print. Those keys are **globs**, so `**/certificate.pdf/route`
+    matches and a literal `/verify/[code]/certificate.pdf/route` matches nothing at all —
+    silently, with a green build.
+  - `.npmrc` sets `node-linker=hoisted`. With pnpm's default store the package directory
+    is a symlink, and Vercel rejects the bundle with *"invalid deployment package"*.
+
+  `pnpm pdf:proof` is the check: it removes every local browser from the lookup path and
+  prints all four process documents and a certificate through the serverless one. CI runs
+  it. It is the only test that exercises what production does.
 
 ## If you would rather not use Vercel
 
