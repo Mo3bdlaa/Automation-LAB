@@ -38,4 +38,9 @@ jobs:
       # empty database, and it gives the overlay test a schema to run against.
       - run: pnpm db:migrate
       - run: pnpm test
+      # The two routes that print a PDF inside a request rely on a browser
+      # carried as a package, and that path broke twice in production while
+      # every check here passed - because this runner, like a laptop, had a
+      # real Chromium to fall back on. The proof takes that away.
+      - run: pnpm pdf:proof
       - run: pnpm build
