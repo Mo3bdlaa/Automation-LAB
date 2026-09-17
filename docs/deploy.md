@@ -234,6 +234,12 @@ Do it deliberately, and not while an event is running.
   prints all four process documents and a certificate through the serverless one. CI runs
   it. It is the only test that exercises what production does.
 
+## Replacing the credentials afterwards
+
+Everything above was set up with secrets created while the site was empty and
+passed around while it was being wired together. Before the lab carries anyone's
+real work, replace all five: **[`docs/rotate-credentials.md`](rotate-credentials.md)**.
+
 ## If you would rather not use Vercel
 
 The repository has a `Dockerfile` that bundles Chromium and the fonts, so the whole thing

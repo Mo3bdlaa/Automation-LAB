@@ -9,6 +9,7 @@ is what turns the sandbox into a scored, verifiable challenge.
 - Design spec: [`docs/spec.md`](docs/spec.md)
 - Handoff and decisions: [`docs/handoff.md`](docs/handoff.md)
 - Deploying it: [`docs/deploy.md`](docs/deploy.md)
+- Replacing the credentials it was set up with: [`docs/rotate-credentials.md`](docs/rotate-credentials.md)
 - Selector convention for bots: [`docs/selectors.md`](docs/selectors.md)
 - Identifier formats (IBAN, tax ID, CR number): [`docs/data-formats.md`](docs/data-formats.md)
 - Process Definition Document (AS-IS, TO-BE, phase roadmap, 14 annotated screenshots): [`docs/pdd.md`](docs/pdd.md), Word and PDF versions via `pnpm pdd`
