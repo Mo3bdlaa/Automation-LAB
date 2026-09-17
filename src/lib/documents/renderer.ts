@@ -25,13 +25,24 @@ export interface ChromiumTarget {
   executablePath: string;
   /** Flags the host itself requires, ahead of ours. */
   args: string[];
+  /**
+   * Whether this browser must be thrown away after a single document.
+   *
+   * The serverless browser runs with `--single-process`, where closing a
+   * context closes the browser with it: the first document printed fine and
+   * the second failed with "Target page, context or browser has been closed".
+   * Keeping one alive between requests would be wrong anyway — a serverless
+   * instance is frozen between invocations, so a browser held across them is a
+   * child process in an undefined state.
+   */
+  disposable: boolean;
 }
 
 export async function resolveChromiumExecutable(): Promise<ChromiumTarget> {
   const fromEnv = process.env.CHROMIUM_EXECUTABLE_PATH;
   if (fromEnv) {
     if (!existsSync(fromEnv)) throw new Error(`CHROMIUM_EXECUTABLE_PATH does not exist: ${fromEnv}`);
-    return { executablePath: fromEnv, args: [] };
+    return { executablePath: fromEnv, args: [], disposable: false };
   }
   // A serverless host has no browser on the filesystem, so this package carries
   // one and unpacks it into /tmp. The specifier is a literal because the
@@ -43,7 +54,7 @@ export async function resolveChromiumExecutable(): Promise<ChromiumTarget> {
     const mod = await import("@sparticuz/chromium");
     const sparticuz = mod.default;
     if (typeof sparticuz?.executablePath === "function") {
-      return { executablePath: await sparticuz.executablePath(), args: sparticuz.args ?? [] };
+      return { executablePath: await sparticuz.executablePath(), args: sparticuz.args ?? [], disposable: true };
     }
   } catch (e) {
     // Worth saying out loud. Swallowing this is what made a missing browser in
@@ -58,10 +69,10 @@ export async function resolveChromiumExecutable(): Promise<ChromiumTarget> {
     "/usr/bin/chromium-browser",
     "/usr/bin/google-chrome",
   ].filter(Boolean) as string[];
-  for (const c of candidates) if (existsSync(c)) return { executablePath: c, args: [] };
+  for (const c of candidates) if (existsSync(c)) return { executablePath: c, args: [], disposable: false };
   try {
     const p = (await playwright()).executablePath();
-    if (p && existsSync(p)) return { executablePath: p, args: [] };
+    if (p && existsSync(p)) return { executablePath: p, args: [], disposable: false };
   } catch {
     /* no registry */
   }
@@ -73,30 +84,40 @@ export async function sharedBrowser(): Promise<Browser> {
   return getBrowser();
 }
 
+async function launch(target: ChromiumTarget): Promise<Browser> {
+  const { executablePath, args: hostArgs } = target;
+  const chromium = await playwright();
+  return chromium.launch({
+    executablePath,
+    headless: true,
+    args: [
+      ...hostArgs,
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--font-render-hinting=none",
+      // A renderer on a server has nothing to talk to. Without these it
+      // reaches for Google's update and sync endpoints on every launch,
+      // which stalls startup wherever egress is filtered.
+      "--disable-background-networking",
+      "--disable-component-update",
+      "--disable-sync",
+      "--disable-default-apps",
+      "--no-first-run",
+      "--no-default-browser-check",
+    ],
+  });
+}
+
+/**
+ * The long-lived browser, for the seed: thousands of documents in one process,
+ * where paying for a launch each time would add hours. Only ever a browser that
+ * survives having a context closed — the serverless one does not, and is
+ * launched per document instead.
+ */
 async function getBrowser(): Promise<Browser> {
   if (!browserPromise) {
     browserPromise = (async () => {
-      const { executablePath, args: hostArgs } = await resolveChromiumExecutable();
-      const chromium = await playwright();
-      const b = await chromium.launch({
-        executablePath,
-        headless: true,
-        args: [
-          ...hostArgs,
-          "--no-sandbox",
-          "--disable-dev-shm-usage",
-          "--font-render-hinting=none",
-          // A renderer on a server has nothing to talk to. Without these it
-          // reaches for Google's update and sync endpoints on every launch,
-          // which stalls startup wherever egress is filtered.
-          "--disable-background-networking",
-          "--disable-component-update",
-          "--disable-sync",
-          "--disable-default-apps",
-          "--no-first-run",
-          "--no-default-browser-check",
-        ],
-      });
+      const b = await launch(await resolveChromiumExecutable());
       b.on("disconnected", () => {
         browserPromise = null;
       });
@@ -142,7 +163,10 @@ export interface RenderOptions {
 }
 
 export async function renderHtmlToPdf(html: string, opts: RenderOptions = {}): Promise<RenderResult> {
-  const browser = await getBrowser();
+  // A serverless browser is single-use (see ChromiumTarget.disposable): it gets
+  // its own process, which is closed whole rather than by closing the context.
+  const target = await resolveChromiumExecutable();
+  const browser = target.disposable ? await launch(target) : await getBrowser();
   const context = await browser.newContext();
   try {
     const page = await context.newPage();
@@ -166,7 +190,10 @@ export async function renderHtmlToPdf(html: string, opts: RenderOptions = {}): P
     const pages = countPdfPages(pdf);
     return { pdf: new Uint8Array(pdf), pages, boxes };
   } finally {
-    await context.close();
+    // Closing a context on the single-process browser takes the browser with
+    // it, so there is nothing to be gained by doing both — and on the shared
+    // browser there is everything to lose.
+    await (target.disposable ? browser.close() : context.close()).catch(() => {});
   }
 }
 
