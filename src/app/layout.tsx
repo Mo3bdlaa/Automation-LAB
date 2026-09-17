@@ -19,10 +19,10 @@ import { RunBanner } from "./challenges/run-banner";
  * interface. The mono is every code, reference and amount, so a column of
  * figures lines up — in Arabic too, where the numbers stay left to right.
  */
-const sans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans", display: "swap" });
-const display = Source_Serif_4({ subsets: ["latin"], weight: ["400", "600"], variable: "--font-display", display: "swap" });
-const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono", display: "swap" });
-const arabic = IBM_Plex_Sans_Arabic({ subsets: ["arabic"], weight: ["400", "500", "600", "700"], variable: "--font-arabic", display: "swap" });
+const sans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--al-font-sans", display: "swap" });
+const display = Source_Serif_4({ subsets: ["latin"], weight: ["400", "600"], variable: "--al-font-display", display: "swap" });
+const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--al-font-mono", display: "swap" });
+const arabic = IBM_Plex_Sans_Arabic({ subsets: ["arabic"], weight: ["400", "500", "600", "700"], variable: "--al-font-arabic", display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "Automation Lab", template: "%s · Automation Lab" },

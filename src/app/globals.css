@@ -78,22 +78,32 @@
   --color-surface-2: var(--al-surface-2);
   --color-border-strong: var(--al-border-strong);
   --color-shell-text: var(--al-shell-text);
+  /*
+   * Tailwind ships its own --font-sans and --font-mono, and next/font wants to
+   * define variables of exactly those names. Whichever won would depend on
+   * cascade layers and source order, which is not a thing to leave to chance
+   * for something as visible as the typeface. So the faces are declared under
+   * al- names and Tailwind's utilities are pointed at them here.
+   */
+  --font-sans: var(--al-font-sans);
+  --font-mono: var(--al-font-mono);
+  --font-serif: var(--al-font-display);
 }
 
 html { background: var(--al-bg); color: var(--al-text); }
-body { font-family: var(--font-sans), "Segoe UI", ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; }
-[dir="rtl"] body { font-family: var(--font-arabic), var(--font-sans), "Segoe UI", Tahoma, system-ui, sans-serif; }
+body { font-family: var(--al-font-sans), "Segoe UI", ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; }
+[dir="rtl"] body { font-family: var(--al-font-arabic), var(--al-font-sans), "Segoe UI", Tahoma, system-ui, sans-serif; }
 
 /*
  * Every code, reference and amount is set in the mono face, in both
  * directions. A column of figures that does not line up is harder to read
  * than one in the wrong script, and an invoice number is not prose.
  */
-.mono, code, .al-table td.num, .al-table th.num { font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.mono, code, .al-table td.num, .al-table th.num { font-family: var(--al-font-mono), ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
 [dir="rtl"] .mono, [dir="rtl"] .al-table td.num { direction: ltr; text-align: end; }
 
 /* Page and screen titles carry the serif; everything else is the sans. */
-.display { font-family: var(--font-display), Georgia, serif; font-weight: 600; letter-spacing: -0.015em; }
+.display { font-family: var(--al-font-display), Georgia, serif; font-weight: 600; letter-spacing: -0.015em; }
 a { color: var(--al-primary); }
 *:focus-visible { outline: 2px solid var(--al-focus); outline-offset: 1px; }
 
@@ -122,7 +132,7 @@ a { color: var(--al-primary); }
 .side-nav a.side-link { display: flex; align-items: center; gap: .5rem; padding: .4375rem .625rem; border-radius: var(--al-radius); font-size: .78125rem; }
 .side-nav a.side-link:hover { background: rgba(255,255,255,.08); color: #fff; }
 .side-nav a.side-link[aria-current="page"] { background: rgba(255,255,255,.13); color: #fff; font-weight: 600; }
-.side-link .side-count { font-family: var(--font-mono), ui-monospace, monospace; font-size: .65625rem; color: var(--al-shell); background: var(--al-shell-badge); border-radius: 9px; padding: .0625rem .375rem; flex-shrink: 0; }
+.side-link .side-count { font-family: var(--al-font-mono), ui-monospace, monospace; font-size: .65625rem; color: var(--al-shell); background: var(--al-shell-badge); border-radius: 9px; padding: .0625rem .375rem; flex-shrink: 0; }
 .side-lab { margin-top: auto; padding-top: .875rem; border-top: 1px solid rgba(255,255,255,.1); display: flex; flex-direction: column; gap: .125rem; }
 .side-nav a.side-lab-link { display: flex; align-items: center; gap: .5rem; padding: .5625rem .625rem; border-radius: var(--al-radius); font-size: .8125rem; font-weight: 600; color: #fff; background: color-mix(in srgb, var(--al-lab) 32%, transparent); border: 1px solid color-mix(in srgb, var(--al-lab-glow) 50%, transparent); }
 .side-nav a.side-lab-link:hover { background: color-mix(in srgb, var(--al-lab) 46%, transparent); }
@@ -168,13 +178,13 @@ a { color: var(--al-primary); }
 /* The bar that sits across the application while a scored run is open. */
 .run-bar { background: var(--al-lab-deep); color: #fff; display: flex; flex-wrap: wrap; align-items: center; gap: 1.25rem; padding: .6875rem 1.375rem; }
 .run-bar a, .run-bar button { color: #fff; }
-.run-bar .run-clock { font-family: var(--font-mono), ui-monospace, monospace; font-size: 1.125rem; font-weight: 500; }
+.run-bar .run-clock { font-family: var(--al-font-mono), ui-monospace, monospace; font-size: 1.125rem; font-weight: 500; }
 .run-bar .run-progress { width: 9.25rem; height: 5px; border-radius: 3px; background: rgba(255,255,255,.2); overflow: hidden; }
 .run-bar .run-progress > span { display: block; height: 5px; background: var(--al-lab-glow); }
 
 /* Page and object header */
 .page-header { background: var(--al-surface); border-bottom: 1px solid var(--al-border); }
-.page-header h1 { font-family: var(--font-display), Georgia, serif; font-size: 1.5625rem; font-weight: 600; letter-spacing: -.015em; color: var(--al-text); }
+.page-header h1 { font-family: var(--al-font-display), Georgia, serif; font-size: 1.5625rem; font-weight: 600; letter-spacing: -.015em; color: var(--al-text); }
 .object-subtitle { color: var(--al-muted); font-size: .85rem; }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .5rem 1.25rem; }
 .facts dt { font-size: .72rem; color: var(--al-muted); text-transform: uppercase; letter-spacing: .04em; }
@@ -187,7 +197,7 @@ a { color: var(--al-primary); }
 .tile:hover { border-color: var(--al-border-strong); background: var(--al-surface-2); }
 .tile .tile-title { font-size: .95rem; font-weight: 600; }
 .tile .tile-sub { font-size: .78rem; color: var(--al-muted); margin-top: .1rem; }
-.tile .tile-count { font-family: var(--font-mono), ui-monospace, monospace; font-size: 1.375rem; font-weight: 500; color: var(--al-text); margin-top: .25rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.tile .tile-count { font-family: var(--al-font-mono), ui-monospace, monospace; font-size: 1.375rem; font-weight: 500; color: var(--al-text); margin-top: .25rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .tile .tile-count small { font-size: .75rem; color: var(--al-muted); margin-inline-start: .35rem; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; background: var(--al-surface); border: 1px solid var(--al-border); border-bottom: none; border-radius: var(--al-radius) var(--al-radius) 0 0; padding: .5rem .75rem; }
 .toolbar .toolbar-title { font-weight: 600; margin-inline-end: auto; }

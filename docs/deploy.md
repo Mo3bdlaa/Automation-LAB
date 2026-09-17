@@ -227,12 +227,30 @@ Do it deliberately, and not while an event is running.
     two functions that print. Those keys are **globs**, so `**/certificate.pdf/route`
     matches and a literal `/verify/[code]/certificate.pdf/route` matches nothing at all —
     silently, with a green build.
+  - the same list also carries `node_modules/playwright-core/browsers.json`. That one
+    cost four deployments: playwright-core reads it off disk as it loads, the read is not
+    an import so tracing cannot see it, and `serverExternalPackages` copies a package's
+    code and not its data. The import threw before any browser work started, so it
+    presented as a missing browser and was twice taken for one. **Anything either package
+    reads by path has to be listed here** — that is the rule, not these two files.
   - `.npmrc` sets `node-linker=hoisted`. With pnpm's default store the package directory
     is a symlink, and Vercel rejects the bundle with *"invalid deployment package"*.
 
   `pnpm pdf:proof` is the check: it removes every local browser from the lookup path and
   prints all four process documents and a certificate through the serverless one. CI runs
-  it. It is the only test that exercises what production does.
+  it. It is the only test that exercises what production does — though note what it cannot
+  see: it runs against a full `node_modules`, so a file that tracing failed to package
+  is still on disk. For that, build with `VERCEL=1` and read the two traces:
+
+  ```bash
+  VERCEL=1 pnpm build
+  grep -c browsers.json '.next/server/app/challenges/[slug]/pdd.pdf/route.js.nft.json'
+  ```
+- **A 500 from either printing route names its own cause** in the response body, on
+  purpose: `curl https://<your-domain>/challenges/invoice-processing/pdd.pdf`. The
+  alternative was another blind deployment, and there is nothing here to leak — the
+  repository is public and the data is generated. If you would rather it did not, the
+  message is produced in one place, `src/lib/documents/print-route.ts`.
 
 ## Replacing the credentials afterwards
 
