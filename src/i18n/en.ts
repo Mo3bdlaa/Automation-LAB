@@ -47,6 +47,18 @@ export const en = {
     challengeLead: "Run them whenever you like, as often as you like. Pass one and the lab issues a certificate anybody can verify.",
     challengeCta: "Open the challenge",
   },
+  auth: {
+    panelTitle: "You are signing in to a working ERP.",
+    panelLead:
+      "Not a sandbox that resets, and not a demo with four rows in it. Al-Nahda's purchasing history goes back two years and its documents number in the thousands.",
+    facts: [
+      { value: "9", label: "linked modules, from request for quotation through to payment" },
+      { value: "1,335", label: "documents, each rendered at five difficulty levels" },
+      { value: "4", label: "scored scenarios, with a verifiable certificate behind each" },
+      { value: "0s", label: "to wait — your workspace is ready when the form submits" },
+    ],
+    botNote: "Automating this page is fair game: the sign-in endpoint is documented, and your bot can hold a credential of its own.",
+  },
   search: {
     prompt: "Type a document number — an invoice, an order, a request for quotation, a delivery note, a goods receipt, a vendor code or an item code.",
     nothing: "Nothing in your workspace carries that number.",

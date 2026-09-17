@@ -4,8 +4,7 @@ import { getLabSession, getPrincipal } from "@/lib/auth/server";
 import { Page, Section, Status, TableWrap } from "@/components/ui";
 import { ScenarioCard, ScoreBadge, formatDuration } from "@/components/challenge";
 import { SCENARIOS, scenarioBySlug } from "@/lib/challenge/scenarios";
-import { activeRun, personalBests, runsFor } from "@/lib/challenge/runs";
-import { RunBanner } from "./run-banner";
+import { personalBests, runsFor } from "@/lib/challenge/runs";
 
 export const dynamic = "force-dynamic";
 
@@ -19,13 +18,11 @@ export default async function ChallengesPage() {
   const tc = t.challenge;
   const principal = await getPrincipal();
   const session = principal ? await getLabSession() : null;
-  const open = session ? await activeRun(session) : null;
   const bests = session ? await personalBests(session) : new Map();
   const history = session ? await runsFor(session, 15) : [];
 
   return (
     <Page title={tc.title} subtitle={tc.intro}>
-      {open ? <RunBanner t={t} run={{ id: open.id, scenario: open.scenario, mode: open.mode, startedAt: open.startedAt.toISOString(), targets: open.targets.length }} /> : null}
 
       <Section title={tc.scenarios} testId="challenge-scenarios">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4" id="scenario-cards" data-testid="scenario-cards">

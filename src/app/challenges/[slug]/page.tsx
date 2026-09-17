@@ -8,7 +8,6 @@ import { DIFFICULTY_LABELS, scenarioBySlug } from "@/lib/challenge/scenarios";
 import { activeRun, leaderboard, personalBests } from "@/lib/challenge/runs";
 import { boardWithNames } from "@/lib/challenge/board";
 import { queueSources } from "@/lib/api/work-items";
-import { RunBanner } from "../run-banner";
 import { resetForRunAction, startRunAction } from "../actions";
 import { Walkthrough } from "./walkthrough";
 
@@ -46,7 +45,6 @@ export default async function ScenarioPage({ params, searchParams }: { params: P
         </div>
       }
     >
-      {open ? <RunBanner t={t} run={{ id: open.id, scenario: open.scenario, mode: open.mode, startedAt: open.startedAt.toISOString(), targets: open.targets.length }} /> : null}
 
       {problem === "queue_short" ? (
         <div className="flash mb-4" data-status="error" id="scenario-problem" data-testid="scenario-problem" data-problem={problem}>

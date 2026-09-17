@@ -3,13 +3,15 @@ import { headers } from "next/headers";
 import { IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Sans_Arabic, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { i18n } from "@/i18n/server";
-import { getPrincipal } from "@/lib/auth/server";
+import { getLabSession, getPrincipal } from "@/lib/auth/server";
 import { isStaff } from "@/lib/identity";
 import { Sidebar } from "@/components/shell/sidebar";
 import { TopBar } from "@/components/shell/topbar";
 import { PublicHeader } from "@/components/shell/public-header";
 import { SiteFooter } from "@/components/shell/footer";
 import { crumbsFor } from "@/components/shell/crumbs";
+import { activeRun } from "@/lib/challenge/runs";
+import { RunBanner } from "./challenges/run-banner";
 
 /*
  * Three faces, each with a job. The serif carries titles, because a records
@@ -34,6 +36,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const { locale, t, dir } = await i18n();
   const principal = await getPrincipal();
   const pathname = (await headers()).get("x-pathname") ?? "/";
+  // The open run, fetched once for the whole application rather than by the
+  // three pages that used to remember to ask.
+  const lab = principal ? await getLabSession() : null;
+  const open = lab ? await activeRun(lab) : null;
   const fonts = `${sans.variable} ${display.variable} ${mono.variable} ${arabic.variable}`;
 
   return (
@@ -47,6 +53,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Sidebar t={t} locale={locale} staff={isStaff(principal)} current={pathname} />
             <div className="app-main">
               <TopBar t={t} locale={locale} principal={principal} crumbs={crumbsFor(pathname, t)} />
+              {open ? (
+                <RunBanner
+                  t={t}
+                  run={{ id: open.id, scenario: open.scenario, mode: open.mode, startedAt: open.startedAt.toISOString(), targets: open.targets.length, closed: open.processedCount }}
+                />
+              ) : null}
               {children}
             </div>
           </div>

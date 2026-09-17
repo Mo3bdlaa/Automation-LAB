@@ -4,8 +4,6 @@ import { deliveryNotes, invoices, items, purchaseOrders, rfqs, vendors } from "@
 import { i18n } from "@/i18n/server";
 import { getPrincipal, requireLab } from "@/lib/auth/server";
 import { Landing } from "./landing";
-import { activeRun } from "@/lib/challenge/runs";
-import { RunBanner } from "./challenges/run-banner";
 import { Page, Section, Tile } from "@/components/ui";
 import { COMPANY } from "@/lib/generator/vocab";
 
@@ -26,7 +24,6 @@ export default async function DashboardPage() {
   if (!(await getPrincipal())) return <Landing t={t} />;
 
   const session = await requireLab();
-  const open = await activeRun(session);
   const provisioning = session.tenant.status === "provisioning";
   const tdb = session.tdb;
   const [vendorCount, pendingVendors, itemCount, poCount, openRfqs, pendingInvoices, exceptionInvoices, approvedInvoices, awaitingGrn] = await Promise.all([
@@ -63,7 +60,6 @@ export default async function DashboardPage() {
   return (
     <Page title={`${td.welcome}, ${session.principal.displayName}`} subtitle={`${td.company} ${locale === "ar" ? COMPANY.nameAr : COMPANY.name}`}>
       {provisioning ? <meta httpEquiv="refresh" content="3" /> : null}
-      {open ? <RunBanner t={t} run={{ id: open.id, scenario: open.scenario, mode: open.mode, startedAt: open.startedAt.toISOString(), targets: open.targets.length }} /> : null}
 
       <section className="al-card mb-5 p-0" id="dashboard-queues" data-testid="dashboard-queues">
         <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-3">

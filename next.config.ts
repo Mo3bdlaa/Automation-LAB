@@ -1,5 +1,18 @@
 import type { NextConfig } from "next";
 
+/**
+ * What the two routes that print a PDF inside a request need on disk, beyond
+ * what tracing can work out by following imports. Both of these are read by
+ * path at runtime, so nothing in the source mentions them.
+ */
+const PRINT_ROUTE_FILES = [
+  // The browser itself: 67 MB of brotli that @sparticuz/chromium unpacks into
+  // /tmp on the first request an instance serves.
+  "./node_modules/@sparticuz/chromium/bin/**",
+  // playwright-core's registry of browser builds, read as it loads.
+  "./node_modules/playwright-core/browsers.json",
+];
+
 const nextConfig: NextConfig = {
   // Standalone output is for running the app ourselves - the Dockerfile, or any
   // host where we start the server. Vercel builds differently: it traces the
@@ -26,8 +39,17 @@ const nextConfig: NextConfig = {
     // Matched with a wildcard rather than the literal route: the square
     // brackets of a dynamic segment are glob syntax, so "/verify/[code]/..."
     // matches nothing at all.
-    "**/certificate.pdf/route": ["./node_modules/@sparticuz/chromium/bin/**"],
-    "**/pdd.pdf/route": ["./node_modules/@sparticuz/chromium/bin/**"],
+    //
+    // playwright-core is here for the same reason: it reads browsers.json off
+    // disk while it loads, to know which browser builds it understands. That
+    // read is not an import, so tracing cannot see it, and the deployed
+    // function died at `import("playwright-core")` with "Cannot find module
+    // /var/task/node_modules/playwright-core/browsers.json" - which looked
+    // nothing like a browser problem and was mistaken for one twice. Listing
+    // the package in serverExternalPackages copies its code and not its data;
+    // these two lines are the data.
+    "**/certificate.pdf/route": PRINT_ROUTE_FILES,
+    "**/pdd.pdf/route": PRINT_ROUTE_FILES,
     "/**": [
       "./templates/**",
       ...(process.env.VERCEL
