@@ -3,6 +3,9 @@ import { renderCertificateHtml } from "@/lib/challenge/certificate-template";
 import { appOrigin } from "@/lib/origin";
 
 export const dynamic = "force-dynamic";
+// The serverless browser unpacks itself into /tmp on the first request an
+// instance serves, which the ten-second default does not comfortably cover.
+export const maxDuration = 30;
 
 /**
  * The certificate as a PDF. Public, like the verification page: a certificate
