@@ -28,7 +28,8 @@
     "blob:check": "tsx scripts/blob-check.ts",
     "scorer:proof": "tsx scripts/scorer-proof.ts",
     "pdf:proof": "tsx scripts/pdf-proof.ts",
-    "shell:shots": "node scripts/shell-shots.mjs"
+    "shell:shots": "node scripts/shell-shots.mjs",
+    "ids:check": "node scripts/duplicate-ids.mjs"
   },
   "dependencies": {
     "@sparticuz/chromium": "^153.0.0",

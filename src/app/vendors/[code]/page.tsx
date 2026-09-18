@@ -4,7 +4,7 @@ import { documentFiles, documents, vendorDocuments, vendors } from "@/db/schema"
 import { inArray } from "drizzle-orm";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { Dl, Flash, LinkButton, Page, Section, Status, TableWrap } from "@/components/ui";
+import { Dl, Facts, Flash, LinkButton, Page, Section, Status, TableWrap } from "@/components/ui";
 import { formatIban } from "@/lib/generator/iban";
 
 export default async function VendorDetailPage({ params, searchParams }: { params: Promise<{ code: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -19,34 +19,49 @@ export default async function VendorDetailPage({ params, searchParams }: { param
   const vdocs = await session.tdb.list(vendorDocuments, { where: eq(vendorDocuments.vendorId, v.id) });
   const docRows = vdocs.length ? await session.tdb.list(documents, { where: inArray(documents.sourceId, vdocs.map((d) => d.id)) }) : [];
   const files = docRows.length ? await session.tdb.list(documentFiles, { where: inArray(documentFiles.documentId, docRows.map((d) => d.id)) }) : [];
-  const rows = [
-    { key: "code", label: tv.code, value: v.code },
-    { key: "status", label: tv.status, value: <Status status={v.status} testId={`vendor-status-${v.code}`} /> },
-    { key: "name", label: tv.name, value: v.name },
-    { key: "nameAr", label: tv.nameAr, value: <span dir="rtl">{v.nameAr ?? t.common.none}</span> },
-    { key: "legalForm", label: tv.legalForm, value: v.legalForm },
+  /*
+   * Split on purpose.
+   *
+   * Twenty-three fields in one flat list means the tax number a scenario turns
+   * on sits between the SWIFT code and the star rating, and every record in
+   * the system reads as an undifferentiated wall. The first six identify the
+   * company and answer the question somebody opened the page with; the rest
+   * are the file.
+   *
+   * Every key still appears exactly once across the two, because a key's cell
+   * id is a published selector and rendering one twice would put a duplicate
+   * id on the page.
+   */
+  const identity = [
+    { key: "code", label: tv.code, value: <span className="mono">{v.code}</span> },
+    { key: "taxId", label: tv.taxId, value: <span className="mono">{v.taxId}</span> },
+    { key: "crNumber", label: tv.crNumber, value: <span className="mono">{v.crNumber}</span> },
     { key: "category", label: tv.category, value: v.category },
-    { key: "crNumber", label: tv.crNumber, value: v.crNumber },
+    { key: "paymentTermsDays", label: tv.paymentTermsDays, value: `${v.paymentTermsDays} ${t.common.days}` },
+    { key: "city", label: tv.city, value: v.city },
+  ];
+  const rows = [
+    { key: "name", label: tv.name, value: v.name },
+    { key: "legalForm", label: tv.legalForm, value: v.legalForm },
     { key: "crExpiry", label: tv.crExpiry, value: v.crExpiry },
-    { key: "taxId", label: tv.taxId, value: v.taxId },
     { key: "taxCertExpiry", label: tv.taxCertExpiry, value: v.taxCertExpiry },
     { key: "iban", label: tv.iban, value: formatIban(v.iban) },
     { key: "bankName", label: tv.bankName, value: v.bankName },
     { key: "swift", label: tv.swift, value: v.swift },
     { key: "currency", label: tv.currency, value: v.currency },
-    { key: "paymentTermsDays", label: tv.paymentTermsDays, value: String(v.paymentTermsDays) },
     { key: "contactName", label: tv.contactName, value: v.contactName },
     { key: "email", label: tv.email, value: v.email },
     { key: "phone", label: tv.phone, value: v.phone },
     { key: "addressLine", label: tv.addressLine, value: v.addressLine },
-    { key: "city", label: tv.city, value: v.city },
     { key: "country", label: tv.country, value: v.country },
     { key: "rating", label: tv.rating, value: String(v.rating) },
     { key: "blacklisted", label: tv.blacklisted, value: v.blacklisted ? t.common.yes : t.common.no },
   ];
   return (
     <Page
-      title={`${v.code} · ${v.name}`}
+      title={v.name}
+      subtitle={v.nameAr ? <span dir="rtl">{v.nameAr}</span> : undefined}
+      status={<Status status={v.status} testId={`vendor-status-${v.code}`} />}
       actions={
         <>
           {!readOnly ? (
@@ -66,9 +81,12 @@ export default async function VendorDetailPage({ params, searchParams }: { param
           {t.common.readOnly}
         </p>
       ) : null}
-      <div className="al-card" id={`vendor-detail-${v.code}`} data-testid={`vendor-detail-${v.code}`} data-shared={readOnly ? "1" : "0"}>
-        <Dl rows={rows} entity="vendor" code={v.code} />
-      </div>
+      <Facts entity="vendor" code={v.code} facts={identity} />
+      <Section title={t.common.allFields} testId="vendor-all-fields">
+        <div className="al-card" id={`vendor-detail-${v.code}`} data-testid={`vendor-detail-${v.code}`} data-shared={readOnly ? "1" : "0"}>
+          <Dl rows={rows} entity="vendor" code={v.code} />
+        </div>
+      </Section>
       <div className="mt-5">
         <Section title={t.cycle.complianceDocuments} testId="vendor-compliance-documents">
           <TableWrap>

@@ -101,6 +101,8 @@ export const ar: Dictionary = {
     language: "English",
   },
   common: {
+    allFields: "السجل الكامل",
+    days: "يوماً",
     all: "الكل",
     actions: "إجراءات",
     view: "عرض",

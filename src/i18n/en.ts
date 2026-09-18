@@ -99,6 +99,8 @@ export const en = {
     language: "العربية",
   },
   common: {
+    allFields: "The full record",
+    days: "days",
     all: "All",
     actions: "Actions",
     view: "View",
