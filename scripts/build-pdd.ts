@@ -396,7 +396,7 @@ const B: Block[] = [
     ["Status badge", "{entity}-status-{code} with data-status", "invoice-status-INV-2026-05012"],
     ["Document card / download", "{entity}-document with data-rendered; {entity}-download", "invoice-download"],
     ["Validation container", "#validation-errors with data-count, data-blocking; li[data-rule-id][data-severity]", "validation-error-PO-INV-PRICE"],
-    ["Launchpad tile", "tile-{queue} with data-count", "tile-invoices-pending"],
+    ["Work queue on the home screen", "tile-{queue} with data-count", "tile-invoices-pending"],
     ["Related document", "related-{kind}-{code}", "related-grn-GRN-2026-05003"],
   ] },
 

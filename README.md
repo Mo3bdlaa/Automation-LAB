@@ -39,7 +39,7 @@ every response carries `X-Robots-Tag: noindex`, and `robots.txt` denies all craw
 | **P1** Three-way match engine + GRN entry rules | `src/lib/validation/matching.ts` |
 | **P1** Invoice extraction screen, approve / reject / pay; GRN posting; quote award | `src/app/invoices`, `src/app/deliveries`, `src/app/rfqs` |
 | **P1** Bulk ZIP downloads per work queue, lazy render of vendor documents | `src/app/api/queues`, `src/app/api/documents` |
-| **P1** Enterprise-ERP styling (shell bar, tiles, object pages) | `src/app/globals.css`, `src/components/ui.tsx` |
+| **P1** Enterprise-ERP styling: grouped module sidebar, object pages, toolbar tables | `src/app/globals.css`, `src/components/shell/`, `src/components/ui.tsx` |
 | **P2** Personal API tokens (SHA-256 at rest, revocable), bearer auth beside the session cookie | `src/lib/api/tokens.ts`, `src/app/api/tokens` |
 | **P2** Full REST API over the whole cycle: vendors, items, POs, RFQs, deliveries, GRNs, invoices, extractions, payments, documents | `src/app/api/` |
 | **P2** Work queues with Orchestrator semantics: claim with a lease, complete, fail with retry, defer | `src/lib/api/work-items.ts`, `src/app/api/work-items` |

@@ -156,10 +156,25 @@ Every generated document watermarked `SPECIMEN - TRAINING ONLY`. `noindex` + rob
 deny — plausible fake IBANs and tax IDs must not be indexable.
 
 ## Look and feel
-Enterprise-ERP styling (shell bar, launchpad tiles, object pages, toolbar tables) so the
-target application resembles the systems students automate at work. Colours and fonts
-live in one token block (`src/app/globals.css`) and can be re-branded without touching
-components.
+Enterprise-ERP styling so the target application resembles the systems students automate
+at work: a sidebar grouping the modules in the order the work moves through them
+(procure to pay, master data, reference), a top bar carrying the breadcrumb and one
+search box, object pages that open with the record's identity and then its file, and
+toolbar tables with status tabs over them.
+
+Signed out it is an ordinary product site — a header, the page, the fine print — because
+the challenge and the leaderboard are open to anyone and a login wall in front of them
+would be a lie about what this is.
+
+That the data is fabricated is disclosed in three quiet places rather than one loud one:
+a chip in the top bar, the watermark printed into every document, and a paragraph in the
+footer. A banner across every page was tried first and was the single thing that made a
+working system read as a throwaway demo.
+
+Colours and fonts live in one token block (`src/app/globals.css`) and can be re-branded
+without touching components. The three faces are set through `next/font` under `al-`
+names, because Tailwind defines `--font-sans` and `--font-mono` itself and whichever won
+would otherwise come down to source order.
 
 ## Phases
 - **P0** auth boundary, tenants, selector-stable nav/tables, vendor+item master,

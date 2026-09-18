@@ -31,7 +31,7 @@ All lowercase, hyphen-separated. `id` and `data-testid` carry the same value.
 | Object header status | `{entity}-status-{code}` with `data-status` | `invoice-status-INV-2026-05012` |
 | Document card | `{entity}-document` with `data-document-id`, `data-rendered` | `invoice-document` |
 | Download link | `{entity}-download` | `po-download` |
-| Launchpad tile | `tile-{queue}` with `data-count` | `tile-invoices-pending` |
+| Work queue on the home screen | `tile-{queue}` with `data-count` | `tile-invoices-pending`. The id kept its old name when the tiles became a ranked queue: it is published in the process documents and in the scenario catalogue, so it is a contract, not a description. |
 | Extraction form field | `extraction-field-{field}` / `extraction-field-line-{n}-{field}` | `extraction-field-line-1-unitPrice` |
 | Related document link | `related-{kind}-{code}` | `related-grn-GRN-2026-05003` |
 | Validation station form | `validation-station-form` | with `#validation-document`, `#validation-fields`, `#validation-lines` |

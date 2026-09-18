@@ -186,9 +186,10 @@ Chromium render pipeline. Both are in.
   PO), approve / reject / pay an invoice.
 - Downloads: per-document attachment URLs plus bulk ZIPs per work queue
   (`/api/queues/{invoices-pending|pos-awaiting-invoice|vendor-applications|kind:<kind>}/download`).
-- UI restyled to an enterprise-ERP look (shell bar, launchpad tiles, object pages,
-  toolbar tables) so the target app resembles what students automate at work. Tokens
-  live in one CSS block for re-branding.
+- UI restyled to an enterprise-ERP look so the target app resembles what students
+  automate at work: a grouped module sidebar, a top bar with breadcrumb and search,
+  object pages, toolbar tables with status tabs. Tokens live in one CSS block for
+  re-branding. See `docs/spec.md` § Look and feel.
 
 ---
 
