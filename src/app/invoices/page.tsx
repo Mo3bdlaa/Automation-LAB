@@ -3,7 +3,7 @@ import { and, eq, ilike, inArray, or } from "drizzle-orm";
 import { INVOICE_STATUSES, invoices, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { LinkButton, ListFilter, PAGE_SIZE, Page, Pager, Status, TableWrap, Toolbar, parsePage } from "@/components/ui";
+import { LinkButton, ListFilter, PAGE_SIZE, Page, Pager, Status, StatusTabs, TableWrap, Toolbar, parsePage } from "@/components/ui";
 import { fmtNumber } from "@/lib/generator/money";
 
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -18,6 +18,14 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   if (status) conds.push(eq(invoices.status, status as (typeof INVOICE_STATUSES)[number]));
   const where = conds.length ? and(...conds) : undefined;
   const total = await session.tdb.count(invoices, where);
+  // The tabs' counts ignore the status filter but honour the search, so
+  // switching queue keeps whatever you were looking for.
+  const searchOnly = q ? conds[0] : undefined;
+  const TAB_STATUSES = ["pending_extraction", "exception", "approved", "paid"] as const;
+  const [tabCounts, totalForSearch] = await Promise.all([
+    Promise.all(TAB_STATUSES.map((st) => session.tdb.count(invoices, searchOnly ? and(searchOnly, eq(invoices.status, st)) : eq(invoices.status, st)))),
+    session.tdb.count(invoices, searchOnly),
+  ]);
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const rows = await session.tdb.list(invoices, { where, orderBy: [{ column: invoices.receivedDate, direction: "desc" }, { column: invoices.internalNumber, direction: "desc" }], limit: PAGE_SIZE, offset: (Math.min(page, pageCount) - 1) * PAGE_SIZE });
   const vendorIds = [...new Set(rows.map((r) => r.vendorId).filter(Boolean))] as string[];
@@ -26,7 +34,14 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   const tc = t.cycle;
   const hidden = (inv: (typeof rows)[number]) => inv.status === "pending_extraction";
   return (
-    <Page title={tc.invoices} subtitle="AP inbox · dispatcher queue: status = pending extraction">
+    <Page title={tc.invoices} subtitle={t.invoicesPage.subtitle}>
+      <StatusTabs
+        entity="invoices"
+        current={status}
+        allLabel={t.common.all}
+        allCount={totalForSearch}
+        tabs={TAB_STATUSES.map((st, i) => ({ value: st, label: t.invoiceStatus[st], count: tabCounts[i] }))}
+      />
       <Toolbar
         title={
           <ListFilter entity="invoices" submitLabel={t.common.filter}>
@@ -74,7 +89,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                   <td id={`invoices-cell-${inv.internalNumber}-number`} data-testid={`invoices-cell-${inv.internalNumber}-number`}>{h ? <span className="text-muted">—</span> : inv.number}</td>
                   <td id={`invoices-cell-${inv.internalNumber}-poNumber`} data-testid={`invoices-cell-${inv.internalNumber}-poNumber`}>{h ? <span className="text-muted">—</span> : inv.printedPoNumber ?? t.common.none}</td>
                   <td id={`invoices-cell-${inv.internalNumber}-status`} data-testid={`invoices-cell-${inv.internalNumber}-status`}>
-                    <Status status={inv.status} />
+                    <Status status={inv.status} label={t.invoiceStatus[inv.status]} />
                   </td>
                   <td className="num" id={`invoices-cell-${inv.internalNumber}-grandTotal`} data-testid={`invoices-cell-${inv.internalNumber}-grandTotal`}>
                     {h ? "—" : `${fmtNumber(inv.grandTotal)} ${inv.currency}`}

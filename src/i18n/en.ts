@@ -59,6 +59,18 @@ export const en = {
     ],
     botNote: "Automating this page is fair game: the sign-in endpoint is documented, and your bot can hold a credential of its own.",
   },
+  invoiceStatus: {
+    pending_extraction: "To read",
+    extracted: "Read",
+    matched: "Matched",
+    exception: "Held",
+    approved: "Approved",
+    rejected: "Rejected",
+    paid: "Paid",
+  },
+  invoicesPage: {
+    subtitle: "Everything the supplier has billed for, and where each one has got to.",
+  },
   search: {
     prompt: "Type a document number — an invoice, an order, a request for quotation, a delivery note, a goods receipt, a vendor code or an item code.",
     nothing: "Nothing in your workspace carries that number.",
@@ -87,6 +99,7 @@ export const en = {
     language: "العربية",
   },
   common: {
+    all: "All",
     actions: "Actions",
     view: "View",
     edit: "Edit",

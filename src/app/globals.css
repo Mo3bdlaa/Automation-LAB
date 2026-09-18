@@ -199,6 +199,15 @@ a { color: var(--al-primary); }
 .tile .tile-sub { font-size: .78rem; color: var(--al-muted); margin-top: .1rem; }
 .tile .tile-count { font-family: var(--al-font-mono), ui-monospace, monospace; font-size: 1.375rem; font-weight: 500; color: var(--al-text); margin-top: .25rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .tile .tile-count small { font-size: .75rem; color: var(--al-muted); margin-inline-start: .35rem; }
+/* Status tabs: the same filter as the select, laid out and counted. */
+.status-tabs { display: flex; flex-wrap: wrap; gap: .125rem; align-items: center; background: var(--al-surface); border: 1px solid var(--al-border); border-bottom: none; border-radius: var(--al-radius) var(--al-radius) 0 0; padding: 0 .75rem; }
+.status-tabs a { display: inline-flex; align-items: center; gap: .4375rem; padding: .75rem .8125rem; font-size: .8125rem; color: var(--al-muted); text-decoration: none; }
+.status-tabs a:hover { color: var(--al-text); }
+.status-tabs a[data-current="true"] { color: var(--al-primary); font-weight: 600; box-shadow: inset 0 -2px 0 var(--al-primary); }
+.status-tabs .tab-count { font-family: var(--al-font-mono), ui-monospace, monospace; font-size: .6875rem; padding: .0625rem .375rem; border-radius: 9px; background: #edf1f4; color: var(--al-muted); }
+.status-tabs a[data-current="true"] .tab-count { background: var(--al-primary-wash); color: var(--al-primary-hover); }
+.status-tabs + .toolbar { border-radius: 0; }
+
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; background: var(--al-surface); border: 1px solid var(--al-border); border-bottom: none; border-radius: var(--al-radius) var(--al-radius) 0 0; padding: .5rem .75rem; }
 .toolbar .toolbar-title { font-weight: 600; margin-inline-end: auto; }
 .toolbar + .table-wrap table.al-table { border-radius: 0 0 var(--al-radius) var(--al-radius); }

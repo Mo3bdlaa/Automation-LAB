@@ -55,6 +55,57 @@ export function Section({ title, children, actions, testId }: { title: string; c
   );
 }
 
+/**
+ * Status tabs above a list.
+ *
+ * The status filter was a `<select>`, which hides the shape of the work: you
+ * could not see that eighteen invoices were held without opening a dropdown
+ * and choosing. These are the same filter with its options laid out and
+ * counted, which is what makes a worklist navigable at a glance.
+ *
+ * The select stays. It is `{entity}-filter-status`, a published selector, and
+ * bots filter through it — these tabs are for the person.
+ *
+ * Selector: `{entity}-tab-{status}` with `data-current` and `data-count`,
+ * matching the leaderboard's `board-tab-{slug}`.
+ */
+export function StatusTabs({
+  entity,
+  current,
+  tabs,
+  allLabel,
+  allCount,
+}: {
+  entity: string;
+  current: string;
+  tabs: { value: string; label: string; count: number }[];
+  allLabel: string;
+  allCount: number;
+}) {
+  const shown = [{ value: "", label: allLabel, count: allCount }, ...tabs.filter((t) => t.count > 0 || t.value === current)];
+  return (
+    <nav className="status-tabs" id={`${entity}-tabs`} data-testid={`${entity}-tabs`} aria-label={allLabel}>
+      {shown.map((t) => {
+        const here = t.value === current;
+        return (
+          <Link
+            key={t.value || "all"}
+            id={`${entity}-tab-${t.value || "all"}`}
+            data-testid={`${entity}-tab-${t.value || "all"}`}
+            data-current={here ? "true" : "false"}
+            data-count={t.count}
+            aria-current={here ? "page" : undefined}
+            href={t.value ? `/${entity}?status=${t.value}` : `/${entity}`}
+          >
+            {t.label}
+            <span className="tab-count">{t.count}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function Toolbar({ title, children }: { title?: ReactNode; children?: ReactNode }) {
   return (
     <div className="toolbar">
@@ -220,10 +271,18 @@ const TONES: Record<string, "success" | "warning" | "error" | "info" | "neutral"
 };
 
 /** Status badge. The visible text is the status itself so bots can read it; `data-status` carries the raw value. */
-export function Status({ status, testId }: { status: string; testId?: string }) {
+/**
+ * A status chip.
+ *
+ * `label` is what a person reads; `data-status` is what a bot reads, and that
+ * is the one docs/selectors.md promises — the text is explicitly not stable.
+ * So "pending_extraction" can be shown as "To read" to match the tab above it
+ * without moving anything a bot depends on.
+ */
+export function Status({ status, label, testId }: { status: string; label?: string; testId?: string }) {
   return (
     <span className="pill" id={testId} data-testid={testId} data-status={status} data-tone={TONES[status] ?? "neutral"}>
-      {status.replace(/_/g, " ")}
+      {label ?? status.replace(/_/g, " ")}
     </span>
   );
 }

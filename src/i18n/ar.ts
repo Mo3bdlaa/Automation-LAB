@@ -61,6 +61,18 @@ export const ar: Dictionary = {
     ],
     botNote: "أتمتة هذه الصفحة مسموحة تماماً: واجهة تسجيل الدخول موثّقة، ويمكن لروبوتك أن يحمل بيانات دخول خاصة به.",
   },
+  invoiceStatus: {
+    pending_extraction: "بانتظار القراءة",
+    extracted: "مقروءة",
+    matched: "مطابَقة",
+    exception: "موقوفة",
+    approved: "معتمدة",
+    rejected: "مرفوضة",
+    paid: "مدفوعة",
+  },
+  invoicesPage: {
+    subtitle: "كل ما طالب به الموردون، وأين وصلت كل فاتورة.",
+  },
   search: {
     prompt: "اكتب رقم مستند — فاتورة أو أمر شراء أو طلب عرض سعر أو إشعار توريد أو إشعار استلام أو رمز مورد أو رمز صنف.",
     nothing: "لا يوجد في مساحتك مستند بهذا الرقم.",
@@ -89,6 +101,7 @@ export const ar: Dictionary = {
     language: "English",
   },
   common: {
+    all: "الكل",
     actions: "إجراءات",
     view: "عرض",
     edit: "تعديل",

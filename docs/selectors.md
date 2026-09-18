@@ -15,6 +15,7 @@ All lowercase, hyphen-separated. `id` and `data-testid` carry the same value.
 | Top-level nav link | `nav-{route}` | `nav-vendors`, `nav-purchase-orders` |
 | Page heading | `page-title` | |
 | Search / filter input | `{entity}-filter-{field}` | `vendors-filter-q` |
+| List status tab | `{entity}-tab-{status\|all}` with `data-current`, `data-count` | `invoices-tab-exception`, inside `#invoices-tabs` |
 | Table | `{entity}-table` | `vendors-table` |
 | Table row | `{entity}-row-{code}` | `vendors-row-V-00042` |
 | Table cell | `{entity}-cell-{code}-{field}` | `vendors-cell-V-00042-name` |
