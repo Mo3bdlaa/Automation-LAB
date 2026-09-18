@@ -52,7 +52,7 @@ SLIDES = [
 
     # 02 — contents
     {"fill": dict({
-        "4": [[("— Bonus", "n"), ("   /   ", "m"), ("CONTENTS", "n")]],
+        "4": eyebrow("BONUS", "CONTENTS"),
         "5": line(b("What we'll cover.")),
     }, **rows(
         ("01", [b("What the lab is"), n("  — a working system, not a practice form.")]),
@@ -155,8 +155,8 @@ SLIDES = [
         ("04", [b("Award the quotation"), n(" — 6 requests. Compare, award the right one, raise the order.")]),
     ))},
 
-    # 10 — how a run is scored (five rows)
-    {"drop": [16, 17],
+    # 10 — how a run is scored (five rows; the sixth row's rule goes too)
+    {"drop": [16, 17], "trim": 6.3,
      "fill": dict({
         "4": eyebrow("05.1", "HOW A RUN IS SCORED"),
         "5": line(b("Five parameters, published before you start.")),
@@ -196,7 +196,7 @@ SLIDES = [
         ("✓", [n("Whether your bot read the page correctly and then did the right thing about it.")]),
         ("✗", [n("How clever the code is. Share it freely — the lab scores the work, not the author.")]),
         ("✗", [n("How fast you type. Time is five points in a hundred — the smallest of the five, on purpose.")]),
-    ), **{"12": [[("Easy to game by sharing code, hard to game by guessing — copy whatever you like, you still have to read the page.", "n")]]})},
+    ), **{"12": [[("Copy any code you like. You still have to read the page.", "n")]]})},
 
     # 13 — live together
     {"fill": dict({

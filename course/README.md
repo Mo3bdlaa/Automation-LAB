@@ -2,6 +2,7 @@
 
 `automation-lab-deck.pptx` — a two-hour bonus session that introduces the lab,
 walks a run live, and sets the task. Eighteen slides.
+`automation-lab-deck.pdf` is the same deck printed, for sending or reading.
 
 ## Why it is built rather than drawn
 
@@ -22,9 +23,10 @@ deck two slides in.
 
 ```bash
 ./rebuild.sh                    # writes automation-lab-deck.pptx
+pnpm deck:preview               # writes the PDF and a PNG of every slide
 ```
 
-Edit the words in `content.py` and run it again. Shapes are addressed by the
+Edit the words in `content.py` and run both again. Shapes are addressed by the
 order they appear on the source slide, so changing copy never touches geometry.
 
 | File | What it is |
@@ -32,25 +34,29 @@ order they appear on the source slide, so changing copy never touches geometry.
 | `content.py` | every word the deck says |
 | `fill.py` | the mechanics — run replacement, the progress rule, slide numbering |
 | `slide-order.json` | which source slide backs each of the 18 positions |
+| `preview.py` | the package's geometry as HTML, so a browser can print it |
 | `assets/source-session-deck.pptx` | the session deck the house style comes from |
 
-## What was checked, and what was not
+## What was checked
 
-Checked: the package validates against the template (`validate.py --original`);
-the gold rule measures `n/18` of the slide width on every slide; no text from the
-source session survives anywhere; and every paragraph was measured against the
-box it sits in and against the line it replaced, because the boxes are sized for
-the original's copy and nothing here should be longer than what those boxes are
-already known to hold.
+The package validates against the template (`validate.py --original`); the gold
+rule measures `n/18` of the slide width on every slide; and no text from the
+source session survives anywhere.
 
-**Not checked: how it looks.** The environment this was built in has no
-LibreOffice and no PDF rasteriser, so no slide was ever rendered. The fit
-estimates above are arithmetic, not a photograph, and Geist is not installed here
-either — PowerPoint will lay it out slightly differently from any estimate.
+Every slide has also been rendered and looked at. `pnpm deck:preview` reads the
+geometry straight out of the package, lays it out in HTML at exactly
+13.333 × 7.5in, prints it with the same headless Chromium the app uses for its
+own documents, and reports any text box whose content is taller than the box.
+All eighteen render clean.
 
-Open it once before you present it. The two slides worth looking at first are
-**12** and **17**, whose paragraphs are the longest relative to the lines they
-replaced.
+One caveat, and it is the useful kind. Geist is neither installed here nor
+embedded in the file, so the render substitutes a wider grotesque: anything that
+fits in the PNGs fits in PowerPoint, but a line that looks comfortable here is
+not proof of anything narrower. Position, size, colour, letter-spacing and the
+gold rule are read from the package and are exact.
+
+Open it once before you present it anyway — the PDF is a print of a
+reconstruction, not of PowerPoint.
 
 ## What is not here
 

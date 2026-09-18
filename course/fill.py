@@ -96,6 +96,24 @@ def drop_shapes(doc, indices):
         shapes[i].parentNode.removeChild(shapes[i])
 
 
+def trim_below(doc, inches):
+    """
+    Remove blank furniture below a given height.
+
+    The row archetypes carry one hairline rule per row, and the rules hold no
+    text — so `drop`, which addresses text shapes, cannot reach them. A slide
+    that uses fewer rows than its source is left with the leftover rules
+    hanging under the last row. This sweeps them.
+    """
+    limit = inches * 914400
+    for sp in list(doc.getElementsByTagName("p:sp")):
+        if any(t.firstChild for t in sp.getElementsByTagName("a:t")):
+            continue
+        off = sp.getElementsByTagName("a:off")
+        if off and int(off[0].getAttribute("y")) >= limit:
+            sp.parentNode.removeChild(sp)
+
+
 def set_progress(doc, n, total):
     """The gold rule along the top edge: its width is how far through you are."""
     for sp in doc.getElementsByTagName("p:sp"):
@@ -121,6 +139,8 @@ def build(order_path, root):
         doc = minidom.parse(path)
         if slide.get("drop"):
             drop_shapes(doc, slide["drop"])
+        if slide.get("trim"):
+            trim_below(doc, slide["trim"])
         shapes = text_shapes(doc)
 
         # The furniture every slide carries.
