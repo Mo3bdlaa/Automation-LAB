@@ -38,7 +38,13 @@ export function Landing({ t }: { t: Dictionary }) {
           </div>
 
           {/* What you are signing up to look at. */}
-          <div className="flex-1 overflow-hidden rounded-lg border border-border-strong shadow-[0_12px_32px_rgba(22,34,46,0.12)]">
+          {/*
+            A picture of the system, and only that. Its innards are fixed
+            widths, so below the breakpoint where it has room it is hidden
+            rather than squeezed into something that misrepresents the thing
+            it is advertising.
+          */}
+          <div className="hidden flex-1 overflow-hidden rounded-lg border border-border-strong shadow-[0_12px_32px_rgba(22,34,46,0.12)] lg:block">
             <div className="flex h-8 items-center gap-1.5 border-b border-border bg-[#edf1f4] px-3">
               <span className="h-2 w-2 rounded-full bg-border-strong" />
               <span className="h-2 w-2 rounded-full bg-border-strong" />

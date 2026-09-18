@@ -119,7 +119,15 @@ a { color: var(--al-primary); }
  * strip of thirteen links, which told you nothing about what led to what.
  */
 .app { display: flex; min-height: 100vh; }
-.app-main { flex-grow: 1; display: flex; flex-direction: column; min-width: 0; }
+/*
+ * min-width AND max-width, both deliberate. A flex item defaults to
+ * min-width:auto, which means "never shrink below your content" — so one wide
+ * table pushed this column to 846px inside a 390px phone and took the whole
+ * page sideways with it. The max-width stops the same happening through any
+ * other route.
+ */
+.app-main { flex-grow: 1; display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
+.app-main > main, .app-main > .page-header { max-width: 100%; }
 
 .side { width: 15rem; flex-shrink: 0; background: var(--al-shell); color: var(--al-shell-text); display: flex; flex-direction: column; }
 .side a { color: var(--al-shell-dim); text-decoration: none; }
@@ -174,6 +182,13 @@ a { color: var(--al-primary); }
 .site-footer { background: var(--al-shell); color: var(--al-shell-dim); margin-top: auto; }
 .site-footer .footer-inner { max-width: 77.5rem; margin: 0 auto; padding: 1.375rem 2rem; display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem; font-size: .78125rem; line-height: 1.6; }
 .site-footer a { color: #fff; }
+/*
+ * Wide enough to stop the fine print becoming a column beside the links, and
+ * in the stylesheet rather than inline so the narrow-screen rule below can
+ * actually override it — an inline min-width wins over a media query, which
+ * is how this put ten pixels of horizontal scroll on every phone.
+ */
+.site-footer .footer-note { flex-grow: 1; min-width: 24rem; }
 
 /* The bar that sits across the application while a scored run is open. */
 .run-bar { background: var(--al-lab-deep); color: #fff; display: flex; flex-wrap: wrap; align-items: center; gap: 1.25rem; padding: .6875rem 1.375rem; }
@@ -211,7 +226,8 @@ a { color: var(--al-primary); }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; background: var(--al-surface); border: 1px solid var(--al-border); border-bottom: none; border-radius: var(--al-radius) var(--al-radius) 0 0; padding: .5rem .75rem; }
 .toolbar .toolbar-title { font-weight: 600; margin-inline-end: auto; }
 .toolbar + .table-wrap table.al-table { border-radius: 0 0 var(--al-radius) var(--al-radius); }
-.table-wrap { overflow-x: auto; background: var(--al-surface); border: 1px solid var(--al-border); border-radius: var(--al-radius); }
+/* The table scrolls inside this, never the page. */
+.table-wrap { overflow-x: auto; max-width: 100%; background: var(--al-surface); border: 1px solid var(--al-border); border-radius: var(--al-radius); }
 .toolbar + .table-wrap { border-radius: 0 0 var(--al-radius) var(--al-radius); }
 
 /* Tables */
@@ -298,7 +314,7 @@ table.al-table tfoot td { background: var(--al-surface-2); }
   .pub-inner { height: auto; flex-wrap: wrap; gap: .75rem 1rem; padding: .875rem 1rem; }
   .pub nav { order: 3; flex-basis: 100%; overflow-x: auto; }
   .site-footer .footer-inner { padding: 1.25rem 1rem; }
-  .site-footer .footer-inner p { min-width: 0; }
+  .site-footer .footer-note { min-width: 0; }
   .run-bar { padding: .625rem 1rem; gap: .5rem .75rem; }
   .run-bar .run-clock { font-size: 1rem; }
 }

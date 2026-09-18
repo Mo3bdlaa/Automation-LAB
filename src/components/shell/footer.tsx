@@ -11,7 +11,7 @@ export function SiteFooter({ t }: { t: Dictionary }) {
   return (
     <footer className="site-footer" data-testid="site-footer">
       <div className="footer-inner">
-        <p style={{ flexGrow: 1, minWidth: "24rem" }}>{t.specimenLong}</p>
+        <p className="footer-note">{t.specimenLong}</p>
         <a href="/api/docs">{t.nav.apiDocs}</a>
         <a href="/api/health">{t.footer.status}</a>
       </div>

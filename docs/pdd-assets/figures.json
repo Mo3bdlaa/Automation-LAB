@@ -3,8 +3,8 @@
     "id": "01-launchpad",
     "title": "Launchpad: work queues after sign-in",
     "file": "docs/pdd-assets/01-launchpad.png",
-    "width": 1920,
-    "height": 936,
+    "width": 1821,
+    "height": 1350,
     "scale": 1.5,
     "callouts": [
       {
@@ -33,14 +33,14 @@
         "text": "Navigation. Each link carries a stable id (nav-invoices, nav-grns, …)."
       }
     ],
-    "bytes": 135275
+    "bytes": 205078
   },
   {
     "id": "02-invoice-queue",
     "title": "AP inbox filtered to invoices pending extraction",
     "file": "docs/pdd-assets/02-invoice-queue.png",
-    "width": 1920,
-    "height": 1035,
+    "width": 1307,
+    "height": 1034,
     "scale": 1.5,
     "callouts": [
       {
@@ -69,19 +69,19 @@
         "text": "Pagination by URL. data-page, data-page-count and data-total let a bot loop without scraping text."
       }
     ],
-    "bytes": 268684
+    "bytes": 201086
   },
   {
     "id": "03-invoice-pending",
     "title": "Invoice object page before extraction: only the PDF is available",
     "file": "docs/pdd-assets/03-invoice-pending.png",
-    "width": 1920,
-    "height": 1211,
+    "width": 1572,
+    "height": 1284,
     "scale": 1.5,
     "callouts": [
       {
         "n": 1,
-        "selector": "#invoice-status-INV-2026-05044",
+        "selector": "#invoice-status-INV-2026-05038",
         "text": "Status badge with data-status=\"pending_extraction\"."
       },
       {
@@ -100,14 +100,14 @@
         "text": "Extraction form: the student or bot types what the PDF shows."
       }
     ],
-    "bytes": 171895
+    "bytes": 155689
   },
   {
     "id": "04-extraction-form",
     "title": "Extraction form: header fields and line items",
     "file": "docs/pdd-assets/04-extraction-form.png",
-    "width": 1241,
-    "height": 1415,
+    "width": 1001,
+    "height": 1425,
     "scale": 1.5,
     "callouts": [
       {
@@ -131,19 +131,19 @@
         "text": "Submitting stores the extraction and runs the three-way match on the submitted values."
       }
     ],
-    "bytes": 120726
+    "bytes": 103708
   },
   {
     "id": "05-match-exception",
     "title": "Three-way match result: violations carry stable rule IDs",
     "file": "docs/pdd-assets/05-match-exception.png",
-    "width": 1920,
-    "height": 1032,
+    "width": 1572,
+    "height": 1155,
     "scale": 1.5,
     "callouts": [
       {
         "n": 1,
-        "selector": "#invoice-status-INV-2026-05044",
+        "selector": "#invoice-status-INV-2026-05038",
         "text": "The invoice moved to Exception because at least one blocking rule fired."
       },
       {
@@ -167,19 +167,19 @@
         "text": "Re-run match after a corrected extraction."
       }
     ],
-    "bytes": 217402
+    "bytes": 216964
   },
   {
     "id": "06-purchase-order",
     "title": "Purchase order object page with its related documents",
     "file": "docs/pdd-assets/06-purchase-order.png",
-    "width": 1920,
-    "height": 1211,
+    "width": 1572,
+    "height": 1257,
     "scale": 1.5,
     "callouts": [
       {
         "n": 1,
-        "selector": "#po-detail-PO-2026-05059",
+        "selector": "#po-detail-PO-2026-05060",
         "text": "Header facts: vendor, dates, payment terms, cost centre."
       },
       {
@@ -198,14 +198,14 @@
         "text": "Lines with quantity, unit of measure, price and tax code: the reference values for the match."
       }
     ],
-    "bytes": 217082
+    "bytes": 182320
   },
   {
     "id": "07-vendor-compliance",
     "title": "Vendor master record and its compliance documents",
     "file": "docs/pdd-assets/07-vendor-compliance.png",
-    "width": 1920,
-    "height": 1211,
+    "width": 1392,
+    "height": 1284,
     "scale": 1.5,
     "callouts": [
       {
@@ -224,14 +224,14 @@
         "text": "The licence PDF renders on first download, then is cached."
       }
     ],
-    "bytes": 143018
+    "bytes": 124344
   },
   {
     "id": "08-goods-receipt",
     "title": "Posting a goods receipt: over-receipt is rejected by rule",
     "file": "docs/pdd-assets/08-goods-receipt.png",
-    "width": 1310,
-    "height": 671,
+    "width": 1155,
+    "height": 732,
     "scale": 1.5,
     "callouts": [
       {
@@ -250,14 +250,14 @@
         "text": "Posting updates the purchase order to Partially received or Received."
       }
     ],
-    "bytes": 72805
+    "bytes": 65273
   },
   {
     "id": "09-rule-catalogue",
     "title": "Validation rule catalogue, also available as JSON at /api/rules",
     "file": "docs/pdd-assets/09-rule-catalogue.png",
-    "width": 1920,
-    "height": 1211,
+    "width": 1572,
+    "height": 1284,
     "scale": 1.5,
     "callouts": [
       {
@@ -271,14 +271,14 @@
         "text": "Each row carries data-severity."
       }
     ],
-    "bytes": 253851
+    "bytes": 212250
   },
   {
     "id": "10-sandbox",
     "title": "Sandbox page: seed, reset and the background job log",
     "file": "docs/pdd-assets/10-sandbox.png",
-    "width": 1920,
-    "height": 1211,
+    "width": 1404,
+    "height": 1284,
     "scale": 1.5,
     "callouts": [
       {
@@ -297,14 +297,14 @@
         "text": "Background jobs: provisioning and PDF rendering."
       }
     ],
-    "bytes": 172598
+    "bytes": 144907
   },
   {
     "id": "11-arabic-rtl",
     "title": "The same screen in Arabic: the interface switches to right-to-left",
     "file": "docs/pdd-assets/11-arabic-rtl.png",
-    "width": 1920,
-    "height": 1302,
+    "width": 1583,
+    "height": 1350,
     "scale": 1.5,
     "callouts": [
       {
@@ -318,7 +318,7 @@
         "text": "Tables, labels and status badges are translated; ids and data-testid values stay identical."
       }
     ],
-    "bytes": 283615
+    "bytes": 247888
   },
   {
     "id": "12-document-invoice",

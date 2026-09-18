@@ -72,7 +72,26 @@ const width = await mob.$eval(".app-main", (el) => Math.round(el.getBoundingClie
 console.log(`signed in as ${email}`);
 console.log(`module links reachable from the phone menu: ${links}`);
 console.log(`the work gets ${width}px of a 390px screen`);
+
+/*
+ * Sideways scroll, measured rather than looked for.
+ *
+ * Ten pixels of it is invisible in a screenshot and horrible on a phone, and
+ * it came from a min-width set inline — which a media query cannot override,
+ * so the rule written to prevent exactly this did nothing. Both the public
+ * pages and the signed-in ones, because the two have different chrome.
+ */
+const overflows = [];
+for (const path of ["/", "/challenges", "/login", "/invoices", "/vendors"]) {
+  await mob.goto(`${BASE}${path}`, { waitUntil: "domcontentloaded" });
+  await mob.waitForTimeout(250);
+  const o = await mob.evaluate(() => ({ doc: document.documentElement.scrollWidth, win: window.innerWidth }));
+  if (o.doc > o.win + 1) overflows.push(`${path} scrolls ${o.doc - o.win}px sideways`);
+}
+console.log(overflows.length ? overflows.map((o) => `  ! ${o}`).join("\n") : "nothing scrolls sideways at 390px");
+
 await browser.close();
 if (links < 10) throw new Error(`only ${links} module links are reachable on a phone`);
 if (width < 360) throw new Error(`the content column is ${width}px on a 390px screen`);
+if (overflows.length) throw new Error(overflows.join("; "));
 console.log("\nShell looks right at both widths.");
