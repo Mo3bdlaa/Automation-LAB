@@ -256,3 +256,46 @@ table.al-table tfoot td { background: var(--al-surface-2); }
 .kv-list > div { display: flex; gap: .5rem; border-bottom: 1px solid var(--al-border); padding: .35rem 0; }
 .kv-list dt { width: 11rem; flex-shrink: 0; color: var(--al-muted); font-size: .8rem; }
 .kv-list dd { word-break: break-all; }
+
+/*
+ * Narrow screens.
+ *
+ * Last in the file on purpose: these override the rules above, and a media
+ * query does not raise specificity — put this block earlier and the desktop
+ * rules simply win, which is exactly what happened the first time and left
+ * the top bar overlapping the page title on a phone.
+ *
+ * The sidebar is a fixed column, right at a desk and wrong on a phone: at
+ * 390px it would leave the work about 150px. Below 60rem the shell stacks and
+ * the module list collapses behind the button in the sidebar's header. The
+ * links stay in the DOM either way — collapsing is visual only, so anything
+ * reading the page still finds them.
+ */
+@media (max-width: 59.999rem) {
+  .app { flex-direction: column; }
+  .side { width: 100%; }
+  .side-brand { border-bottom: none; flex-grow: 1; }
+  .side-head { display: flex; align-items: center; border-bottom: 1px solid rgba(255,255,255,.1); }
+  .side-burger { display: inline-flex; }
+  .side-nav { display: none; max-height: 60vh; border-bottom: 1px solid rgba(255,255,255,.1); }
+  .side[data-open="true"] .side-nav { display: flex; }
+
+  .topbar { height: auto; flex-wrap: wrap; gap: .5rem .75rem; padding: .625rem 1rem; }
+  .topbar-search { order: 3; max-width: none; flex-basis: 100%; }
+  .topbar-end { margin-inline-start: auto; gap: .625rem; }
+  .topbar-end .env-chip { order: 4; }
+
+  .page-header .mx-auto { padding-inline: 1rem; }
+  .pub-inner { height: auto; flex-wrap: wrap; gap: .75rem 1rem; padding: .875rem 1rem; }
+  .pub nav { order: 3; flex-basis: 100%; overflow-x: auto; }
+  .site-footer .footer-inner { padding: 1.25rem 1rem; }
+  .site-footer .footer-inner p { min-width: 0; }
+  .run-bar { padding: .625rem 1rem; gap: .5rem .75rem; }
+  .run-bar .run-clock { font-size: 1rem; }
+}
+
+/* At a desk the module list is simply the nav, and there is nothing to open. */
+@media (min-width: 60rem) {
+  .side-burger { display: none; }
+  .side-nav { display: flex; }
+}

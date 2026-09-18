@@ -215,6 +215,12 @@ export const ar: Dictionary = {
     guideShow: "إظهار الدليل",
   },
   dashboard: {
+    posTitle: "أوامر استُلمت بانتظار الفاتورة",
+    posDetail: "البضاعة وصلت ولم تُقدَّم عنها فاتورة بعد",
+    tileVendors: "على قائمة المعتمدين",
+    tileItems: "في الكتالوج",
+    tilePurchaseOrders: "صادرة هذه الفترة",
+    tileRules: "ما يمكن لروبوتك التفرّع عليه",
     queueTitle: "قائمة عملك",
     queueLead: "مرتبة حسب ما يعطّل بقية العمل",
     queueEmpty: "لا شيء بانتظارك. كل قوائم القسم خالية.",

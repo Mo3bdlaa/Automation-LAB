@@ -27,7 +27,8 @@
     "bot:smoke": "node scripts/bot-credential-smoke.mjs",
     "blob:check": "tsx scripts/blob-check.ts",
     "scorer:proof": "tsx scripts/scorer-proof.ts",
-    "pdf:proof": "tsx scripts/pdf-proof.ts"
+    "pdf:proof": "tsx scripts/pdf-proof.ts",
+    "shell:shots": "node scripts/shell-shots.mjs"
   },
   "dependencies": {
     "@sparticuz/chromium": "^153.0.0",

@@ -213,6 +213,12 @@ export const en = {
     guideShow: "Show walkthrough",
   },
   dashboard: {
+    posTitle: "Orders received, awaiting an invoice",
+    posDetail: "Goods are in, nothing has been billed for them yet",
+    tileVendors: "On the approved list",
+    tileItems: "In the catalogue",
+    tilePurchaseOrders: "Raised this period",
+    tileRules: "What your bot can branch on",
     queueTitle: "Your queue",
     queueLead: "Ordered by what blocks the most downstream work",
     queueEmpty: "Nothing is waiting on you. Every queue in the department is clear.",
