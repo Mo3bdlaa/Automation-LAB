@@ -79,7 +79,7 @@ export const SCENARIOS: Scenario[] = [
     titleAr: "الحسابات الدائنة: معالجة الفواتير",
     tagline: "Read the invoice, match it against the order and the goods received, then approve, reject or hold.",
     brief:
-      "Al-Nahda receives supplier invoices as PDFs. Accounts payable reads each one, checks it against the purchase order and the goods receipts, and either approves it for payment or sends it back. Roughly a third of the invoices have something wrong with them, and the ones that are wrong are the ones that matter.",
+      "Accounts payable receives supplier invoices as PDFs. Accounts payable reads each one, checks it against the purchase order and the goods receipts, and either approves it for payment or sends it back. Roughly a third of the invoices have something wrong with them, and the ones that are wrong are the ones that matter.",
     difficulty: 3,
     parSecondsPerItem: 90,
     queue: "invoices-pending",

@@ -259,7 +259,7 @@ right-to-left with English as the secondary script, prints Eastern Arabic numera
 about two in five of those vendors, and shows a Hijri date beside the ISO one — the ISO
 date is always there, because a grader has to be able to read it. Ground truth records both
 scripts of a name or description (`alternates`), so a bot that read the Arabic name scores
-the same as one that read the English name. Anything Al-Nahda itself issues (RFQ, purchase
+the same as one that read the English name. Anything the buyer itself issues (RFQ, purchase
 order, goods receipt) stays bilingual.
 
 **Field positions.** The renderer measures every element the templates tag with

@@ -102,7 +102,7 @@ export async function buildMasterSet(log: (m: string) => void = () => {}): Promi
   const vendorById = new Map(vendors.map((v) => [v.id, v]));
   const itemNameArByCode = new Map(items.filter((i) => i.nameAr).map((i) => [i.code, i.nameAr!]));
 
-  // A vendor prints its own paperwork in its own script; anything Al-Nahda
+  // A vendor prints its own paperwork in its own script; anything the buyer
   // issues (RFQ, purchase order, goods receipt) stays bilingual.
   const VENDOR_ISSUED: ReadonlySet<DocumentKind> = new Set(["quote", "delivery_note", "invoice", "receipt", "vendor_licence", "vendor_tax_card", "vendor_bank_letter", "vendor_trade_licence"]);
 

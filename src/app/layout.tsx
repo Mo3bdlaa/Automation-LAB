@@ -46,7 +46,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale} dir={dir} className={fonts}>
       <body className="min-h-screen bg-bg text-ink">
         {principal ? (
-          // Signed in, this is Al-Nahda's system: a sidebar of modules and a
+          // Signed in, this is the company's system: a sidebar of modules and a
           // bar that says where you are. No footer — an application does not
           // need one, and the fine print belongs where visitors read it.
           <div className="app">

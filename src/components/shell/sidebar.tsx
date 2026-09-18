@@ -10,7 +10,7 @@ import { SideToggle } from "./side-toggle";
  *
  * Grouped by where the work sits rather than listed flat, and headed by the
  * company whose system this is — the participant is meant to feel they have
- * been given a login to Al-Nahda's ERP, not opened a training applet.
+ * been given a login to a company's ERP, not opened a training applet.
  *
  * The challenge is last, separated by a rule and coloured in the lab's clay,
  * because it is a different kind of thing from posting a goods receipt.

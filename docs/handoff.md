@@ -1,7 +1,7 @@
 # Automation Lab — handoff
 
-**Date:** 2026-09-10
-**Status:** P0, P1, P2, P3, P5 (the public challenge) and P6 (shared master set, hosting readiness) implemented in this repository. What remains before launch is a deployment and a mail server — see `docs/deploy.md`.
+**Date:** 2026-09-18
+**Status:** P0, P1, P2, P3, P5 (the public challenge) and P6 (shared master set, hosting readiness) implemented, and the lab is **deployed and answering on Vercel**. What remains before it can be announced is a custom domain, a mail server, and one credential rotation — see section 6 and `docs/deploy.md`.
 **Owner:** Mohammed Shaker
 **Companion documents:** `docs/spec.md` — the full design spec. Read it second. `docs/pdd.md` — the Process Definition Document: AS-IS and TO-BE processes students automate, annotated screenshots of every screen and document, and the P2/P3/P4 roadmap with acceptance criteria.
 
@@ -26,8 +26,9 @@ two different hosting platforms are in play and it is easy to conflate them.
 
 | Thing | Reality |
 |---|---|
-| `mohammedshaker.com` | Next.js on **Vercel**. EN/AR portfolio site. Source not on the VPS. |
-| `automationlab.mohammedshaker.com` | Target hostname. (The check that found no DNS record was run against the earlier `rpalab` name; re-verify before claiming.) |
+| `mohammedshaker.com` | Next.js on **Vercel**. EN/AR portfolio site. Source not on the VPS. **Out of scope: nothing in this project touches it.** |
+| `automation-lab-beige.vercel.app` | Where the lab actually answers today. Deployed, seeded, and serving. |
+| `automationlab.mohammedshaker.com` | Target hostname, not yet attached. Until it is, `APP_ORIGIN` names the vercel.app host — and that is the URL printed into every certificate, permanently. |
 | `share-know.com`, `beta.share-know.com` | WordPress containers on the VPS, behind Coolify/Traefik. Live production traffic. |
 | `demo.share-know.com` | Resolves via a Cloudflare wildcard but nothing is routed to it. Not used by this project. |
 | VPS capacity | 3 cores, 7.8 GB RAM (~2 GB used), 26 GB disk free. |
@@ -44,12 +45,21 @@ and the public challenge — self-service accounts, four scored scenarios, a fiv
 grader, an opt-in leaderboard and verifiable certificates. See `README.md` for what is
 implemented and how to run it.
 
-Not yet done: P4 (Vercel project, DNS record, production database, S3-compatible blob store,
-rate limits, flaky mode, an institutional identity provider and gradebook integration) and
-the course material itself — the exercise briefs, starter UiPath projects and the marking
-scheme that turns a score into a grade. P5 shipped ahead of P4 deliberately: the challenge
-only needs an account and a database, and it is the piece that makes the lab worth putting
-in front of people.
+Most of P4 has since landed too. The lab is deployed on Vercel against a Neon Postgres and
+an R2 blob store, rate limits are in place, `/api/health` reports the deployed commit, and
+the two routes that print a PDF in production — the certificate and a scenario's process
+document — work there (`pnpm pdf:proof` guards them in CI, because they failed in
+production while passing on every developer machine).
+
+The interface has since been rebuilt as an ERP rather than a demo: a grouped sidebar, a
+top bar, public pages that look like a product front door, and a home page that is a ranked
+work queue. `course/` now carries a session deck in the mentoring course's house style, as
+both `.pptx` and `.pdf`.
+
+Still not done: a custom domain and the `APP_ORIGIN` that depends on it, SMTP for password
+reset, an institutional identity provider and gradebook integration, and the course material
+itself — the exercise briefs, starter UiPath projects and the marking scheme that turns a
+score into a grade.
 
 ---
 
@@ -92,18 +102,23 @@ The convention is documented in `docs/selectors.md`.
 The generator knows every correct field value. Persist it, and automatic grading, field-level
 scoring and seeded-defect detection all become nearly free. Bolt it on later and it is a rewrite.
 
-**Identity lives at mohammedshaker.com; the lab is a relying party.**
-No signup in the lab. Students get access automatically by holding an active course
-enrollment, and their sandbox provisions itself on first login. A shared cookie on
-`.mohammedshaker.com` was considered and rejected — it couples both apps to one auth library
-version and breaks across any different apex domain.
+**Identity: self-service accounts now, a relying party later.**
+The original plan had no signup at all — students would arrive holding a course enrollment
+and the lab would trust mohammedshaker.com. P5 overtook that: the challenge is open to
+anyone, so the lab issues its own email-and-password accounts and provisions a sandbox the
+moment the form submits. The `IdentityProvider` interface survives intact, so a cohort
+arriving later through an LMS is an additional provider rather than a replacement, and the
+two coexist. A shared cookie on `.mohammedshaker.com` was considered and rejected — it
+couples both apps to one auth library version and breaks across any different apex domain.
+(It would also mean touching that site, which this project does not do.)
 
 ---
 
 ## 5. Open questions
 
 **Courses platform — undecided.** Mohammed plans to add courses and learning paths to
-mohammedshaker.com but has not chosen a stack. This determines the identity integration:
+mohammedshaker.com but has not chosen a stack. (Automation Lab does not modify that site;
+this only determines how a cohort would sign in.) This determines the identity integration:
 
 - Custom Next.js section → hosted IdP (WorkOS / Clerk / Auth0), entitlements in own database
 - A real LMS (Moodle / Canvas / LearnDash) → **LTI 1.3**, which additionally gives grade
@@ -124,18 +139,21 @@ their certificates.
 
 ## 6. Blockers — needed from Mohammed
 
-1. **The mohammedshaker.com GitHub repository.** The lab should inherit the real design
-   system rather than an approximation reconstructed from rendered CSS. If he prefers not to
-   share it, the fallback is to name two or three pages and match from the served stylesheets.
-2. **Vercel authorization.** The Vercel connector was not authorized in the design session,
-   so no project could be created and nothing could be deployed. Either authorize the
-   Vercel integration, or go the git-push route with a one-time manual deploy.
+1. **The custom domain, and `APP_ORIGIN` with it — before a single real certificate is
+   issued.** A certificate carries its verification URL as printed text. Every certificate
+   issued while `APP_ORIGIN` names the `vercel.app` host will point at that host forever,
+   including after the domain is attached. This is the one item with a deadline attached to
+   it, and the deadline is "before anybody real runs a scored scenario".
+2. **Credential rotation.** The staging database and blob credentials were shared in a chat
+   window during setup, on the understanding that they were empty and would be rotated at
+   the end. That end has arrived: `docs/rotate-credentials.md` is the checklist.
+3. **SMTP.** Password reset is written and wired but has nowhere to send. Any provider will
+   do; it needs a host, a port, a credential and a From address.
+4. **A decision on where the public challenge is announced**, and when. The platform is
+   ready and the certificates are verifiable; what is missing is a date and whoever
+   countersigns the certificates for the chapter.
 
-3. **A decision on where the public challenge is announced**, and when. The platform is
-   ready and the certificates are verifiable; what is missing is a date, a domain record and
-   whoever countersigns the certificates for the chapter.
-
-Neither of the first two blocks local scaffolding. P0 runs on `localhost:3000`.
+None of these block local work. The lab runs on `localhost:3000` against a local Postgres.
 
 ---
 

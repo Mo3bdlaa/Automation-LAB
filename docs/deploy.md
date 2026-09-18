@@ -197,6 +197,13 @@ and certificates are not.
 
 Do it deliberately, and not while an event is running.
 
+**One re-seed is outstanding right now.** The fictional company was renamed (it used to
+carry a plausible regional name; it is now simply *Automation Lab Trading & Contracting
+Co.*). The code and everything built from it have been updated, but a document already
+rendered into the blob store still shows the old name — a PDF is a picture, not a template.
+So after the next deploy, run the force re-seed above once against production. Until you do,
+the screens will say one name and the documents another.
+
 ---
 
 ## Things that will bite

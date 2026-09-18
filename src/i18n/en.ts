@@ -1,10 +1,10 @@
 export const en = {
   appName: "Automation Lab",
-  appShortName: "Al-Nahda",
+  appShortName: "Automation Lab",
   tagline: "Document Understanding & RPA practice sandbox",
   specimen: "Training data",
   specimenLong:
-    "Al-Nahda Trading & Contracting Co. is a fictional company. Every vendor, order, invoice and tax number in this system is generated for training and has no bearing on any real business. Automation Lab is an independent practice environment and is not affiliated with any RPA vendor.",
+    "The company whose books you are looking at does not exist. Every vendor, order, invoice and tax number in this system is generated for training and has no bearing on any real business. Automation Lab is an independent practice environment and is not affiliated with any RPA vendor.",
   navGroups: {
     modules: "Modules",
     procureToPay: "Procure to pay",
@@ -19,7 +19,7 @@ export const en = {
     kicker: "Free practice environment",
     title: "A real ERP to practise on.",
     lead:
-      "Automation Lab runs the purchasing and payables system of Al-Nahda Trading & Contracting — vendors, quotations, purchase orders, deliveries, goods receipts, invoices and payments. Every screen works. Every document is one your bot will have to read.",
+      "Automation Lab runs a full purchasing and payables system — vendors, quotations, purchase orders, deliveries, goods receipts, invoices and payments. Every screen works. Every document is one your bot will have to read.",
     lead2: "The company is invented and so is its data. The work is not.",
     ctaPrimary: "Create a free account",
     ctaSecondary: "See the challenge",
@@ -50,7 +50,7 @@ export const en = {
   auth: {
     panelTitle: "You are signing in to a working ERP.",
     panelLead:
-      "Not a sandbox that resets, and not a demo with four rows in it. Al-Nahda's purchasing history goes back two years and its documents number in the thousands.",
+      "Not a sandbox that resets, and not a demo with four rows in it. The purchasing history goes back two years and the documents number in the thousands.",
     facts: [
       { value: "9", label: "linked modules, from request for quotation through to payment" },
       { value: "1,335", label: "documents, each rendered at five difficulty levels" },

@@ -7,6 +7,7 @@ import { sandboxProgress } from "@/lib/sandbox/lifecycle";
 import { Landing } from "./landing";
 import { Page, Section, Tile } from "@/components/ui";
 import { COMPANY } from "@/lib/generator/vocab";
+import { ALL_RULES } from "@/lib/validation/rules";
 
 /**
  * A row of the queue: how many, what it is, and where it goes.
@@ -144,7 +145,7 @@ export default async function DashboardPage() {
           <Tile testId="tile-vendors" href="/vendors" title={t.nav.vendors} subtitle={td.tileVendors} count={vendorCount} />
           <Tile testId="tile-items" href="/items" title={t.nav.items} subtitle={td.tileItems} count={itemCount} />
           <Tile testId="tile-purchase-orders" href="/purchase-orders" title={t.nav.purchaseOrders} subtitle={td.tilePurchaseOrders} count={poCount} />
-          <Tile testId="tile-rules" href="/rules" title={t.nav.rules} subtitle={td.tileRules} />
+          <Tile testId="tile-rules" href="/rules" title={t.nav.rules} subtitle={td.tileRules} count={ALL_RULES.length} />
         </div>
       </Section>
     </Page>

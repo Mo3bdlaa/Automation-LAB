@@ -33,7 +33,7 @@
         "text": "Navigation. Each link carries a stable id (nav-invoices, nav-grns, …)."
       }
     ],
-    "bytes": 205078
+    "bytes": 221534
   },
   {
     "id": "02-invoice-queue",
@@ -69,7 +69,7 @@
         "text": "Pagination by URL. data-page, data-page-count and data-total let a bot loop without scraping text."
       }
     ],
-    "bytes": 201086
+    "bytes": 201863
   },
   {
     "id": "03-invoice-pending",
@@ -81,7 +81,7 @@
     "callouts": [
       {
         "n": 1,
-        "selector": "#invoice-status-INV-2026-05038",
+        "selector": "#invoice-status-INV-2026-05035",
         "text": "Status badge with data-status=\"pending_extraction\"."
       },
       {
@@ -100,7 +100,7 @@
         "text": "Extraction form: the student or bot types what the PDF shows."
       }
     ],
-    "bytes": 155689
+    "bytes": 154234
   },
   {
     "id": "04-extraction-form",
@@ -143,7 +143,7 @@
     "callouts": [
       {
         "n": 1,
-        "selector": "#invoice-status-INV-2026-05038",
+        "selector": "#invoice-status-INV-2026-05035",
         "text": "The invoice moved to Exception because at least one blocking rule fired."
       },
       {
@@ -167,7 +167,7 @@
         "text": "Re-run match after a corrected extraction."
       }
     ],
-    "bytes": 216964
+    "bytes": 215934
   },
   {
     "id": "06-purchase-order",
@@ -198,7 +198,7 @@
         "text": "Lines with quantity, unit of measure, price and tax code: the reference values for the match."
       }
     ],
-    "bytes": 182320
+    "bytes": 186567
   },
   {
     "id": "07-vendor-compliance",
@@ -224,14 +224,14 @@
         "text": "The licence PDF renders on first download, then is cached."
       }
     ],
-    "bytes": 124344
+    "bytes": 124346
   },
   {
     "id": "08-goods-receipt",
     "title": "Posting a goods receipt: over-receipt is rejected by rule",
     "file": "docs/pdd-assets/08-goods-receipt.png",
-    "width": 1155,
-    "height": 732,
+    "width": 1146,
+    "height": 582,
     "scale": 1.5,
     "callouts": [
       {
@@ -250,7 +250,7 @@
         "text": "Posting updates the purchase order to Partially received or Received."
       }
     ],
-    "bytes": 65273
+    "bytes": 53047
   },
   {
     "id": "09-rule-catalogue",
@@ -271,7 +271,7 @@
         "text": "Each row carries data-severity."
       }
     ],
-    "bytes": 212250
+    "bytes": 212257
   },
   {
     "id": "10-sandbox",
@@ -297,7 +297,7 @@
         "text": "Background jobs: provisioning and PDF rendering."
       }
     ],
-    "bytes": 144907
+    "bytes": 142950
   },
   {
     "id": "11-arabic-rtl",
@@ -318,7 +318,7 @@
         "text": "Tables, labels and status badges are translated; ids and data-testid values stay identical."
       }
     ],
-    "bytes": 247888
+    "bytes": 259601
   },
   {
     "id": "12-document-invoice",

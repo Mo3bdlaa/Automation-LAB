@@ -24,7 +24,7 @@ describe("normalisation", () => {
     expect(parseDate("٢٠٢٦-٠٨-٢٠")).toBe("2026-08-20");
   });
   it("normalises text and identifiers", () => {
-    expect(normaliseText("Al-Nahda  Trading & Contracting Co.")).toBe("al nahda trading contracting co");
+    expect(normaliseText("Automation Lab  Trading & Contracting Co.")).toBe("automation lab trading contracting co");
     expect(normaliseIdentifier("SA03 8000 0000 6080 1016 7519")).toBe("SA0380000000608010167519");
     expect(similarity("bookshelf small", "bookshelf small")).toBe(1);
     // Different variants of one product stay well below the 0.9 match threshold.

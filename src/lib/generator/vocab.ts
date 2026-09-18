@@ -1,12 +1,22 @@
 /**
- * Word lists for the generators. Everything here is fictional. Names are
- * chosen to look regional (bilingual EN/AR) without matching real companies.
+ * Word lists for the generators. Everything here is fictional.
+ *
+ * The buying company carries the lab's own name on purpose. An earlier draft
+ * gave it a plausible regional name instead, which turned out to be the wrong
+ * instinct: a name convincing enough to pass for a real trading house is also
+ * convincing enough to be mistaken for one, and the Arabic word that draft
+ * chose carries a political reading that has no business on a purchase order.
+ * Naming the company after the lab costs nothing — students already know where
+ * they are — and leaves no room for the question.
+ *
+ * Vendor names below are built by combining a generic first and second part, so
+ * they read as regional without being anyone.
  */
 
 export const COMPANY = {
-  name: "Al-Nahda Trading & Contracting Co.",
-  nameAr: "شركة النهضة للتجارة والمقاولات",
-  shortName: "Al-Nahda",
+  name: "Automation Lab Trading & Contracting Co.",
+  nameAr: "شركة مختبر الأتمتة للتجارة والمقاولات",
+  shortName: "Automation Lab",
   crNumber: "1010456784",
   taxId: "300124587600003",
   addressLine: "Building 14, King Fahd Road, Al Olaya",
@@ -15,7 +25,7 @@ export const COMPANY = {
   cityAr: "الرياض",
   country: "SA",
   phone: "+966 11 555 0100",
-  email: "procurement@al-nahda.example",
+  email: "procurement@automation-lab.example",
   currency: "SAR",
 } as const;
 
@@ -59,7 +69,7 @@ export const CITIES = [
 export const STREETS = [
   "King Abdulaziz Road", "Prince Sultan Street", "Olaya Street", "Al Tahlia Street", "Industrial Area 2",
   "Sheikh Zayed Road", "Al Khalij Street", "Salah Salem Road", "Corniche Road", "Airport Road",
-  "Al Madina Road", "Exit 10, Eastern Ring Road", "Al Nahda Street", "Port Road", "Second Industrial City",
+  "Al Madina Road", "Exit 10, Eastern Ring Road", "Al Rawdah Street", "Port Road", "Second Industrial City",
 ];
 
 export const FIRST_NAMES = [

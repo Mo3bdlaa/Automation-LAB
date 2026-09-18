@@ -56,7 +56,7 @@ SLIDES = [
         "5": line(b("What we'll cover.")),
     }, **rows(
         ("01", [b("What the lab is"), n("  — a working system, not a practice form.")]),
-        ("02", [b("Al-Nahda"), n("  — the company, and the paper trail it leaves behind.")]),
+        ("02", [b("The company"), n("  — how it buys, and the paper trail it leaves behind.")]),
         ("03", [b("The document ladder"), n("  — the same invoice, five times harder.")]),
         ("04", [b("The four scenarios"), n("  — what each one actually asks of you.")]),
         ("05", [b("How a run is scored"), n("  — five parameters, published up front.")]),

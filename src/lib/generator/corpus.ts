@@ -181,7 +181,7 @@ export function generateEmployees(rng: Rng, n: number = CORPUS_SIZES.employees):
     out.push({
       code: `EMP-${String(i).padStart(4, "0")}`,
       name,
-      email: slugEmail(name, "al-nahda.example"),
+      email: slugEmail(name, "automation-lab.example"),
       role,
       approvalLimit: role === "approver" ? limits[(i - 1) % limits.length] : null,
       costCenterCode:
