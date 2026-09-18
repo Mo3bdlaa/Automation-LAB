@@ -30,36 +30,75 @@ export function ScoreBadge({ score, passMark, testId }: { score: number | null; 
 
 export function ScenarioCard({ scenario, t, best }: { scenario: Scenario; t: Dictionary; best?: { score: number; runId: string } | null }) {
   const tc = t.challenge;
+  // Scenario titles read "Accounts payable: invoice processing". The half
+  // before the colon is the department, which is worth showing as a label
+  // rather than burying in a sentence — it is how somebody finds the one they
+  // came for.
+  const [department, ...rest] = scenario.title.split(":");
+  const tail = rest.join(":").trim();
+  // "Accounts payable: invoice processing" — the tail is lower case because it
+  // continues a sentence. Standing alone as a heading it needs its capital.
+  const name = tail ? tail.charAt(0).toUpperCase() + tail.slice(1) : scenario.title;
   return (
-    <article className="al-card flex flex-col" id={`scenario-card-${scenario.slug}`} data-testid={`scenario-card-${scenario.slug}`} data-difficulty={scenario.difficulty}>
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="text-xs uppercase tracking-wide text-muted">{DIFFICULTY_LABELS[scenario.difficulty]}</span>
+    <article className="al-card flex flex-col gap-3" id={`scenario-card-${scenario.slug}`} data-testid={`scenario-card-${scenario.slug}`} data-difficulty={scenario.difficulty}>
+      <div className="flex items-start justify-between gap-2">
+        <span className="flex flex-col gap-1">
+          <span className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-muted">{rest.length ? department : DIFFICULTY_LABELS[scenario.difficulty]}</span>
+          <h2 className="text-[1.0625rem] font-semibold leading-snug">
+            <Link id={`scenario-link-${scenario.slug}`} data-testid={`scenario-link-${scenario.slug}`} href={`/challenges/${scenario.slug}`} className="text-ink no-underline hover:text-primary">
+              {name}
+            </Link>
+          </h2>
+        </span>
         {best ? (
-          <span className="text-xs text-muted">
-            {tc.best} <ScoreBadge score={best.score} passMark={scenario.passMark} testId={`scenario-best-${scenario.slug}`} />
+          <span className="flex shrink-0 flex-col items-end gap-0.5 text-[11px] text-muted">
+            {tc.best}
+            <ScoreBadge score={best.score} passMark={scenario.passMark} testId={`scenario-best-${scenario.slug}`} />
           </span>
         ) : null}
       </div>
-      <h2 className="mb-1 text-lg">
-        <Link id={`scenario-link-${scenario.slug}`} data-testid={`scenario-link-${scenario.slug}`} href={`/challenges/${scenario.slug}`}>
-          {scenario.title}
-        </Link>
-      </h2>
-      <p className="mb-3 flex-1 text-sm text-muted">{scenario.tagline}</p>
-      <dl className="grid grid-cols-3 gap-2 text-xs">
+
+      <p className="flex-1 text-sm leading-relaxed text-muted">{scenario.tagline}</p>
+
+      <dl className="grid grid-cols-3 gap-2 border-y border-border py-2.5 text-xs">
         <div>
           <dt className="text-muted">{tc.items}</dt>
-          <dd data-testid={`scenario-items-${scenario.slug}`}>{scenario.targetSize}</dd>
+          <dd className="mono text-[0.875rem]" data-testid={`scenario-items-${scenario.slug}`}>{scenario.targetSize}</dd>
         </div>
         <div>
           <dt className="text-muted">{tc.parTime}</dt>
-          <dd>{Math.round((scenario.parSecondsPerItem * scenario.targetSize) / 60)}m</dd>
+          <dd className="mono text-[0.875rem]">{Math.round((scenario.parSecondsPerItem * scenario.targetSize) / 60)}m</dd>
         </div>
         <div>
           <dt className="text-muted">{tc.documents}</dt>
-          <dd>{scenario.documentUnderstanding ? "PDF" : "UI"}</dd>
+          <dd className="text-[0.875rem]">{scenario.documentUnderstanding ? "PDF" : "UI"}</dd>
         </div>
       </dl>
+
+      {/*
+        The card used to have no action on it at all: the only way in was to
+        know that the heading was a link. On the page whose whole job is
+        getting somebody into a run, that is the wrong thing to leave implicit.
+      */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          id={`scenario-open-${scenario.slug}`}
+          data-testid={`scenario-open-${scenario.slug}`}
+          href={`/challenges/${scenario.slug}`}
+          className="al-btn lab"
+          style={{ minHeight: "2.25rem", fontSize: ".8125rem" }}
+        >
+          {tc.open}
+        </Link>
+        <a
+          id={`scenario-pdd-${scenario.slug}`}
+          data-testid={`scenario-pdd-${scenario.slug}`}
+          href={`/challenges/${scenario.slug}/pdd.pdf`}
+          className="text-[12.5px] font-medium"
+        >
+          {tc.pdd}
+        </a>
+      </div>
     </article>
   );
 }

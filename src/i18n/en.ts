@@ -166,6 +166,9 @@ export const en = {
     saved: "Saved.",
   },
   challenge: {
+    who: "Who",
+    open: "Open the scenario",
+    pdd: "Process document (PDF)",
     title: "Automation Lab challenges",
     intro: "Pick a business process, automate it end to end, and see how your robot scores against everyone else's.",
     heroTitle: "Automate a real business process. Get scored on it.",
