@@ -28,22 +28,33 @@ export function ScoreBadge({ score, passMark, testId }: { score: number | null; 
   );
 }
 
+/**
+ * A scenario's title split into the department and the name.
+ *
+ * Titles read "Accounts payable: invoice processing" — one sentence, so the
+ * half after the colon is lower case. Standing alone as a heading it needs its
+ * capital, and putting it after another word needs the colon gone, or a result
+ * page ends up titled "Result: Warehouse: goods receipt".
+ */
+export function scenarioName(scenario: Scenario): { department: string | null; name: string } {
+  const [department, ...rest] = scenario.title.split(":");
+  const tail = rest.join(":").trim();
+  if (!tail) return { department: null, name: scenario.title };
+  return { department, name: tail.charAt(0).toUpperCase() + tail.slice(1) };
+}
+
 export function ScenarioCard({ scenario, t, best }: { scenario: Scenario; t: Dictionary; best?: { score: number; runId: string } | null }) {
   const tc = t.challenge;
   // Scenario titles read "Accounts payable: invoice processing". The half
   // before the colon is the department, which is worth showing as a label
   // rather than burying in a sentence — it is how somebody finds the one they
   // came for.
-  const [department, ...rest] = scenario.title.split(":");
-  const tail = rest.join(":").trim();
-  // "Accounts payable: invoice processing" — the tail is lower case because it
-  // continues a sentence. Standing alone as a heading it needs its capital.
-  const name = tail ? tail.charAt(0).toUpperCase() + tail.slice(1) : scenario.title;
+  const { department, name } = scenarioName(scenario);
   return (
     <article className="al-card flex flex-col gap-3" id={`scenario-card-${scenario.slug}`} data-testid={`scenario-card-${scenario.slug}`} data-difficulty={scenario.difficulty}>
       <div className="flex items-start justify-between gap-2">
         <span className="flex flex-col gap-1">
-          <span className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-muted">{rest.length ? department : DIFFICULTY_LABELS[scenario.difficulty]}</span>
+          <span className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-muted">{department ?? DIFFICULTY_LABELS[scenario.difficulty]}</span>
           <h2 className="text-[1.0625rem] font-semibold leading-snug">
             <Link id={`scenario-link-${scenario.slug}`} data-testid={`scenario-link-${scenario.slug}`} href={`/challenges/${scenario.slug}`} className="text-ink no-underline hover:text-primary">
               {name}
@@ -115,13 +126,33 @@ export function JudgingTable({ scenario, t, values }: { scenario: Scenario; t: D
         </tr>
       </thead>
       <tbody>
-        {PARAMETERS.map((key) => (
-          <tr key={key} id={`judging-${key}`} data-testid={`judging-${key}`} data-max={scenario.weights[key]} data-points={values?.[key]?.points}>
-            <td>{PARAMETER_LABELS[key]}</td>
-            <td className="num">{values ? `${values[key].points} / ${scenario.weights[key]}` : scenario.weights[key]}</td>
-            <td className="text-sm text-muted">{values ? values[key].detail : PARAMETER_MEANINGS[key]}</td>
-          </tr>
-        ))}
+        {PARAMETERS.map((key) => {
+          const max = scenario.weights[key];
+          const points = values?.[key]?.points ?? 0;
+          // A bar, because "16.7 / 20" and "7.4 / 10" are the same shape on
+          // the page and different in what they cost you. Full marks are
+          // green, a shortfall is the warning colour; nothing is red, because
+          // dropping points is not an error.
+          const pct = max > 0 ? Math.max(0, Math.min(100, (points / max) * 100)) : 0;
+          return (
+            <tr key={key} id={`judging-${key}`} data-testid={`judging-${key}`} data-max={max} data-points={values?.[key]?.points}>
+              <td>{PARAMETER_LABELS[key]}</td>
+              <td className="num">{values ? `${points} / ${max}` : max}</td>
+              <td className="text-sm text-muted">
+                {values ? (
+                  <span className="flex flex-col gap-1.5">
+                    <span>{values[key].detail}</span>
+                    <span className="block h-1.5 w-full max-w-[16rem] overflow-hidden rounded-full" style={{ background: "#edf1f4" }}>
+                      <span className="block h-1.5 rounded-full" style={{ width: `${pct}%`, background: pct >= 99.5 ? "var(--al-success)" : "var(--al-warning)" }} />
+                    </span>
+                  </span>
+                ) : (
+                  PARAMETER_MEANINGS[key]
+                )}
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );

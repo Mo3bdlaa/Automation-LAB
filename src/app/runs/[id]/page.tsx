@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
 import { Button, LinkButton, Page, Section, TableWrap } from "@/components/ui";
-import { JudgingTable, ScoreBadge, formatDuration } from "@/components/challenge";
+import { JudgingTable, formatDuration, scenarioName } from "@/components/challenge";
 import { PARAMETERS, scenarioBySlug, type Parameter } from "@/lib/challenge/scenarios";
 import { percentileFor, runById } from "@/lib/challenge/runs";
 import { publishRunAction } from "@/app/challenges/actions";
@@ -21,6 +21,7 @@ export default async function RunResultPage({ params }: { params: Promise<{ id: 
   const scenario = scenarioBySlug(run.scenario);
   if (!scenario) notFound();
 
+  const { department, name } = scenarioName(scenario);
   const score = run.score === null ? null : Number(run.score);
   const passed = score !== null && score >= scenario.passMark;
   const percentile = run.publish && score !== null ? await percentileFor(run.scenario, score) : null;
@@ -34,24 +35,42 @@ export default async function RunResultPage({ params }: { params: Promise<{ id: 
 
   return (
     <Page
-      title={`${tc.result}: ${scenario.title}`}
-      subtitle={`${run.mode === "scored" ? tc.scoredMode : tc.practiceMode} · ${formatDuration(run.durationMs)} · ${tc.level} ${run.level}`}
+      title={name}
+      subtitle={`${department ? `${department} · ` : ""}${run.mode === "scored" ? tc.scoredMode : tc.practiceMode} · ${tc.level} ${run.level}`}
       actions={
         <LinkButton testId="run-back" href={`/challenges/${scenario.slug}`} variant="secondary">
-          {scenario.title}
+          {name}
         </LinkButton>
       }
     >
-      <section className="al-card mb-5" id="run-result" data-testid="run-result" data-run-id={run.id} data-score={score ?? ""} data-passed={passed ? "1" : "0"} data-mode={run.mode}>
+      {/*
+        The result reads as a result. It used to be the same blue whether the
+        run passed or not, which is the one thing somebody wants to know from
+        across the room — so the verdict now colours the rule above the card
+        and the number itself, and the number is set in the mono face like
+        every other figure in the application.
+      */}
+      <section
+        className="al-card mb-5"
+        style={{ borderTop: `3px solid ${passed ? "var(--al-success)" : "var(--al-warning)"}` }}
+        id="run-result"
+        data-testid="run-result"
+        data-run-id={run.id}
+        data-score={score ?? ""}
+        data-passed={passed ? "1" : "0"}
+        data-mode={run.mode}
+      >
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted">{tc.score}</div>
-            <div className="text-5xl font-light text-primary" id="run-score" data-testid="run-score">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: passed ? "var(--al-success)" : "var(--al-warning)" }} id="run-verdict" data-testid="run-verdict">
+              {passed ? tc.passed : tc.notPassed}
+            </div>
+            <div className="mono text-[3.25rem] font-medium leading-none" id="run-score" data-testid="run-score">
               {score === null ? "—" : score.toFixed(1)}
               <span className="text-lg text-muted"> / 100</span>
             </div>
-            <p className={`mt-1 text-sm ${passed ? "text-success" : "text-warning"}`} id="run-verdict" data-testid="run-verdict">
-              {passed ? tc.passed : tc.notPassed} · {tc.passMark} {scenario.passMark}
+            <p className="mt-1.5 text-sm text-muted">
+              {tc.passMark} {scenario.passMark}
             </p>
           </div>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm md:grid-cols-4">
@@ -121,9 +140,6 @@ export default async function RunResultPage({ params }: { params: Promise<{ id: 
         </Section>
       ) : null}
 
-      <div className="mt-4">
-        <ScoreBadge score={score} passMark={scenario.passMark} testId="run-score-badge" />
-      </div>
     </Page>
   );
 }
