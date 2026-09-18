@@ -33,7 +33,7 @@
         "text": "Navigation. Each link carries a stable id (nav-invoices, nav-grns, …)."
       }
     ],
-    "bytes": 221534
+    "bytes": 222579
   },
   {
     "id": "02-invoice-queue",
@@ -69,7 +69,7 @@
         "text": "Pagination by URL. data-page, data-page-count and data-total let a bot loop without scraping text."
       }
     ],
-    "bytes": 201863
+    "bytes": 201512
   },
   {
     "id": "03-invoice-pending",
@@ -81,7 +81,7 @@
     "callouts": [
       {
         "n": 1,
-        "selector": "#invoice-status-INV-2026-05035",
+        "selector": "#invoice-status-INV-2026-05034",
         "text": "Status badge with data-status=\"pending_extraction\"."
       },
       {
@@ -100,7 +100,7 @@
         "text": "Extraction form: the student or bot types what the PDF shows."
       }
     ],
-    "bytes": 154234
+    "bytes": 155072
   },
   {
     "id": "04-extraction-form",
@@ -143,7 +143,7 @@
     "callouts": [
       {
         "n": 1,
-        "selector": "#invoice-status-INV-2026-05035",
+        "selector": "#invoice-status-INV-2026-05034",
         "text": "The invoice moved to Exception because at least one blocking rule fired."
       },
       {
@@ -167,7 +167,7 @@
         "text": "Re-run match after a corrected extraction."
       }
     ],
-    "bytes": 215934
+    "bytes": 216831
   },
   {
     "id": "06-purchase-order",
@@ -318,7 +318,7 @@
         "text": "Tables, labels and status badges are translated; ids and data-testid values stay identical."
       }
     ],
-    "bytes": 259601
+    "bytes": 269020
   },
   {
     "id": "12-document-invoice",
