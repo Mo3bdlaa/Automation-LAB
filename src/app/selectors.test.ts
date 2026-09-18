@@ -60,11 +60,34 @@ const PUBLISHED: Record<string, string> = {
   "active-run": "src/app/challenges/run-banner.tsx",
 };
 
+/**
+ * Data attributes a script reads off a published element.
+ *
+ * Guarding the id alone was not enough: the same dashboard rewrite that
+ * deleted #sandbox-status also, on the way back in, left off data-documents
+ * and data-rendered. Three scripts wait on those two reaching each other
+ * before they start work, so all three would have hung — and the id was
+ * present, so the test above passed.
+ */
+const ATTRIBUTES: Record<string, string[]> = {
+  "src/app/page.tsx": ["data-status", "data-progress", "data-documents", "data-rendered", "data-count"],
+  "src/app/challenges/run-banner.tsx": ["data-run-id", "data-scenario", "data-mode", "data-started-at", "data-targets"],
+  "src/components/ui.tsx": ["data-tone", "data-status", "data-current", "data-count"],
+};
+
 describe("published selectors", () => {
   for (const [id, file] of Object.entries(PUBLISHED)) {
     it(`${id} is still rendered by ${file}`, () => {
       expect(read(file)).toContain(id);
     });
+  }
+
+  for (const [file, attrs] of Object.entries(ATTRIBUTES)) {
+    for (const attr of attrs) {
+      it(`${file} still sets ${attr}`, () => {
+        expect(read(file)).toContain(attr);
+      });
+    }
   }
 
   it("every DOM handle the scenario catalogue promises is rendered somewhere", () => {

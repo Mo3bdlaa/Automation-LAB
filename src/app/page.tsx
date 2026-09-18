@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { deliveryNotes, invoices, items, purchaseOrders, rfqs, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { getPrincipal, requireLab } from "@/lib/auth/server";
+import { sandboxProgress } from "@/lib/sandbox/lifecycle";
 import { Landing } from "./landing";
 import { Page, Section, Tile } from "@/components/ui";
 import { COMPANY } from "@/lib/generator/vocab";
@@ -34,6 +35,7 @@ export default async function DashboardPage() {
 
   const session = await requireLab();
   const provisioning = session.tenant.status === "provisioning";
+  const progress = await sandboxProgress(session.tenant);
   const tdb = session.tdb;
   const [vendorCount, pendingVendors, itemCount, poCount, openRfqs, pendingInvoices, exceptionInvoices, approvedInvoices, awaitingGrn] = await Promise.all([
     tdb.count(vendors),
@@ -87,6 +89,8 @@ export default async function DashboardPage() {
         data-testid="sandbox-status"
         data-status={session.tenant.status}
         data-progress={session.tenant.progress}
+        data-documents={progress.documents}
+        data-rendered={progress.rendered}
       >
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: session.tenant.status === "ready" ? "var(--al-success)" : session.tenant.status === "failed" ? "var(--al-error)" : "var(--al-warning)" }} aria-hidden="true" />
         <span id="sandbox-status-message" data-testid="sandbox-status-message">
