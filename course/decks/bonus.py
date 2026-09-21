@@ -1,36 +1,31 @@
 """
-What the Automation Lab session says.
+What the Automation Lab bonus session says.
+
+A two-hour introduction to the lab: what it is, what the company's paperwork
+looks like, the four scenarios, how a run is scored, and the task.
 
 Every string a slide shows is here; fill.py does the mechanics. Shapes are
 addressed by the order they appear in the source slide, which is what the
 layout already decided — so editing the words never means touching geometry.
-
-Roles: w near-white · b bold near-white · n grey body · m dim meta · a gold
 """
+from common import n, b, w, m, a, eyebrow, line, rows  # noqa: F401
 
-def n(t): return (t, "n")
-def b(t): return (t, "b")
-def w(t): return (t, "w")
-def m(t): return (t, "m")
-def a(t): return (t, "a")
+OUTPUT = "automation-lab-deck.pptx"
 
+# The source deck has one slide of each archetype; this deck needs three of
+# them twice. Cloned as (source, insert-after) before the order is applied.
+CLONES = [
+    ("slide2.xml", "slide2.xml"),
+    ("slide2.xml", "slide2.xml"),
+    ("slide4.xml", "slide4.xml"),
+]
 
-def eyebrow(num, label):
-    return [[(f"— {num}", "n"), ("   /   ", "m"), (label, "n")]]
-
-
-def line(*segs):
-    return [list(segs)]
-
-
-def rows(*items, start=6):
-    """Marker/text pairs filling consecutive shape slots."""
-    out = {}
-    for i, (marker, segs) in enumerate(items):
-        out[str(start + i * 2)] = [[(marker, "a")]]
-        out[str(start + 1 + i * 2)] = [list(segs)]
-    return out
-
+ORDER = [
+    "slide1.xml", "slide2.xml", "slide3.xml", "slide4.xml", "slide5.xml",
+    "slide6.xml", "slide9.xml", "slide19.xml", "slide10.xml", "slide20.xml",
+    "slide21.xml", "slide12.xml", "slide13.xml", "slide14.xml", "slide15.xml",
+    "slide16.xml", "slide17.xml", "slide18.xml",
+]
 
 DECK = {
     "kicker": "BONUS / PRACTICE LAB · AUTOMATION LAB",

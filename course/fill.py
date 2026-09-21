@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Fill the Automation Lab deck from its content spec.
+Fill a deck from its content spec (`decks/<name>.py`).
 
 The deck is not drawn from scratch: it is the mentoring course's own session
 deck with new words in it. That is deliberate. The house style — the near-black
@@ -17,7 +17,7 @@ Roles map to the palette lifted from that deck:
   n  grey       9B9EA6, body                      m  dim grey 6A6D75, meta
   a  gold       E8B84B, the one accent            ab the same, bold
 """
-import json, re, sys
+import importlib, sys
 from xml.dom import minidom
 
 INK = {"w": ("0", "F4F4F2"), "b": ("1", "F4F4F2"), "n": ("0", "9B9EA6"),
@@ -128,13 +128,12 @@ def set_progress(doc, n, total):
                 return
 
 
-def build(order_path, root):
-    import content
-    order = json.load(open(order_path))
-    deck, total = content.DECK, len(content.SLIDES)
+def build(deck_name, root):
+    spec = importlib.import_module(f"decks.{deck_name}")
+    order, deck, total = spec.ORDER, spec.DECK, len(spec.SLIDES)
     assert len(order) == total, f"{len(order)} slides in the package, {total} in the spec"
 
-    for n, (slide, fname) in enumerate(zip(content.SLIDES, order), start=1):
+    for n, (slide, fname) in enumerate(zip(spec.SLIDES, order), start=1):
         path = f"{root}/ppt/slides/{fname}"
         doc = minidom.parse(path)
         if slide.get("drop"):
@@ -149,11 +148,11 @@ def build(order_path, root):
         fill_shape(doc, shapes[3], [[(f"{n:02d}", "w"), (f" / {total}", "m")]])
         set_progress(doc, n, total)
 
-        for idx, content in slide["fill"].items():
+        for idx, blocks in slide["fill"].items():
             i = int(idx)
             if i >= len(shapes):
                 raise SystemExit(f"slide {n} ({fname}): no shape [{i}] — it has {len(shapes)}")
-            fill_shape(doc, shapes[i], [[tuple(seg) for seg in block] for block in content])
+            fill_shape(doc, shapes[i], [[tuple(seg) for seg in block] for block in blocks])
         with open(path, "w", encoding="utf-8") as f:
             doc.writexml(f, encoding="UTF-8")
     print(f"filled {total} slides")

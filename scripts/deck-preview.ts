@@ -12,22 +12,73 @@
  * That substitution is the point: anything that fits at this width fits in
  * PowerPoint. It cannot prove a line is safe by being narrow.
  *
- *   pnpm deck:preview
+ *   pnpm deck:preview                                  # every deck in course/
+ *   pnpm deck:preview course/invoice-processing-deck.pptx
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readdirSync } from "node:fs";
 import path from "node:path";
+import type { Page } from "playwright-core";
 import { resolveChromiumExecutable } from "../src/lib/documents/renderer";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const DECK = path.join(ROOT, "course/automation-lab-deck.pptx");
-const PDF = path.join(ROOT, "course/automation-lab-deck.pdf");
-const OUT = path.join(ROOT, "course/build/preview");
+const COURSE = path.join(ROOT, "course");
+
+/** Every built deck, or the ones named on the command line. */
+function decks(): string[] {
+  const named = process.argv.slice(2);
+  if (named.length) return named.map((f) => path.resolve(f));
+  return readdirSync(COURSE)
+    .filter((f) => f.endsWith(".pptx"))
+    .sort()
+    .map((f) => path.join(COURSE, f));
+}
+
+async function preview(page: Page, deck: string): Promise<string[]> {
+  const name = path.basename(deck, ".pptx");
+  const pdf = path.join(COURSE, `${name}.pdf`);
+  const out = path.join(COURSE, "build/preview", name);
+  mkdirSync(path.join(out, "png"), { recursive: true });
+  execFileSync("python3", [path.join(COURSE, "preview.py"), deck, out], { stdio: "inherit" });
+
+  await page.goto(`file://${path.join(out, "deck.html")}`, { waitUntil: "networkidle", timeout: 120_000 });
+
+  const slides = await page.$$eval("section", (s) => s.length);
+  for (let i = 0; i < slides; i++) {
+    const el = (await page.$$("section"))[i];
+    await el.screenshot({ path: path.join(out, "png", `slide-${String(i + 1).padStart(2, "0")}.png`) });
+  }
+
+  // Overflow, measured rather than eyeballed: a box whose content is taller
+  // than the box is copy that will spill in PowerPoint too.
+  const spills = await page.evaluate(() => {
+    const out: string[] = [];
+    document.querySelectorAll("section").forEach((sec, si) => {
+      sec.querySelectorAll("div").forEach((d) => {
+        if (!d.querySelector("p")) return;
+        const over = d.scrollHeight - d.clientHeight;
+        if (over > 2) out.push(`slide ${si + 1}: overflows by ${over}px — "${(d.textContent ?? "").trim().slice(0, 60)}"`);
+      });
+    });
+    return out;
+  });
+
+  await page.emulateMedia({ media: "print" });
+  await page.pdf({
+    path: pdf,
+    width: "13.333in",
+    height: "7.5in",
+    printBackground: true,
+    margin: { top: 0, right: 0, bottom: 0, left: 0 },
+    pageRanges: `1-${slides}`,
+  });
+  await page.emulateMedia({ media: "screen" });
+
+  console.log(`${name}: ${slides} slides → ${path.relative(ROOT, pdf)} and ${path.relative(ROOT, out)}/png`);
+  return spills.map((s) => `${name} ${s}`);
+}
 
 async function main() {
-  mkdirSync(path.join(OUT, "png"), { recursive: true });
-  execFileSync("python3", [path.join(ROOT, "course/preview.py"), DECK, OUT], { stdio: "inherit" });
-
   const target = await resolveChromiumExecutable();
   const { chromium } = await import("playwright-core");
   const browser = await chromium.launch({
@@ -39,39 +90,8 @@ async function main() {
       viewport: { width: 1280, height: 720 },
       deviceScaleFactor: 1.2,
     })).newPage();
-    await page.goto(`file://${path.join(OUT, "deck.html")}`, { waitUntil: "networkidle", timeout: 120_000 });
-
-    const slides = await page.$$eval("section", (s) => s.length);
-    for (let i = 0; i < slides; i++) {
-      const el = (await page.$$("section"))[i];
-      await el.screenshot({ path: path.join(OUT, "png", `slide-${String(i + 1).padStart(2, "0")}.png`) });
-    }
-
-    // Overflow, measured rather than eyeballed: a box whose content is taller
-    // than the box is copy that will spill in PowerPoint too.
-    const spills = await page.evaluate(() => {
-      const out: string[] = [];
-      document.querySelectorAll("section").forEach((sec, si) => {
-        sec.querySelectorAll("div").forEach((d) => {
-          if (!d.querySelector("p")) return;
-          const over = d.scrollHeight - d.clientHeight;
-          if (over > 2) out.push(`slide ${si + 1}: overflows by ${over}px — "${(d.textContent ?? "").trim().slice(0, 60)}"`);
-        });
-      });
-      return out;
-    });
-
-    await page.emulateMedia({ media: "print" });
-    await page.pdf({
-      path: PDF,
-      width: "13.333in",
-      height: "7.5in",
-      printBackground: true,
-      margin: { top: 0, right: 0, bottom: 0, left: 0 },
-      pageRanges: `1-${slides}`,
-    });
-
-    console.log(`${slides} slides → ${path.relative(ROOT, PDF)} and ${path.relative(ROOT, OUT)}/png`);
+    const spills: string[] = [];
+    for (const deck of decks()) spills.push(...(await preview(page, deck)));
     console.log(spills.length ? spills.join("\n") : "no text box overflows its own frame");
     if (spills.length) process.exitCode = 1;
   } finally {
