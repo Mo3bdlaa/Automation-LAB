@@ -12,7 +12,8 @@ is what turns the sandbox into a scored, verifiable challenge.
 - Replacing the credentials it was set up with: [`docs/rotate-credentials.md`](docs/rotate-credentials.md)
 - Selector convention for bots: [`docs/selectors.md`](docs/selectors.md)
 - Identifier formats (IBAN, tax ID, CR number): [`docs/data-formats.md`](docs/data-formats.md)
-- Process Definition Document (AS-IS, TO-BE, phase roadmap, 14 annotated screenshots): [`docs/pdd.md`](docs/pdd.md), Word and PDF versions via `pnpm pdd`
+- Process Definition Document (AS-IS, TO-BE, phase roadmap, 16 annotated screenshots): [`docs/pdd.md`](docs/pdd.md), Word and PDF versions via `pnpm pdd`
+- A single process's PDD, written to a client's own template, with drawn process maps: `pnpm pdd:process` → `.data/Invoice-Processing-PDD.docx` and `.pdf`
 - Per-scenario PDD and SDD template: generated live at `/challenges/{slug}/pdd.pdf` and `/challenges/{slug}/sdd.docx`
 
 Everything in the lab is fictitious. Every PDF is watermarked `SPECIMEN — TRAINING ONLY`,
@@ -123,7 +124,10 @@ pnpm blob:check              # writes, reads, compares and deletes one object in
 pnpm db:seed --force --levels  # regenerate the document set (bumps the build number)
 pnpm ocr:ladder --docs=20     # OCR accuracy per difficulty level (needs tesseract-ocr and tesseract-ocr-ara)
 pnpm pdd:figures   # re-captures the annotated screenshots in docs/pdd-assets (needs `pnpm dev` running)
-pnpm pdd           # regenerates docs/pdd.md, .data/Automation-Lab-PDD.docx and .pdf from scripts/build-pdd.ts
+pnpm pdd:diagrams  # redraws the process maps in docs/pdd-assets from scripts/pdd/diagrams.ts
+pnpm pdd           # the lab-wide PDD: docs/pdd.md, .data/Automation-Lab-PDD.docx and .pdf
+pnpm pdd:process   # the invoice-processing PDD, to a client template: .data/Invoice-Processing-PDD.docx and .pdf
+pnpm pdf:pages f.pdf out/   # rasterises a PDF so its pages can be looked at
 pnpm db:reset      # drops everything (dev only), then db:migrate + db:seed again
 ```
 

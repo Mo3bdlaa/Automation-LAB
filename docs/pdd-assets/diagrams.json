@@ -1,0 +1,29 @@
+[
+  {
+    "id": "map-as-is-high",
+    "title": "Invoice processing, as-is: the process at a glance",
+    "file": "docs/pdd-assets/map-as-is-high.png",
+    "width": 1920,
+    "height": 156,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "map-as-is",
+    "title": "Invoice processing, as-is: every step done by hand",
+    "file": "docs/pdd-assets/map-as-is.png",
+    "width": 1588,
+    "height": 1410,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "map-to-be",
+    "title": "Invoice processing, to-be: the same path, driven by a robot",
+    "file": "docs/pdd-assets/map-to-be.png",
+    "width": 1588,
+    "height": 1478,
+    "scale": 2,
+    "callouts": []
+  }
+]
