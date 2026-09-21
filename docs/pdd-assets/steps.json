@@ -1,0 +1,110 @@
+[
+  {
+    "id": "step-01",
+    "title": "Step 1 — Sign in",
+    "file": "docs/pdd-assets/step-01.png",
+    "width": 764,
+    "height": 394,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "step-02",
+    "title": "Step 2 — Read the queue",
+    "file": "docs/pdd-assets/step-02.png",
+    "width": 1724,
+    "height": 600,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "step-03",
+    "title": "Step 3 — Claim one item",
+    "file": "docs/pdd-assets/step-03.png",
+    "width": 1724,
+    "height": 226,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "step-04",
+    "title": "Step 4 — Open the invoice",
+    "file": "docs/pdd-assets/step-04.png",
+    "width": 962,
+    "height": 156,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "step-05",
+    "title": "Step 5 — Download the document",
+    "file": "docs/pdd-assets/step-05.png",
+    "width": 722,
+    "height": 524,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "step-06",
+    "title": "Step 6 — Read the header",
+    "file": "docs/pdd-assets/step-06.png",
+    "width": 1306,
+    "height": 590,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "step-07",
+    "title": "Step 7 — Read the lines",
+    "file": "docs/pdd-assets/step-07.png",
+    "width": 1370,
+    "height": 600,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "step-08",
+    "title": "Step 8 — Submit the extraction",
+    "file": "docs/pdd-assets/step-08.png",
+    "width": 1372,
+    "height": 600,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "step-09",
+    "title": "Step 9 — Read the match result",
+    "file": "docs/pdd-assets/step-09.png",
+    "width": 1390,
+    "height": 582,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "step-10",
+    "title": "Step 10 — Decide",
+    "file": "docs/pdd-assets/step-10.png",
+    "width": 1516,
+    "height": 162,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "step-11",
+    "title": "Step 11 — Pay",
+    "file": "docs/pdd-assets/step-11.png",
+    "width": 510,
+    "height": 166,
+    "scale": 2,
+    "callouts": []
+  },
+  {
+    "id": "step-12",
+    "title": "Step 12 — Close the work item",
+    "file": "docs/pdd-assets/step-12.png",
+    "width": 2086,
+    "height": 354,
+    "scale": 2,
+    "callouts": []
+  }
+]

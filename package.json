@@ -27,6 +27,7 @@
     "pdd:process": "tsx scripts/build-process-pdd.ts",
     "pdf:pages": "tsx scripts/pdf-pages.ts",
     "pdd:figures": "tsx scripts/render-pdd-samples.ts && node scripts/capture-pdd-figures.mjs",
+    "pdd:steps": "node scripts/capture-step-shots.mjs",
     "bot:smoke": "node scripts/bot-credential-smoke.mjs",
     "blob:check": "tsx scripts/blob-check.ts",
     "scorer:proof": "tsx scripts/scorer-proof.ts",

@@ -19,12 +19,21 @@ import { fontFaceCss } from "../../src/lib/documents/fonts";
 // ---------------------------------------------------------------------------
 // Content model
 // ---------------------------------------------------------------------------
+/**
+ * A table cell is text, or a picture of one — a step table reads far better
+ * with a thumbnail of the screen in it than with the endpoint written out.
+ * `img` names a figure in the same registries the figure blocks draw from, so
+ * a picture in a cell is captured, sized and version-controlled exactly like
+ * any other figure; it simply does not get a number or a caption.
+ */
+export type Cell = string | { img: string };
+
 export type Block =
   | { t: "h1" | "h2" | "h3"; text: string }
   | { t: "p"; text: string }
   | { t: "bullets"; items: string[] }
   | { t: "numbered"; items: string[] }
-  | { t: "table"; header: string[]; rows: string[][]; widths?: number[] }
+  | { t: "table"; header: string[]; rows: Cell[][]; widths?: number[] }
   | { t: "note"; text: string }
   | { t: "figure"; id: string }
   | { t: "pagebreak" };
@@ -114,7 +123,8 @@ export async function buildPdd(spec: PddSpec): Promise<{ docx: number; pdf: numb
       "**Figures**", "",
       ...FIGURE_LIST.map((f) => `${f.n}. ${f.title}`), "",
     ];
-    const esc = (s: string) => T(s).replace(/\|/g, "\\|");
+    const esc = (c: Cell) =>
+      typeof c === "string" ? T(c).replace(/\|/g, "\\|") : `![](${FIGURES.get(c.img)?.file ?? c.img})`;
     for (const b of B) {
       switch (b.t) {
         case "h1": out.push(`## ${b.text}`, ""); break;
@@ -159,7 +169,13 @@ export async function buildPdd(spec: PddSpec): Promise<{ docx: number; pdf: numb
         case "table": {
           const total = (b.widths ?? b.header.map(() => 1)).reduce((a, x) => a + x, 0);
           const cols = (b.widths ?? b.header.map(() => 1)).map((w) => `<col style="width:${((100 * w) / total).toFixed(2)}%">`).join("");
-          body.push(`<table><colgroup>${cols}</colgroup><thead><tr>${b.header.map((h) => `<th>${escHtml(h)}</th>`).join("")}</tr></thead><tbody>${b.rows.map((r) => `<tr>${r.map((c) => `<td>${escHtml(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+          const td = (c: Cell) => {
+          if (typeof c === "string") return `<td>${escHtml(c)}</td>`;
+          const f = FIGURES.get(c.img);
+          if (!f) throw new Error(`Table cell references figure "${c.img}", which is not in any registry`);
+          return `<td class="shot"><img src="data:image/png;base64,${readFileSync(f.file).toString("base64")}" alt=""></td>`;
+        };
+        body.push(`<table><colgroup>${cols}</colgroup><thead><tr>${b.header.map((h) => `<th>${escHtml(h)}</th>`).join("")}</tr></thead><tbody>${b.rows.map((r) => `<tr>${r.map(td).join("")}</tr>`).join("")}</tbody></table>`);
           break;
         }
         case "figure": {
@@ -199,6 +215,8 @@ export async function buildPdd(spec: PddSpec): Promise<{ docx: number; pdf: numb
   th { background: #1d3557; color: #fff; text-align: left; padding: 4pt 5pt; font-weight: 600; }
   td { border: 1px solid #c9d2dc; padding: 3.5pt 5pt; vertical-align: top; word-wrap: break-word; }
   tbody tr:nth-child(even) td { background: #f2f4f7; }
+td.shot { padding: 3pt; }
+td.shot img { display: block; width: 100%; max-height: ${CELL_IMAGE_MAX_H}px; object-fit: contain; object-position: left top; border: 1px solid #c9d2dc; }
   figure { margin: 8pt 0 12pt; page-break-inside: avoid; }
   figure img { display: block; width: 100%; max-height: 168mm; object-fit: contain; object-position: left top; border: 1px solid #c9d2dc; }
   figcaption { font-size: 8.5pt; color: #354a5f; margin-top: 4pt; }
@@ -226,6 +244,8 @@ export async function buildPdd(spec: PddSpec): Promise<{ docx: number; pdf: numb
   // ---------------------------------------------------------------------------
   // DOCX emitter
   // ---------------------------------------------------------------------------
+  /** Tallest a picture inside a table cell may be, in pixels at 96 dpi. */
+  const CELL_IMAGE_MAX_H = 120;
   const FONT = "Calibri";
   const NAVY = "1D3557";
   const GREY = "F2F4F7";
@@ -235,7 +255,22 @@ export async function buildPdd(spec: PddSpec): Promise<{ docx: number; pdf: numb
     return new TextRun({ text: T(text), font: FONT, size: opts.size ?? 21, bold: opts.bold, color: opts.color, italics: opts.italics });
   }
 
-  function table(header: string[], rows: string[][], widths?: number[]): Table {
+  /** The picture a cell holds, sized to the column it sits in. */
+  function cellImage(id: string, columnDxa: number): ImageRun {
+    const f = FIGURES.get(id);
+    if (!f) throw new Error(`Table cell references figure "${id}", which is not in any registry`);
+    // 1 DXA is a twentieth of a point; a pixel at 96 dpi is three quarters of
+    // one. Leave a little room so the picture does not touch the cell border.
+    const box = Math.max(40, Math.round(columnDxa / 15) - 12);
+    const scale = Math.min(box / f.width, CELL_IMAGE_MAX_H / f.height);
+    return new ImageRun({
+      type: "png",
+      data: readFileSync(f.file),
+      transformation: { width: Math.round(f.width * scale), height: Math.round(f.height * scale) },
+    });
+  }
+
+  function table(header: string[], rows: Cell[][], widths?: number[]): Table {
     const n = header.length;
     let w = widths ?? Array.from({ length: n }, () => Math.floor(PAGE_W / n));
     const sum = w.reduce((a, b) => a + b, 0);
@@ -244,13 +279,18 @@ export async function buildPdd(spec: PddSpec): Promise<{ docx: number; pdf: numb
     w[w.length - 1] += diff;
     const border = { style: BorderStyle.SINGLE, size: 4, color: "C9D2DC" };
     const borders = { top: border, bottom: border, left: border, right: border };
-    const cell = (text: string, i: number, head: boolean) =>
+    const cell = (value: Cell, i: number, head: boolean) =>
       new TableCell({
         width: { size: w[i], type: WidthType.DXA },
         borders,
         shading: head ? { type: ShadingType.CLEAR, fill: NAVY, color: "auto" } : undefined,
         margins: { top: 60, bottom: 60, left: 90, right: 90 },
-        children: [new Paragraph({ children: [run(text, { bold: head, size: head ? 19 : 18, color: head ? "FFFFFF" : undefined })], spacing: { after: 0 } })],
+        children: [
+          new Paragraph({
+            children: [typeof value === "string" ? run(value, { bold: head, size: head ? 19 : 18, color: head ? "FFFFFF" : undefined }) : cellImage(value.img, w[i])],
+            spacing: { after: 0 },
+          }),
+        ],
       });
     return new Table({
       width: { size: PAGE_W, type: WidthType.DXA },

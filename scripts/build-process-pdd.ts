@@ -14,7 +14,9 @@
  *
  * One deliberate departure from the template is noted in II.4 and explained
  * there: its single seven-column step table is unreadable at A4 portrait, so
- * the same seven columns are carried across two tables.
+ * its columns are carried across two tables — which also leaves the Details
+ * column wide enough for the screenshot it asks for, one per step, each with
+ * a red box on the part of the screen that step touches.
  *
  *   pnpm pdd:process
  */
@@ -58,6 +60,8 @@ const DOC: DocMeta = {
 interface Step {
   n: number;
   name: string;
+  /** The step's thumbnail, captured by scripts/capture-step-shots.mjs. */
+  shot: string;
   input: string;
   description: string;
   where: string;
@@ -69,6 +73,7 @@ interface Step {
 const STEPS: Step[] = [
   {
     n: 1,
+    shot: "step-01",
     name: "Sign in",
     input: "Robot credential",
     description:
@@ -80,6 +85,7 @@ const STEPS: Step[] = [
   },
   {
     n: 2,
+    shot: "step-02",
     name: "Read the queue",
     input: "Queue name invoices-pending",
     description:
@@ -91,6 +97,7 @@ const STEPS: Step[] = [
   },
   {
     n: 3,
+    shot: "step-03",
     name: "Claim one item",
     input: "Work item id",
     description:
@@ -102,6 +109,7 @@ const STEPS: Step[] = [
   },
   {
     n: 4,
+    shot: "step-04",
     name: "Open the invoice",
     input: "Internal AP number",
     description:
@@ -113,6 +121,7 @@ const STEPS: Step[] = [
   },
   {
     n: 5,
+    shot: "step-05",
     name: "Download the document",
     input: "Document id, difficulty level",
     description:
@@ -124,6 +133,7 @@ const STEPS: Step[] = [
   },
   {
     n: 6,
+    shot: "step-06",
     name: "Read the header",
     input: "The PDF",
     description:
@@ -135,6 +145,7 @@ const STEPS: Step[] = [
   },
   {
     n: 7,
+    shot: "step-07",
     name: "Read the lines",
     input: "The PDF",
     description:
@@ -146,6 +157,7 @@ const STEPS: Step[] = [
   },
   {
     n: 8,
+    shot: "step-08",
     name: "Submit the extraction",
     input: "Header and lines",
     description:
@@ -157,6 +169,7 @@ const STEPS: Step[] = [
   },
   {
     n: 9,
+    shot: "step-09",
     name: "Read the match result",
     input: "The match response",
     description:
@@ -168,6 +181,7 @@ const STEPS: Step[] = [
   },
   {
     n: 10,
+    shot: "step-10",
     name: "Decide",
     input: "Rule IDs and severities",
     description:
@@ -179,6 +193,7 @@ const STEPS: Step[] = [
   },
   {
     n: 11,
+    shot: "step-11",
     name: "Pay",
     input: "Approved invoice",
     description: "Release an approved invoice for payment. An invoice with a critical finding is never paid.",
@@ -189,6 +204,7 @@ const STEPS: Step[] = [
   },
   {
     n: 12,
+    shot: "step-12",
     name: "Close the work item",
     input: "Work item id, outcome",
     description:
@@ -339,21 +355,25 @@ const B: Block[] = [
   { t: "h2", text: "II.4 Detailed As-Is Process Steps" },
   {
     t: "p",
-    text: "The twelve steps a developer has to build. The template carries seven columns in one table; at A4 portrait that gives each column under an inch and makes the description unreadable, so the same seven columns are split across the two tables below — what each step is, and what can go wrong in it.",
+    text: "The twelve steps a developer has to build. The template carries seven columns in one table; at A4 portrait that leaves each column under an inch, which is too narrow for a description and far too narrow for the screenshot the template's Details column asks for. So they are split across the two tables below: what each step does and which screen it happens on, then what it consumes, which endpoint or element drives it, and what can go wrong.",
   },
-  { t: "h3", text: "What each step does" },
+  { t: "h3", text: "What each step does, and where" },
+  {
+    t: "p",
+    text: "The red box on each screen marks what the step touches. The endpoints and element ids behind those screens are in the second table, with the exceptions they raise.",
+  },
   {
     t: "table",
-    header: ["Step", "Description", "Screen / endpoint", "Business rules"],
-    rows: STEPS.map((s) => [`${s.n}. ${s.name}`, s.description, s.where, s.rules]),
-    widths: [13, 46, 29, 12],
+    header: ["Step", "Description", "Screen", "Rules"],
+    rows: STEPS.map((s) => [`${s.n}. ${s.name}`, s.description, { img: s.shot }, s.rules]),
+    widths: [12, 39, 38, 11],
   },
-  { t: "h3", text: "What each step consumes, and what can go wrong in it" },
+  { t: "h3", text: "What each step consumes, drives and can fail on" },
   {
     t: "table",
-    header: ["Step", "Input", "Exception handling", "Possible actions"],
-    rows: STEPS.map((s) => [`${s.n}. ${s.name}`, s.input, s.exception, s.actions]),
-    widths: [13, 20, 33, 34],
+    header: ["Step", "Input", "Endpoint / selector", "Exception handling", "Possible actions"],
+    rows: STEPS.map((s) => [`${s.n}. ${s.name}`, s.input, s.where, s.exception, s.actions]),
+    widths: [11, 15, 25, 24, 25],
   },
   { t: "pagebreak" },
   { t: "h3", text: "The queue the process works from" },
@@ -592,7 +612,7 @@ buildPdd({
   doc: DOC,
   blocks: B,
   outBase: ".data/Invoice-Processing-PDD",
-  figureFiles: ["docs/pdd-assets/figures.json", "docs/pdd-assets/diagrams.json"],
+  figureFiles: ["docs/pdd-assets/figures.json", "docs/pdd-assets/diagrams.json", "docs/pdd-assets/steps.json"],
 })
   .then(({ docx, pdf, pages }) =>
     console.log(
