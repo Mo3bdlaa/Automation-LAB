@@ -19,6 +19,7 @@
     "render:po": "tsx scripts/render-po.ts",
     "worker": "tsx scripts/worker.ts",
     "serve:prod": "scripts/serve-prod.sh",
+    "e2e:smoke": "node scripts/e2e-smoke.mjs",
     "api:smoke": "node scripts/api-smoke.mjs",
     "challenge:smoke": "node scripts/challenge-smoke.mjs",
     "ocr:ladder": "tsx scripts/ocr-ladder.ts",

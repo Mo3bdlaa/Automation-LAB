@@ -1,11 +1,19 @@
 /**
- * Browser smoke test against a running dev server with the seeded corpus.
- *   pnpm dev            (in one terminal)
- *   pnpm worker         (in another: the documents a participant creates are
- *                        rendered by a background job, and this walk creates
- *                        some — against a production build, also set
- *                        PARTICIPANT_DOCUMENT_PDFS=1, which `next dev` implies)
- *   node scripts/e2e-smoke.mjs [screenshot-dir]
+ * Browser smoke test over the whole cycle, against a seeded corpus.
+ *
+ *   pnpm dev                                          (one terminal)
+ *   pnpm e2e:smoke                                    (another)
+ *
+ * or against a production build, which is what the deployed lab runs:
+ *
+ *   ALLOW_LOCAL_BLOBS_IN_PROD=1 scripts/serve-prod.sh 3200
+ *   BASE_URL=http://127.0.0.1:3200 pnpm e2e:smoke [screenshot-dir]
+ *
+ * (ALLOW_LOCAL_BLOBS_IN_PROD because a deployed lab keeps its PDFs in object
+ * storage and refuses to use the local disk unless told this is a host that
+ * has one. Nothing else needs setting: the documents a participant creates
+ * are printed by a background job the request kicks off, in process.)
+ *
  * Logs in as student@lab.local, waits for provisioning, exercises the full
  * cycle (vendors, items, RFQ award, GRN posting, invoice extraction + match,
  * approve, pay), downloads PDFs and a ZIP, switches to Arabic, resets the
@@ -27,6 +35,20 @@ const makeIban = () => { const bban = "80" + digits(18); const c = 98 - mod97(bb
 const luhn = (payload) => { let sum = 0, dbl = true; for (let i = payload.length - 1; i >= 0; i--) { let d = Number(payload[i]); if (dbl) { d *= 2; if (d > 9) d -= 9; } sum += d; dbl = !dbl; } return String((10 - (sum % 10)) % 10); };
 const makeTaxId = () => { const body = "3" + digits(13); return body + luhn(body); };
 const uniq = Date.now().toString(36);
+/**
+ * A request with the session on it.
+ *
+ * `p.request` shares the browser's cookie jar but will not send a Secure
+ * cookie over http, not even to 127.0.0.1 — which the browser itself is happy
+ * to do. Left alone, every API call here comes back 401 and the two steps that
+ * use them log an error and pass, testing nothing. The cookie goes on by hand.
+ */
+const apiGet = async (path) => {
+  const jar = await ctx.cookies();
+  const session = jar.find((c) => c.name === "al_session");
+  return p.request.get(`${base}${path}`, { headers: session ? { cookie: `al_session=${session.value}` } : {} });
+};
+
 const ruleIds = async () => (await p.locator("#validation-errors li").evaluateAll((els) => els.map((e) => e.dataset.ruleId))).join(",");
 
 async function waitReady() {
@@ -150,8 +172,11 @@ if (await dnRow.count()) {
 // Invoice extraction + match with a wrong price → PO-INV-PRICE, then correct → approve → pay
 await p.goto(`${base}/invoices?status=pending_extraction`);
 log("pending invoices:", await p.locator("#invoices-pager").getAttribute("data-total"));
-const zip = await p.request.get(`${base}/api/queues/invoices-pending/download`);
-log("queue zip:", zip.status(), zip.headers()["content-type"], "docs:", zip.headers()["x-document-count"], "bytes:", (await zip.body()).length);
+const zip = await apiGet("/api/queues/invoices-pending/download");
+const zipBody = await zip.body();
+log("queue zip:", zip.status(), zip.headers()["content-type"], "docs:", zip.headers()["x-document-count"], "bytes:", zipBody.length);
+if (zip.status() !== 200) fail(`queue zip: ${zip.status()} ${zipBody.toString().slice(0, 120)}`);
+if (zipBody.subarray(0, 2).toString() !== "PK") fail("queue zip is not a zip");
 // Pick an invoice whose PO is known and rendered: read the PDF's number from ground truth is hidden, so we use the API-free path:
 // choose a pending invoice, download its PDF (proves the file), then submit an extraction with obviously wrong values to see rule ids.
 const invRow = p.locator("#invoices-table tbody tr").first();
@@ -198,7 +223,8 @@ await p.screenshot({ path: `${shots}/invoices-ar.png`, fullPage: true });
 await p.goto(`${base}/lang?to=en`);
 
 // API + rules
-const api = await p.request.get(`${base}/api/sandbox`);
+const api = await apiGet("/api/sandbox");
+if (api.status() !== 200) fail(`api/sandbox: ${api.status()} ${(await api.body()).toString().slice(0, 120)}`);
 log("api/sandbox:", JSON.stringify(await api.json()));
 const rules = await (await p.request.get(`${base}/api/rules`)).json();
 log("rules:", rules.rules.length, rules.rules.map((r) => r.id).filter((id) => /INV|GRN|BANK|DUP|TAX-CERT/.test(id)).join(","));
