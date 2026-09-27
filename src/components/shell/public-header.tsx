@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Dictionary, Locale } from "@/i18n";
+import { NavLink } from "./nav-link";
 import { PUBLIC_LINKS } from "./nav-model";
 
 /**
@@ -10,7 +11,7 @@ import { PUBLIC_LINKS } from "./nav-model";
  * would work — and no sign-in wall either, since the challenge and the
  * leaderboard are open to anyone.
  */
-export function PublicHeader({ t, locale, current }: { t: Dictionary; locale: Locale; current: string }) {
+export function PublicHeader({ t, locale }: { t: Dictionary; locale: Locale }) {
   return (
     <header className="pub">
       <div className="pub-inner">
@@ -22,9 +23,9 @@ export function PublicHeader({ t, locale, current }: { t: Dictionary; locale: Lo
         </Link>
         <nav id="nav-public" data-testid="nav-public" aria-label={t.navGroups.modules}>
           {PUBLIC_LINKS.map((l) => (
-            <Link key={l.id} id={l.id} data-testid={l.id} href={l.href} aria-current={current.startsWith(l.href) ? "page" : undefined}>
+            <NavLink key={l.id} id={l.id} data-testid={l.id} href={l.href}>
               {t.nav[l.key]}
-            </Link>
+            </NavLink>
           ))}
           <a href="/api/docs" id="nav-api-docs" data-testid="nav-api-docs">
             {t.nav.apiDocs}

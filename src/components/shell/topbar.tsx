@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Dictionary, Locale } from "@/i18n";
 import type { Principal } from "@/lib/identity";
+import { Crumbs } from "./crumbs";
 import { EnvChip } from "./env-chip";
 import { SearchIcon } from "./icons";
 
@@ -20,18 +21,10 @@ function initials(name: string): string {
  * every list screen filters, but finding a document by its number is one
  * thing in one place.
  */
-export function TopBar({ t, locale, principal, crumbs }: { t: Dictionary; locale: Locale; principal: Principal; crumbs: { label: string; href?: string }[] }) {
+export function TopBar({ t, locale, principal }: { t: Dictionary; locale: Locale; principal: Principal }) {
   return (
     <header className="topbar">
-      <nav className="crumbs" aria-label={t.common.breadcrumb}>
-        <Link href="/">{t.appShortName}</Link>
-        {crumbs.map((c, i) => (
-          <span key={`${c.label}-${i}`} style={{ display: "contents" }}>
-            <span aria-hidden="true">/</span>
-            {c.href ? <Link href={c.href}>{c.label}</Link> : <span className="crumb-here">{c.label}</span>}
-          </span>
-        ))}
-      </nav>
+      <Crumbs t={t} />
 
       <form className="topbar-search" action="/search" method="get" role="search">
         <SearchIcon />

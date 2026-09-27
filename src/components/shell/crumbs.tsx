@@ -1,3 +1,7 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { Dictionary } from "@/i18n";
 import { NAV_GROUPS } from "./nav-model";
 
@@ -40,4 +44,24 @@ export function crumbsFor(pathname: string, t: Dictionary): { label: string; hre
     { label: record, href: `${root}/${segments[1]}` },
     { label: segments.slice(2).map(decodeURIComponent).join(" · ") },
   ];
+}
+
+/**
+ * The trail, read from the client-side path for the same reason NavLink does:
+ * a server layout is not re-rendered on a navigation between siblings, so a
+ * path handed down from it is the previous page's.
+ */
+export function Crumbs({ t }: { t: Dictionary }) {
+  const pathname = usePathname() ?? "/";
+  return (
+    <nav className="crumbs" aria-label={t.common.breadcrumb}>
+      <Link href="/">{t.appShortName}</Link>
+      {crumbsFor(pathname, t).map((c, i) => (
+        <span key={`${c.label}-${i}`} style={{ display: "contents" }}>
+          <span aria-hidden="true">/</span>
+          {c.href ? <Link href={c.href}>{c.label}</Link> : <span className="crumb-here">{c.label}</span>}
+        </span>
+      ))}
+    </nav>
+  );
 }

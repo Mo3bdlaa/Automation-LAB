@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Sans_Arabic, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { i18n } from "@/i18n/server";
@@ -9,7 +8,6 @@ import { Sidebar } from "@/components/shell/sidebar";
 import { TopBar } from "@/components/shell/topbar";
 import { PublicHeader } from "@/components/shell/public-header";
 import { SiteFooter } from "@/components/shell/footer";
-import { crumbsFor } from "@/components/shell/crumbs";
 import { activeRun } from "@/lib/challenge/runs";
 import { RunBanner } from "./challenges/run-banner";
 
@@ -35,7 +33,6 @@ export const dynamic = "force-dynamic";
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { locale, t, dir } = await i18n();
   const principal = await getPrincipal();
-  const pathname = (await headers()).get("x-pathname") ?? "/";
   // The open run, fetched once for the whole application rather than by the
   // three pages that used to remember to ask.
   const lab = principal ? await getLabSession() : null;
@@ -50,9 +47,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           // bar that says where you are. No footer — an application does not
           // need one, and the fine print belongs where visitors read it.
           <div className="app">
-            <Sidebar t={t} locale={locale} staff={isStaff(principal)} current={pathname} />
+            <Sidebar t={t} locale={locale} staff={isStaff(principal)} />
             <div className="app-main">
-              <TopBar t={t} locale={locale} principal={principal} crumbs={crumbsFor(pathname, t)} />
+              <TopBar t={t} locale={locale} principal={principal} />
               {open ? (
                 <RunBanner
                   t={t}
@@ -65,7 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         ) : (
           // Signed out, it is a site: a product header, the page, the fine print.
           <div className="flex min-h-dvh flex-col">
-            <PublicHeader t={t} locale={locale} current={pathname} />
+            <PublicHeader t={t} locale={locale} />
             {children}
             <SiteFooter t={t} />
           </div>

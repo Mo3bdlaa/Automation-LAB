@@ -3,6 +3,7 @@ import type { Dictionary } from "@/i18n";
 import { COMPANY } from "@/lib/generator/vocab";
 import { NAV_GROUPS } from "./nav-model";
 import { HomeIcon, StarIcon } from "./icons";
+import { NavLink } from "./nav-link";
 import { SideToggle } from "./side-toggle";
 
 /**
@@ -19,8 +20,7 @@ import { SideToggle } from "./side-toggle";
  * is no button and the list is simply the nav. The links are in the DOM
  * either way, so folding costs nothing to anything reading the page.
  */
-export function Sidebar({ t, locale, staff, current }: { t: Dictionary; locale: string; staff: boolean; current: string }) {
-  const here = (href: string) => current === href || (href !== "/" && current.startsWith(`${href}/`));
+export function Sidebar({ t, locale, staff }: { t: Dictionary; locale: string; staff: boolean }) {
   return (
     <nav className="side" id="nav-main" data-testid="nav-main" aria-label={t.navGroups.modules}>
       <div className="side-head">
@@ -37,18 +37,18 @@ export function Sidebar({ t, locale, staff, current }: { t: Dictionary; locale: 
       </div>
 
       <div className="side-nav" id="nav-modules">
-          <Link href="/" id="nav-dashboard" data-testid="nav-dashboard" className="side-link" aria-current={current === "/" ? "page" : undefined}>
+          <NavLink href="/" exact id="nav-dashboard" data-testid="nav-dashboard" className="side-link">
             <HomeIcon />
             {t.nav.dashboard}
-          </Link>
+          </NavLink>
 
           {NAV_GROUPS.map((group) => (
             <div key={group.label}>
               <div className="side-group">{t.navGroups[group.label]}</div>
               {group.links.map((l) => (
-                <Link key={l.id} id={l.id} data-testid={l.id} href={l.href} className="side-link" aria-current={here(l.href) ? "page" : undefined}>
+                <NavLink key={l.id} id={l.id} data-testid={l.id} href={l.href} className="side-link">
                   <span style={{ flexGrow: 1 }}>{t.nav[l.key]}</span>
-                </Link>
+                </NavLink>
               ))}
             </div>
           ))}
@@ -56,17 +56,17 @@ export function Sidebar({ t, locale, staff, current }: { t: Dictionary; locale: 
           {staff ? (
             <div>
               <div className="side-group">{t.navGroups.staff}</div>
-              <Link id="nav-instructor" data-testid="nav-instructor" href="/instructor" className="side-link" aria-current={here("/instructor") ? "page" : undefined}>
+              <NavLink id="nav-instructor" data-testid="nav-instructor" href="/instructor" className="side-link">
                 <span style={{ flexGrow: 1 }}>{t.nav.instructor}</span>
-              </Link>
+              </NavLink>
             </div>
           ) : null}
 
           <div className="side-lab">
-            <Link id="nav-challenges" data-testid="nav-challenges" href="/challenges" className="side-lab-link" aria-current={here("/challenges") ? "page" : undefined}>
+            <NavLink id="nav-challenges" data-testid="nav-challenges" href="/challenges" className="side-lab-link">
               <StarIcon />
               {t.nav.challenges}
-            </Link>
+            </NavLink>
             <Link id="nav-leaderboard" data-testid="nav-leaderboard" href="/leaderboard" className="side-link" style={{ paddingInlineStart: "2.125rem" }}>
               {t.nav.leaderboard}
             </Link>
