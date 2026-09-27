@@ -145,9 +145,9 @@ export function Tile({ testId, href, title, subtitle, count, unit }: { testId: s
   );
 }
 
-export function Button({ testId, children, variant = "primary", type = "submit", disabled, formAction, name, value }: { testId: string; children: ReactNode; variant?: "primary" | "secondary" | "danger" | "accept"; type?: "submit" | "button"; disabled?: boolean; formAction?: (formData: FormData) => void | Promise<void>; name?: string; value?: string }) {
+export function Button({ testId, children, variant = "primary", type = "submit", disabled, formAction, name, value, onClick, small, ariaLabel, title }: { testId: string; children: ReactNode; variant?: "primary" | "secondary" | "danger" | "accept"; type?: "submit" | "button"; disabled?: boolean; formAction?: (formData: FormData) => void | Promise<void>; name?: string; value?: string; onClick?: () => void; small?: boolean; ariaLabel?: string; title?: string }) {
   return (
-    <button id={testId} data-testid={testId} type={type} disabled={disabled} formAction={formAction} name={name} value={value} className={`al-btn ${variant === "primary" ? "" : variant}`}>
+    <button id={testId} data-testid={testId} type={type} disabled={disabled} formAction={formAction} name={name} value={value} onClick={onClick} aria-label={ariaLabel} title={title} className={`al-btn ${variant === "primary" ? "" : variant}${small ? " small" : ""}`}>
       {children}
     </button>
   );

@@ -337,7 +337,9 @@ export const en = {
     document: "Document",
     newPo: "New purchase order",
     createPo: "Create purchase order",
-    lineHint: "Leave the item blank on unused lines.",
+    lineHint: "Leave the item blank on unused lines, and add a row when the order needs more.",
+    addLine: "Add line",
+    removeLine: "Remove line",
     filename: "File",
   },
   cycle: {

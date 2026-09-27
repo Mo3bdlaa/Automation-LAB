@@ -33,6 +33,7 @@ All lowercase, hyphen-separated. `id` and `data-testid` carry the same value.
 | Download link | `{entity}-download` | `po-download` |
 | Work queue on the home screen | `tile-{queue}` with `data-count` | `tile-invoices-pending`. The id kept its old name when the tiles became a ranked queue: it is published in the process documents and in the scenario catalogue, so it is a contract, not a description. |
 | Extraction form field | `extraction-field-{field}` / `extraction-field-line-{n}-{field}` | `extraction-field-line-1-unitPrice` |
+| Line row controls | `{entity}-add-line` / `{entity}-line-{n}-remove` | `po-add-line`, `po-line-3-remove`. Rows are numbered by position, so removing one renumbers those below it; how many there are is on `#po-lines-form[data-lines]` |
 | Related document link | `related-{kind}-{code}` | `related-grn-GRN-2026-05003` |
 | Validation station form | `validation-station-form` | with `#validation-document`, `#validation-fields`, `#validation-lines` |
 | Validation station field group | `validate-field-{field}-group` with `data-low-confidence` | `validate-field-invoiceNumber-group` |

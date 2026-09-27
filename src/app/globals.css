@@ -323,6 +323,8 @@ table.al-table tfoot td { background: var(--al-surface-2); }
 .al-btn.danger:hover { background: var(--al-error-wash); }
 .al-btn.accept { background: var(--al-success); border-color: var(--al-success); color: #fff; }
 .al-btn:disabled { opacity: 0.5; cursor: default; }
+/* A button that sits inside a table row or beside one: the full-height one would set the row height. */
+.al-btn.small { min-height: 2rem; padding: 0 .625rem; font-size: .8125rem; }
 
 /* Validation container: always present, bots wait on #validation-errors[data-count] */
 #validation-errors { border: 1px solid var(--al-border); border-radius: var(--al-radius); padding: 0.6rem 0.9rem; background: var(--al-surface); }
