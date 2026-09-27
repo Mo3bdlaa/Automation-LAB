@@ -54,6 +54,15 @@
   --al-focus: #0a6ed1;
   --al-radius: 0.25rem;
   --al-radius-lg: 0.4375rem;
+
+  /*
+   * The pinned bands, in the order they stack. A table's column headers stick
+   * below both, so they are read here rather than guessed at: the page header
+   * is 83px on a screen with a subtitle and 63px on one without, and a column
+   * header stuck at the smaller of those floats over the rows.
+   */
+  --al-topbar-h: 3.5rem;
+  --al-pagehead-h: 5.1875rem;
 }
 
 @theme inline {
@@ -171,13 +180,7 @@ html, body { overscroll-behavior-y: none; }
 .side-nav a.side-lab-link { display: flex; align-items: center; gap: .5rem; padding: .5625rem .625rem; border-radius: var(--al-radius); font-size: .8125rem; font-weight: 600; color: #fff; background: color-mix(in srgb, var(--al-lab) 32%, transparent); border: 1px solid color-mix(in srgb, var(--al-lab-glow) 50%, transparent); }
 .side-nav a.side-lab-link:hover { background: color-mix(in srgb, var(--al-lab) 46%, transparent); }
 
-/*
- * Pinned, like the sidebar beside it: where you are, what you are searching
- * and who you are should not scroll away behind a two-hundred-row table. It
- * sticks to the top of the document rather than the column, which is what
- * makes it line up with the sidebar that is doing the same thing.
- */
-.topbar { position: sticky; top: 0; z-index: 20; height: 3.5rem; flex-shrink: 0; background: var(--al-surface); border-bottom: 1px solid var(--al-border); display: flex; align-items: center; gap: 1.125rem; padding: 0 1.375rem; }
+.topbar { height: var(--al-topbar-h); flex-shrink: 0; background: var(--al-surface); border-bottom: 1px solid var(--al-border); display: flex; align-items: center; gap: 1.125rem; padding: 0 1.375rem; }
 .crumbs { display: flex; align-items: center; gap: .4375rem; font-size: .8125rem; color: var(--al-muted); }
 .crumbs a { color: var(--al-muted); text-decoration: none; }
 .crumbs a:hover { color: var(--al-primary); }
@@ -230,7 +233,17 @@ html, body { overscroll-behavior-y: none; }
 .run-bar .run-progress > span { display: block; height: 5px; background: var(--al-lab-glow); }
 
 /* Page and object header */
-.page-header { background: var(--al-surface); border-bottom: 1px solid var(--al-border); }
+/*
+ * The pinned band, stated once because three things stack inside it: the top
+ * bar, this, and a table's column headers. Each needs to know how far down the
+ * ones above it reach, and a number repeated in three places is a number that
+ * will disagree with itself.
+ *
+ * The height is fixed rather than natural so the stack is predictable: a page
+ * with a subtitle is 20px taller than one without, and the column headers
+ * cannot stick under a band whose height depends on the page.
+ */
+.page-header { background: var(--al-surface); border-bottom: 1px solid var(--al-border); min-height: var(--al-pagehead-h); display: flex; align-items: center; }
 .page-header h1 { font-family: var(--al-font-display), Georgia, serif; font-size: 1.5625rem; font-weight: 600; letter-spacing: -.015em; color: var(--al-text); }
 .object-subtitle { color: var(--al-muted); font-size: .85rem; }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .5rem 1.25rem; }
@@ -284,7 +297,12 @@ html, body { overscroll-behavior-y: none; }
 /* Tables */
 table.al-table { width: 100%; border-collapse: collapse; background: var(--al-surface); }
 table.al-table th, table.al-table td { border-bottom: 1px solid var(--al-border); padding: 0.5rem 0.75rem; text-align: start; vertical-align: top; font-size: 0.85rem; }
-table.al-table th { background: var(--al-surface-2); font-weight: 600; color: var(--al-muted); white-space: nowrap; font-size: .6875rem; letter-spacing: .04em; text-transform: uppercase; }
+/*
+ * box-shadow rather than border-bottom: with border-collapse the borders
+ * belong to the table, not the cell, so a stuck header row leaves its rule
+ * behind at the top of the table and floats over the rows without one.
+ */
+table.al-table th { background: var(--al-surface-2); font-weight: 600; color: var(--al-muted); white-space: nowrap; font-size: .6875rem; letter-spacing: .04em; text-transform: uppercase; box-shadow: inset 0 -1px 0 var(--al-border); }
 table.al-table tbody tr:hover td { background: var(--al-surface-2); }
 table.al-table td.num, table.al-table th.num { text-align: end; font-variant-numeric: tabular-nums; }
 table.al-table tfoot td { background: var(--al-surface-2); }
@@ -356,12 +374,12 @@ table.al-table tfoot td { background: var(--al-surface-2); }
   .side-nav { display: none; max-height: 60vh; border-bottom: 1px solid rgba(255,255,255,.1); }
   .side[data-open="true"] .side-nav { display: flex; }
 
+  .page-header { min-height: 0; display: block; }
   .topbar { height: auto; flex-wrap: wrap; gap: .5rem .75rem; padding: .625rem 1rem; }
   .topbar-search { order: 3; max-width: none; flex-basis: 100%; }
   .topbar-end { margin-inline-start: auto; gap: .625rem; }
   .topbar-end .env-chip { order: 4; }
 
-  .page-header .mx-auto { padding-inline: 1rem; }
   .pub-inner { height: auto; flex-wrap: wrap; gap: .75rem 1rem; padding: .875rem 1rem; }
   .pub nav { order: 3; flex-basis: 100%; overflow-x: auto; }
   .site-footer .footer-inner { padding: 1.25rem 1rem; }
@@ -387,6 +405,38 @@ table.al-table tfoot td { background: var(--al-surface-2); }
   .side-burger { display: none; }
   .side-nav { display: flex; }
   .side { position: sticky; top: 0; height: 100vh; height: 100dvh; }
+
+  /*
+   * The frame holds still and the work moves through it. Three bands, each
+   * pinned below the one above: where you are and who you are; what this page
+   * is and the one button it offers; and what the columns mean.
+   *
+   * The last is the one that earns its keep. A sixty-row table read at row
+   * forty is a grid of numbers with no headings, and scrolling back up to find
+   * out which column is the grand total is the most common thing anybody does
+   * on these screens.
+   */
+  .topbar { position: sticky; top: 0; z-index: 30; }
+  .page-header { position: sticky; top: var(--al-topbar-h); z-index: 20; }
+}
+
+/*
+ * Column headers stick from 70rem up, and not below, because of a conflict
+ * that is easy to miss: any overflow value other than visible makes an element
+ * a scroll container, and a sticky descendant sticks to *that* rather than to
+ * the window. .table-wrap scrolls sideways, so its header row was pinned to a
+ * box that does not scroll vertically — which looks exactly like sticky not
+ * working at all.
+ *
+ * So the wrapper stops being a scroll container at the widths where it has
+ * nothing to scroll. Measured, not assumed: every list table fits its column
+ * at 1100px and up; at 960px, invoices, vendors and payments need 123px, 73px
+ * and 28px more than they have. Below 70rem the sideways scrollbar is worth
+ * more than a pinned heading, so it keeps it and the heading scrolls.
+ */
+@media (min-width: 70rem) {
+  .table-wrap { overflow-x: visible; }
+  table.al-table thead th { position: sticky; top: calc(var(--al-topbar-h) + var(--al-pagehead-h)); z-index: 10; }
 }
 
 /*
