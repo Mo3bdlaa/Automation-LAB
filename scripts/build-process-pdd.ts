@@ -127,8 +127,8 @@ const STEPS: Step[] = [
     description:
       "Fetch the PDF at the level the run is set to. Level 1 is the file as the system printed it; levels 2 to 5 are progressively worse scans of the same page.",
     where: "GET /api/documents/{id}/file?level=N · #invoice-download",
-    exception: "404 — a level above 1 has not been rendered yet.",
-    actions: "Wait and retry: levels 2 to 5 are produced on first request.",
+    exception: "409 with Retry-After — the file is still being printed.",
+    actions: "Honour Retry-After and ask again. Levels 2 to 5, and any document a participant created, are printed on first request.",
     rules: "—",
   },
   {
@@ -554,7 +554,7 @@ const B: Block[] = [
       ["2", "401 Unauthorized", "1, any", "Token prefix", "Do not retry in a loop — a rejected credential does not recover by being tried again. Stop the job and alert."],
       ["3", "429 Too Many Requests", "Any", "Retry-After header", "Honour Retry-After. The limits exist so that one runaway robot does not take the platform down for everybody."],
       ["4", "409 Conflict on claim", "3", "Work item id", "Another actor holds the item. Skip it and claim the next."],
-      ["5", "404 on the document file", "5", "Document id, level", "A level above 1 is rendered on first request. Wait and retry before treating it as missing."],
+      ["5", "409 on the document file", "5", "Document id, level", "The file is being printed: a level above 1, or a document the participant created, is produced on first request. Honour Retry-After and ask again before treating it as missing."],
       ["6", "Timeout while submitting the extraction", "8", "Internal AP number", "Re-read the invoice before resubmitting: the submission may have been applied. Never blind-retry a write."],
       ["7", "Document unreadable, or confidence below threshold", "6, 7", "Field name, confidence", "Do not guess. Route the item to the exception queue and record which field failed and at which level."],
     ],

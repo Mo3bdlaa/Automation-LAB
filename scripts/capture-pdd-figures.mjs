@@ -202,7 +202,7 @@ await figure(
   [
     ["#extraction-field-number-group", "Every field has a stable id: extraction-field-{field}."],
     ["#extraction-field-iban-group", "The IBAN as printed. The match compares it with the vendor master (BANK-CHANGE)."],
-    ["#extraction-lines-form", "Eight line rows, addressed as extraction-field-line-{n}-{field}."],
+    ["#extraction-lines-form", "One line row to start with, addressed as extraction-field-line-{n}-{field}. #extraction-add-line adds another; a bot may post line{n} fields without clicking it."],
     ["#extraction-submit", "Submitting stores the extraction and runs the three-way match on the submitted values."],
   ],
   { element: "#extraction-form" },

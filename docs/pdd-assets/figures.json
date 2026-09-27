@@ -3,7 +3,7 @@
     "id": "01-launchpad",
     "title": "Launchpad: work queues after sign-in",
     "file": "docs/pdd-assets/01-launchpad.png",
-    "width": 1821,
+    "width": 1920,
     "height": 1350,
     "scale": 1.5,
     "callouts": [
@@ -33,14 +33,14 @@
         "text": "Navigation. Each link carries a stable id (nav-invoices, nav-grns, …)."
       }
     ],
-    "bytes": 222579
+    "bytes": 225425
   },
   {
     "id": "02-invoice-queue",
     "title": "AP inbox filtered to invoices pending extraction",
     "file": "docs/pdd-assets/02-invoice-queue.png",
-    "width": 1307,
-    "height": 1034,
+    "width": 1572,
+    "height": 1067,
     "scale": 1.5,
     "callouts": [
       {
@@ -69,14 +69,14 @@
         "text": "Pagination by URL. data-page, data-page-count and data-total let a bot loop without scraping text."
       }
     ],
-    "bytes": 201512
+    "bytes": 215303
   },
   {
     "id": "03-invoice-pending",
     "title": "Invoice object page before extraction: only the PDF is available",
     "file": "docs/pdd-assets/03-invoice-pending.png",
     "width": 1572,
-    "height": 1284,
+    "height": 1283,
     "scale": 1.5,
     "callouts": [
       {
@@ -100,14 +100,14 @@
         "text": "Extraction form: the student or bot types what the PDF shows."
       }
     ],
-    "bytes": 155072
+    "bytes": 140149
   },
   {
     "id": "04-extraction-form",
     "title": "Extraction form: header fields and line items",
     "file": "docs/pdd-assets/04-extraction-form.png",
-    "width": 1001,
-    "height": 1425,
+    "width": 1512,
+    "height": 924,
     "scale": 1.5,
     "callouts": [
       {
@@ -123,7 +123,7 @@
       {
         "n": 3,
         "selector": "#extraction-lines-form",
-        "text": "Eight line rows, addressed as extraction-field-line-{n}-{field}."
+        "text": "One line row to start with, addressed as extraction-field-line-{n}-{field}. #extraction-add-line adds another; a bot may post line{n} fields without clicking it."
       },
       {
         "n": 4,
@@ -131,14 +131,14 @@
         "text": "Submitting stores the extraction and runs the three-way match on the submitted values."
       }
     ],
-    "bytes": 103708
+    "bytes": 100908
   },
   {
     "id": "05-match-exception",
     "title": "Three-way match result: violations carry stable rule IDs",
     "file": "docs/pdd-assets/05-match-exception.png",
     "width": 1572,
-    "height": 1155,
+    "height": 1190,
     "scale": 1.5,
     "callouts": [
       {
@@ -167,14 +167,14 @@
         "text": "Re-run match after a corrected extraction."
       }
     ],
-    "bytes": 216831
+    "bytes": 217489
   },
   {
     "id": "06-purchase-order",
     "title": "Purchase order object page with its related documents",
     "file": "docs/pdd-assets/06-purchase-order.png",
     "width": 1572,
-    "height": 1257,
+    "height": 1268,
     "scale": 1.5,
     "callouts": [
       {
@@ -198,14 +198,14 @@
         "text": "Lines with quantity, unit of measure, price and tax code: the reference values for the match."
       }
     ],
-    "bytes": 186567
+    "bytes": 186648
   },
   {
     "id": "07-vendor-compliance",
     "title": "Vendor master record and its compliance documents",
     "file": "docs/pdd-assets/07-vendor-compliance.png",
-    "width": 1392,
-    "height": 1284,
+    "width": 1572,
+    "height": 1283,
     "scale": 1.5,
     "callouts": [
       {
@@ -224,7 +224,7 @@
         "text": "The licence PDF renders on first download, then is cached."
       }
     ],
-    "bytes": 124346
+    "bytes": 128482
   },
   {
     "id": "08-goods-receipt",
@@ -250,14 +250,14 @@
         "text": "Posting updates the purchase order to Partially received or Received."
       }
     ],
-    "bytes": 53047
+    "bytes": 53605
   },
   {
     "id": "09-rule-catalogue",
     "title": "Validation rule catalogue, also available as JSON at /api/rules",
     "file": "docs/pdd-assets/09-rule-catalogue.png",
     "width": 1572,
-    "height": 1284,
+    "height": 1268,
     "scale": 1.5,
     "callouts": [
       {
@@ -271,14 +271,14 @@
         "text": "Each row carries data-severity."
       }
     ],
-    "bytes": 212257
+    "bytes": 211861
   },
   {
     "id": "10-sandbox",
     "title": "Sandbox page: seed, reset and the background job log",
     "file": "docs/pdd-assets/10-sandbox.png",
-    "width": 1404,
-    "height": 1284,
+    "width": 1572,
+    "height": 1268,
     "scale": 1.5,
     "callouts": [
       {
@@ -297,7 +297,7 @@
         "text": "Background jobs: provisioning and PDF rendering."
       }
     ],
-    "bytes": 142950
+    "bytes": 139553
   },
   {
     "id": "11-arabic-rtl",
@@ -318,7 +318,7 @@
         "text": "Tables, labels and status badges are translated; ids and data-testid values stay identical."
       }
     ],
-    "bytes": 269020
+    "bytes": 287114
   },
   {
     "id": "12-document-invoice",
@@ -349,14 +349,14 @@
         "text": "Printed grand total. INV-TOTAL-TIE checks it against the sum of the lines."
       }
     ],
-    "bytes": 255787
+    "bytes": 256814
   },
   {
     "id": "13-document-purchase-order",
     "title": "Reference document: the purchase order, bilingual English and Arabic",
     "file": "docs/pdd-assets/13-document-purchase-order.png",
     "width": 1350,
-    "height": 1509,
+    "height": 1608,
     "scale": 1.5,
     "callouts": [
       {
@@ -380,7 +380,7 @@
         "text": "Every generated document is watermarked SPECIMEN - TRAINING ONLY in both languages."
       }
     ],
-    "bytes": 315398
+    "bytes": 323574
   },
   {
     "id": "14-document-licence",
@@ -442,7 +442,7 @@
         "text": "The magnified crop shows what the extractor actually has to read at each level."
       }
     ],
-    "bytes": 900563
+    "bytes": 899353
   },
   {
     "id": "16-arabic-invoice",
@@ -473,6 +473,6 @@
         "text": "Identifiers stay machine-readable, in Eastern Arabic numerals where the vendor uses them."
       }
     ],
-    "bytes": 244895
+    "bytes": 245123
   }
 ]

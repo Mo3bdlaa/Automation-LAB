@@ -12,7 +12,7 @@
     "id": "step-02",
     "title": "Step 2 — Read the queue",
     "file": "docs/pdd-assets/step-02.png",
-    "width": 1724,
+    "width": 2086,
     "height": 600,
     "scale": 2,
     "callouts": []
@@ -21,7 +21,7 @@
     "id": "step-03",
     "title": "Step 3 — Claim one item",
     "file": "docs/pdd-assets/step-03.png",
-    "width": 1724,
+    "width": 2086,
     "height": 226,
     "scale": 2,
     "callouts": []
@@ -48,7 +48,7 @@
     "id": "step-06",
     "title": "Step 6 — Read the header",
     "file": "docs/pdd-assets/step-06.png",
-    "width": 1306,
+    "width": 1988,
     "height": 590,
     "scale": 2,
     "callouts": []
@@ -57,8 +57,8 @@
     "id": "step-07",
     "title": "Step 7 — Read the lines",
     "file": "docs/pdd-assets/step-07.png",
-    "width": 1370,
-    "height": 600,
+    "width": 2052,
+    "height": 206,
     "scale": 2,
     "callouts": []
   },
@@ -66,7 +66,7 @@
     "id": "step-08",
     "title": "Step 8 — Submit the extraction",
     "file": "docs/pdd-assets/step-08.png",
-    "width": 1372,
+    "width": 2054,
     "height": 600,
     "scale": 2,
     "callouts": []

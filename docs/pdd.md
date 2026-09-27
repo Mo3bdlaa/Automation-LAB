@@ -105,7 +105,7 @@ The AP clerk starts from the launchpad (Figure 1), opens the queue of invoices p
 | 3 | Download the PDF. | #invoice-download (attachment, file name INV-YYYY-NNNNN_VENDOR.pdf) | If data-rendered is 0, wait and retry; do not proceed without the file. |
 | 4 | Read header fields: invoice number, dates, PO reference, vendor name and tax ID, IBAN, bank, currency, totals. | PDF | Read what is printed, even when it looks wrong. The match, not the reader, decides. |
 | 5 | Read every line: PO line, item code, description, quantity, unit of measure, unit price, VAT %, tax amount, line total. | PDF | Lines may be a subset of the PO lines or partial quantities. |
-| 6 | Enter the fields into the extraction form. | #extraction-form, #extraction-field-{field}, #extraction-field-line-{n}-{field} | Leave unused lines blank. Do not invent values for blank fields. |
+| 6 | Enter the fields into the extraction form. | #extraction-form, #extraction-field-{field}, #extraction-field-line-{n}-{field} | The table opens with one row; click #extraction-add-line for each further line. Do not invent values for blank fields. |
 | 7 | Submit. | #extraction-submit | The three-way match runs on the submitted values against the referenced PO and posted goods receipts. |
 | 8 | Read the result. | #validation-errors with data-count and data-blocking; each li has data-rule-id and data-severity | Branch on rule IDs, never on message text. Warnings do not block. |
 | 9 | Decide: approve when the match is clean or only warnings; reject or route as exception otherwise. | #invoice-approve, #invoice-reject | See section 3.4 for the rule-to-action table. |
@@ -145,7 +145,7 @@ The AP clerk starts from the launchpad (Figure 1), opens the queue of invoices p
 
 1. Every field has a stable id: extraction-field-{field}.
 2. The IBAN as printed. The match compares it with the vendor master (BANK-CHANGE).
-3. Eight line rows, addressed as extraction-field-line-{n}-{field}.
+3. One line row to start with, addressed as extraction-field-line-{n}-{field}. #extraction-add-line adds another; a bot may post line{n} fields without clicking it.
 4. Submitting stores the extraction and runs the three-way match on the submitted values.
 
 ![Figure 6. Three-way match result: violations carry stable rule IDs](docs/pdd-assets/05-match-exception.png)
@@ -361,7 +361,7 @@ This phase is built. The table below is the delivered scope; where the implement
 | Ground truth for Arabic | Bilingual field values | Ground truth records the other script of a name or description as an alternate reading, and the grader takes the best one. Arabic-Indic digits were already folded to Western digits by the P2 normaliser, so numbers and identifiers need no alternates. |
 | Degradation pipeline | Levels 2 to 5 from the level-1 PDF | L2 clean 300 dpi scan (slight blur, JPEG); L3 200 dpi with up to 3 degrees of skew, grain and uneven lighting; L4 phone photo with perspective, shadow gradient and a warm cast; L5 the same photograph of a page that has been stamped, annotated, stapled and folded. Departure from plan: it runs inside the Chromium the lab already uses - pdf.js rasterises the page, SVG filters and CSS transforms do the damage - rather than with sharp. One rendering engine, nothing native to install on a serverless host, and the output is an image-only PDF, so from level 2 up OCR is unavoidable. |
 | Reproducibility | Seeded per document and level | Every parameter comes from a hash of (document id, level), so two documents at one level are damaged differently and one document always degrades the same way. |
-| Lazy rendering | Levels on first download | Level 1 stays eager. A level above 1 is produced on first request for ?level=N and cached; the request answers 409 with Retry-After while the job runs. Queue ZIPs take a level and report what is still being produced. |
+| Lazy rendering | Levels, and anything a participant creates, on first download | The master set is printed once, ahead of time, so the deployed lab serves a thousand documents without starting a browser. Everything else is produced on first request and cached: a level above 1 for ?level=N, the vendor compliance documents, and the purchase order or goods receipt a participant made, which cannot exist ahead of time. The request answers 409 with Retry-After while the job runs. Queue ZIPs take a level and report what is still being produced. |
 | Bounding boxes | Field positions per level | Template elements carrying a graded value are tagged, the renderer measures them against the printed page, and the degradation pipeline puts marker elements through the same transform, so the boxes follow the skew and the perspective. Exposed on GET /api/documents/{id}?boxes=1 and drawn as a page map on the Validation Station. |
 | Difficulty ladder in exercises | Cohort level | The instructor sets the level on /instructor; the queue API hands out download URLs at that level; an extraction records the level it was read from; the dashboard and the CSV export report accuracy per level. Departure from plan: the level is set per cohort rather than per exercise, because the lab has no exercise model yet - that belongs with the course material. |
 
