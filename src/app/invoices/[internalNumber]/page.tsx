@@ -162,12 +162,6 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
               </Section>
             </>
           )}
-          {["pending_extraction", "extracted", "matched", "exception"].includes(inv.status) ? (
-            <Section title={tc.extraction} testId="invoice-extraction">
-              <p className="mb-2 text-sm text-muted">{tc.extractionIntro}</p>
-              <ExtractionForm t={t} internalNumber={inv.internalNumber} level={level} previous={lastExtraction && lastExtraction.fields.number !== undefined ? lastExtraction.fields : null} />
-            </Section>
-          ) : null}
         </div>
         <div>
           <DocumentCard
@@ -194,6 +188,14 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
           ) : null}
         </div>
       </div>
+      {/* Full width, below the grid: eleven columns of typing do not fit a
+          two-thirds column, and this is the work surface of the screen. */}
+      {["pending_extraction", "extracted", "matched", "exception"].includes(inv.status) ? (
+        <Section title={tc.extraction} testId="invoice-extraction">
+          <p className="mb-2 text-sm text-muted">{tc.extractionIntro}</p>
+          <ExtractionForm t={t} internalNumber={inv.internalNumber} level={level} previous={lastExtraction && lastExtraction.fields.number !== undefined ? lastExtraction.fields : null} />
+        </Section>
+      ) : null}
     </Page>
   );
 }

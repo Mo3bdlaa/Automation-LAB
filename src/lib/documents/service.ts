@@ -15,6 +15,7 @@ import { renderDeliveryNoteHtml, renderInvoiceHtml, renderQuoteHtml, renderRecei
 import { renderGrnHtml, renderRfqHtml } from "./templates/internal-documents";
 import { ensureSharedTenant } from "../corpus/persist";
 import { emitWebhook } from "../webhooks/emit";
+import { COMPANY } from "@/lib/generator/vocab";
 
 export function documentFilename(number: string, vendorName: string, ext = "pdf"): string {
   const slug = vendorName
@@ -105,7 +106,10 @@ async function htmlFor(doc: Document): Promise<{ html: string; vendorName: strin
           costCenter: cc ? { code: cc.code, name: cc.name } : null,
           lines: lines.map((l) => ({ lineNo: l.lineNo, itemCode: items.get(l.itemId ?? "")?.code ?? null, description: l.description, descriptionAr: items.get(l.itemId ?? "")?.nameAr ?? null, quantity: l.quantity, uom: l.uom })),
         }),
-        vendorName: "AL-NAHDA",
+        // An RFQ goes out from the buyer, so the file is named after the
+        // company rather than a vendor. It was the old company name, hardcoded,
+        // and the rename walked straight past it.
+        vendorName: COMPANY.shortName,
       };
     }
     case "quote": {

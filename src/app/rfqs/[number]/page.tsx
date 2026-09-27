@@ -81,67 +81,70 @@ export default async function RfqDetailPage({ params, searchParams }: { params: 
               </table>
             </TableWrap>
           </Section>
-          <Section title={tc.quotes} testId="rfq-quotes">
-            <TableWrap>
-              <table id="quotes-table" data-testid="quotes-table" className="al-table">
-                <thead>
-                  <tr>
-                    <th>{tc.vendor}</th>
-                    <th>{tc.number}</th>
-                    <th>{tc.quoteDate}</th>
-                    <th>{tc.validUntil}</th>
-                    <th className="num">{tc.leadTimeDays}</th>
-                    <th className="num">{t.po.grandTotal}</th>
-                    <th>{tc.status}</th>
-                    <th>{t.common.actions}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {qs.map((q) => {
-                    const v = vs.find((x) => x.id === q.vendorId);
-                    const d = qDocs.find((x) => x.sourceId === q.id);
-                    const f = d ? qFiles.find((x) => x.documentId === d.id) : null;
-                    return (
-                      <tr key={q.id} id={`quotes-row-${q.id}`} data-testid={`quotes-row-${q.id}`} data-vendor={v?.code ?? ""} data-status={q.status} data-document-id={d?.id ?? ""}>
-                        <td>{v ? <Link href={`/vendors/${encodeURIComponent(v.code)}`}>{`${v.code} · ${v.name}`}</Link> : t.common.none}</td>
-                        <td id={`quotes-cell-${q.id}-number`} data-testid={`quotes-cell-${q.id}-number`}>{q.number}</td>
-                        <td>{q.quoteDate}</td>
-                        <td>{q.validUntil}</td>
-                        <td className="num">{q.leadTimeDays}</td>
-                        <td className="num" id={`quotes-cell-${q.id}-grandTotal`} data-testid={`quotes-cell-${q.id}-grandTotal`}>
-                          {fmtNumber(q.grandTotal)} {q.currency}
-                        </td>
-                        <td>
-                          <Status status={q.status} />
-                        </td>
-                        <td className="flex gap-2">
-                          {d && f ? (
-                            <a id={`quotes-action-download-${q.id}`} data-testid={`quotes-action-download-${q.id}`} href={`/api/documents/${d.id}/file`} download={f.filename} className="underline">
-                              PDF
-                            </a>
-                          ) : (
-                            <span className="text-muted">{t.common.rendering}</span>
-                          )}
-                          {canAward ? (
-                            <form action={awardQuoteAction}>
-                              <input type="hidden" name="rfqNumber" value={rfq.number} />
-                              <input type="hidden" name="quoteId" value={q.id} />
-                              <Button testId={`quotes-action-award-${q.id}`} variant="secondary">
-                                {tc.award}
-                              </Button>
-                            </form>
-                          ) : null}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </TableWrap>
-          </Section>
         </div>
         <DocumentCard entity="rfq" documentId={doc?.id ?? null} file={file} labels={{ title: t.po.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: t.po.filename, notPrinted: t.common.notPrintedHere }} lazy={ownDoc && participantPdfsEnabled()} notPrinted={ownDoc && !participantPdfsEnabled()} />
       </div>
+      {/* Full width, below the grid: the quotes carry two actions in their
+          last column, and in a two-thirds column that column falls off the
+          right-hand edge and under the document card. */}
+        <Section title={tc.quotes} testId="rfq-quotes">
+          <TableWrap>
+            <table id="quotes-table" data-testid="quotes-table" className="al-table">
+              <thead>
+                <tr>
+                  <th>{tc.vendor}</th>
+                  <th>{tc.number}</th>
+                  <th>{tc.quoteDate}</th>
+                  <th>{tc.validUntil}</th>
+                  <th className="num">{tc.leadTimeDays}</th>
+                  <th className="num">{t.po.grandTotal}</th>
+                  <th>{tc.status}</th>
+                  <th>{t.common.actions}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {qs.map((q) => {
+                  const v = vs.find((x) => x.id === q.vendorId);
+                  const d = qDocs.find((x) => x.sourceId === q.id);
+                  const f = d ? qFiles.find((x) => x.documentId === d.id) : null;
+                  return (
+                    <tr key={q.id} id={`quotes-row-${q.id}`} data-testid={`quotes-row-${q.id}`} data-vendor={v?.code ?? ""} data-status={q.status} data-document-id={d?.id ?? ""}>
+                      <td>{v ? <Link href={`/vendors/${encodeURIComponent(v.code)}`}>{`${v.code} · ${v.name}`}</Link> : t.common.none}</td>
+                      <td id={`quotes-cell-${q.id}-number`} data-testid={`quotes-cell-${q.id}-number`}>{q.number}</td>
+                      <td>{q.quoteDate}</td>
+                      <td>{q.validUntil}</td>
+                      <td className="num">{q.leadTimeDays}</td>
+                      <td className="num" id={`quotes-cell-${q.id}-grandTotal`} data-testid={`quotes-cell-${q.id}-grandTotal`}>
+                        {fmtNumber(q.grandTotal)} {q.currency}
+                      </td>
+                      <td>
+                        <Status status={q.status} />
+                      </td>
+                      <td className="flex gap-2">
+                        {d && f ? (
+                          <a id={`quotes-action-download-${q.id}`} data-testid={`quotes-action-download-${q.id}`} href={`/api/documents/${d.id}/file`} download={f.filename} className="underline">
+                            PDF
+                          </a>
+                        ) : (
+                          <span className="text-muted">{t.common.rendering}</span>
+                        )}
+                        {canAward ? (
+                          <form action={awardQuoteAction}>
+                            <input type="hidden" name="rfqNumber" value={rfq.number} />
+                            <input type="hidden" name="quoteId" value={q.id} />
+                            <Button testId={`quotes-action-award-${q.id}`} variant="secondary">
+                              {tc.award}
+                            </Button>
+                          </form>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </TableWrap>
+        </Section>
     </Page>
   );
 }

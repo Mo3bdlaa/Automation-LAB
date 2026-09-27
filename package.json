@@ -34,6 +34,7 @@
     "pdf:proof": "tsx scripts/pdf-proof.ts",
     "deck:preview": "tsx scripts/deck-preview.ts",
     "shell:shots": "node scripts/shell-shots.mjs",
+    "ui:check": "node scripts/ui-check.mjs",
     "ids:check": "node scripts/duplicate-ids.mjs"
   },
   "dependencies": {

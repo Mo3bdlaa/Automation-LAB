@@ -72,4 +72,18 @@ for _ in $(seq 1 40); do
 done
 if grep -q EADDRINUSE .data/prod.log; then echo "port $PORT still in use" >&2; exit 1; fi
 if ! kill -0 "$SERVER_PID" 2>/dev/null; then echo "the server is not running" >&2; exit 1; fi
+
+# The stylesheet has to load, not just the HTML.
+#
+# `next build` rewrites .next/standalone from scratch, taking the static assets
+# this script copied into it with it. Run a build while a server is up — which
+# is what a "typecheck && lint && test && build" pass does — and the server
+# keeps answering, keeps rendering, and serves every page with no CSS at all.
+# The screens still have their ids, so a script reads them happily and reports
+# on a layout that is not the one anybody will see. Ask for the stylesheet.
+CSS=$(curl -s -m 5 "http://localhost:$PORT/login" | grep -o 'href="[^"]*\.css[^"]*"' | head -1 | cut -d'"' -f2)
+if [ -n "$CSS" ] && [ "$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://localhost:$PORT$CSS")" != "200" ]; then
+  echo "the stylesheet 404s ($CSS): the build changed under this server. Re-run $0 $PORT." >&2
+  exit 1
+fi
 echo "production server ready on $PORT (pid $SERVER_PID)"
