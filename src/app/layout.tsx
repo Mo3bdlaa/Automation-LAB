@@ -44,7 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang={locale} dir={dir} className={fonts}>
-      <body className="min-h-screen bg-bg text-ink">
+      <body className="min-h-dvh bg-bg text-ink">
         {principal ? (
           // Signed in, this is the company's system: a sidebar of modules and a
           // bar that says where you are. No footer — an application does not
@@ -64,7 +64,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         ) : (
           // Signed out, it is a site: a product header, the page, the fine print.
-          <div className="flex min-h-screen flex-col">
+          <div className="flex min-h-dvh flex-col">
             <PublicHeader t={t} locale={locale} current={pathname} />
             {children}
             <SiteFooter t={t} />

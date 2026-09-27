@@ -11,7 +11,7 @@ export function Page({ title, subtitle, titleId = "page-title", actions, childre
   return (
     <>
       <div className="page-header">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="page-shell flex flex-wrap items-center justify-between gap-3 py-3">
           <div>
             <h1 id={titleId} data-testid={titleId} className="flex items-center gap-3">
               {title}
@@ -22,7 +22,18 @@ export function Page({ title, subtitle, titleId = "page-title", actions, childre
           {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
         </div>
       </div>
-      <main className="mx-auto max-w-7xl px-4 py-5">{children}</main>
+      {/*
+        The centring lives on the inner div, never on <main> itself. <main> is a
+        flex item of .app-main, and an auto margin on a flex item's cross axis
+        beats align-self:stretch — so `mx-auto` here made the element
+        shrink-to-fit instead of filling the column. Every page then came out a
+        different width, because each one wrapped to its own table's natural
+        width: 529px on the RFQ list, 1151px on payments, adrift in the middle
+        of a 1650px column.
+      */}
+      <main className="py-5">
+        <div className="page-shell">{children}</div>
+      </main>
     </>
   );
 }

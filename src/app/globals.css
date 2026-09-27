@@ -118,7 +118,13 @@ a { color: var(--al-primary); }
  * the system can find the invoice queue without being told. It replaced a flat
  * strip of thirteen links, which told you nothing about what led to what.
  */
-.app { display: flex; min-height: 100vh; }
+/*
+ * Two units on purpose. dvh is the viewport you can actually see; vh on a
+ * phone includes the strip under the address bar, so a page with nothing in
+ * it still scrolls by about the height of that bar. vh stays as the fallback
+ * for anything that does not know dvh.
+ */
+.app { display: flex; min-height: 100vh; min-height: 100dvh; }
 /*
  * min-width AND max-width, both deliberate. A flex item defaults to
  * min-width:auto, which means "never shrink below your content" — so one wide
@@ -128,6 +134,14 @@ a { color: var(--al-primary); }
  */
 .app-main { flex-grow: 1; display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
 .app-main > main, .app-main > .page-header { max-width: 100%; }
+/*
+ * One column for the work, shared by the page header and the page itself so a
+ * title always sits directly over the table it belongs to. The cap is wide
+ * rather than tight: the sidebar has already taken 15rem, and capping what is
+ * left at 80rem stranded the content in the middle of the screen with a
+ * gutter on either side of it.
+ */
+.page-shell { width: 100%; max-width: 96rem; margin-inline: auto; padding-inline: 1rem; }
 
 .side { width: 15rem; flex-shrink: 0; background: var(--al-shell); color: var(--al-shell-text); display: flex; flex-direction: column; }
 .side a { color: var(--al-shell-dim); text-decoration: none; }
@@ -135,7 +149,7 @@ a { color: var(--al-primary); }
 .side-brand .logo { width: 26px; height: 26px; border-radius: 5px; background: #fff; color: var(--al-shell); font-weight: 700; font-size: .6875rem; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .side-brand .side-company { font-size: .78125rem; font-weight: 600; color: var(--al-shell-text); display: block; line-height: 1.25; }
 .side-brand .side-module { font-size: .65625rem; color: var(--al-shell-label); display: block; }
-.side-nav { flex-grow: 1; padding: .625rem .5rem; display: flex; flex-direction: column; gap: .125rem; overflow-y: auto; }
+.side-nav { flex-grow: 1; padding: .625rem .5rem; display: flex; flex-direction: column; gap: .125rem; overflow-y: auto; overscroll-behavior: contain; }
 .side-group { font-size: .59375rem; font-weight: 600; letter-spacing: .11em; text-transform: uppercase; color: var(--al-shell-label); padding: .75rem .625rem .25rem; }
 .side-nav a.side-link { display: flex; align-items: center; gap: .5rem; padding: .4375rem .625rem; border-radius: var(--al-radius); font-size: .78125rem; }
 .side-nav a.side-link:hover { background: rgba(255,255,255,.08); color: #fff; }
@@ -202,8 +216,20 @@ a { color: var(--al-primary); }
 .page-header h1 { font-family: var(--al-font-display), Georgia, serif; font-size: 1.5625rem; font-weight: 600; letter-spacing: -.015em; color: var(--al-text); }
 .object-subtitle { color: var(--al-muted); font-size: .85rem; }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .5rem 1.25rem; }
-.facts dt { font-size: .72rem; color: var(--al-muted); text-transform: uppercase; letter-spacing: .04em; }
-.facts dd { font-size: .95rem; }
+/*
+ * min-width AND overflow-wrap, both load-bearing. A grid item defaults to
+ * min-width:auto — "never narrower than your content" — and an IBAN or a tax
+ * ID has no spaces in it to break at, so the value rendered straight over the
+ * top of the next column's value. The track cannot grow to take it either,
+ * because the column's minimum is a fixed 10rem. So: let the item be narrow,
+ * and let a value with nowhere to wrap break anyway.
+ *
+ * anywhere rather than break-all: it breaks a long token only when the line
+ * would otherwise overflow, and leaves ordinary prose alone.
+ */
+.facts > div { min-width: 0; }
+.facts dt { font-size: .72rem; color: var(--al-muted); text-transform: uppercase; letter-spacing: .04em; overflow-wrap: anywhere; }
+.facts dd { font-size: .95rem; overflow-wrap: anywhere; }
 
 /* Cards, tiles, toolbars */
 .al-card { background: var(--al-surface); border: 1px solid var(--al-border); border-radius: var(--al-radius-lg); padding: 1rem 1.25rem; }
@@ -225,9 +251,16 @@ a { color: var(--al-primary); }
 
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; background: var(--al-surface); border: 1px solid var(--al-border); border-bottom: none; border-radius: var(--al-radius) var(--al-radius) 0 0; padding: .5rem .75rem; }
 .toolbar .toolbar-title { font-weight: 600; margin-inline-end: auto; }
+/*
+ * .al-input is width:100% because in a form a field owns its row. In the
+ * toolbar the fields sit side by side, and a flex item asking for 100% takes
+ * the whole line on its own — which is why the search box sat above the
+ * status filter and the button instead of beside them, on every list screen.
+ */
+.toolbar .al-input { width: auto; min-width: 11rem; }
 .toolbar + .table-wrap table.al-table { border-radius: 0 0 var(--al-radius) var(--al-radius); }
 /* The table scrolls inside this, never the page. */
-.table-wrap { overflow-x: auto; max-width: 100%; background: var(--al-surface); border: 1px solid var(--al-border); border-radius: var(--al-radius); }
+.table-wrap { overflow-x: auto; overscroll-behavior-x: contain; max-width: 100%; background: var(--al-surface); border: 1px solid var(--al-border); border-radius: var(--al-radius); }
 .toolbar + .table-wrap { border-radius: 0 0 var(--al-radius) var(--al-radius); }
 
 /* Tables */
@@ -319,8 +352,38 @@ table.al-table tfoot td { background: var(--al-surface-2); }
   .run-bar .run-clock { font-size: 1rem; }
 }
 
-/* At a desk the module list is simply the nav, and there is nothing to open. */
+/*
+ * At a desk the module list is simply the nav, and there is nothing to open.
+ *
+ * The sidebar is also pinned here, and that is the fix for a page that
+ * scrolled when it had nothing to scroll. It had no height of its own, so on
+ * a laptop window it grew past the bottom of the screen and took the document
+ * with it: the Account page, which is one card, scrolled 146px at 1280x720.
+ * .side-nav has always had overflow-y:auto, but an unbounded column never
+ * overflows, so it never engaged. Giving the sidebar the height of the
+ * viewport hands that rule something to do, and pins the modules while the
+ * work scrolls beside them — which is how every ERP behaves and what the
+ * scrolling nav cost us on any long page.
+ */
 @media (min-width: 60rem) {
   .side-burger { display: none; }
   .side-nav { display: flex; }
+  .side { position: sticky; top: 0; height: 100vh; height: 100dvh; }
+}
+
+/*
+ * On a laptop the module list is a few rows taller than the screen, and an
+ * inner scrollbar in a fifteen-row nav is a worse answer than simply making
+ * the rows fit. Below a 56rem-tall window the list tightens — smaller rows,
+ * tighter group labels, a shorter brand bar — which buys back about 120px and
+ * gets every module on screen at the heights people actually have. The
+ * overflow rule stays as the floor for a window shorter than that.
+ */
+@media (min-width: 60rem) and (max-height: 56rem) {
+  .side-brand { height: 3rem; }
+  .side-nav { padding: .375rem .5rem; gap: 0; }
+  .side-group { padding: .5rem .625rem .1875rem; }
+  .side-nav a.side-link { padding: .3125rem .625rem; }
+  .side-lab { padding-top: .5rem; }
+  .side-nav a.side-lab-link { padding: .4375rem .625rem; }
 }
