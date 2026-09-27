@@ -1,6 +1,10 @@
 /**
  * Browser smoke test against a running dev server with the seeded corpus.
  *   pnpm dev            (in one terminal)
+ *   pnpm worker         (in another: the documents a participant creates are
+ *                        rendered by a background job, and this walk creates
+ *                        some — against a production build, also set
+ *                        PARTICIPANT_DOCUMENT_PDFS=1, which `next dev` implies)
  *   node scripts/e2e-smoke.mjs [screenshot-dir]
  * Logs in as student@lab.local, waits for provisioning, exercises the full
  * cycle (vendors, items, RFQ award, GRN posting, invoice extraction + match,
@@ -32,7 +36,11 @@ async function waitReady() {
     const status = await s.getAttribute("data-status");
     const rendered = Number(await s.getAttribute("data-rendered"));
     const docs = Number(await s.getAttribute("data-documents"));
-    if (status === "ready" && docs > 0 && rendered === docs) return { rendered, docs };
+    // No `docs > 0`: since the transaction set became one shared master set,
+    // a participant's tenant owns nothing until they create something, so a
+    // fresh sandbox is ready at 0 of 0 and waiting for a document of its own
+    // is waiting for ever.
+    if (status === "ready" && rendered === docs) return { rendered, docs };
     if (status === "failed") fail("provisioning failed: " + (await p.locator("#sandbox-status-message").innerText()));
     await p.waitForTimeout(3000);
   }

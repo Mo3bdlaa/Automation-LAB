@@ -12,6 +12,7 @@ import { seedForUser } from "../generator/rng";
 import { enqueue } from "../jobs/queue";
 import { kickJobs } from "../jobs/runner";
 import { hasLabAccess, personUserId, type Principal } from "../identity/types";
+import { participantPdfsEnabled } from "@/lib/documents/participant-pdfs";
 
 export function tenantSlugFor(userId: string): string {
   return `u-${userId.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
@@ -79,5 +80,12 @@ export async function sandboxProgress(tenant: Tenant): Promise<SandboxProgress> 
     .from(schema.documentFiles)
     .innerJoin(schema.documents, eq(schema.documents.id, schema.documentFiles.documentId))
     .where(and(eq(schema.documentFiles.tenantId, tenant.id), eq(schema.documentFiles.level, 1), sql`${schema.documents.kind} not like 'vendor_%'`));
-  return { tenant, documents: Number(d?.n ?? 0), rendered: Number(f?.n ?? 0) };
+  const rendered = Number(f?.n ?? 0);
+  // A tenant only owns the documents its participant created — the corpus is
+  // the shared master set, read through TenantDb. With participant PDFs off,
+  // which is the deployed default because nothing on the request path may
+  // start Chromium, those never get a file, so counting them as outstanding
+  // left the dashboard reading "0/8 PDFs" for ever and the scripts that wait
+  // for rendered === documents waiting for a render that is switched off.
+  return { tenant, documents: participantPdfsEnabled() ? Number(d?.n ?? 0) : rendered, rendered };
 }

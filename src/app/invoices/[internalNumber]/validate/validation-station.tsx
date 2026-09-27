@@ -4,8 +4,9 @@ import { useActionState } from "react";
 import type { Dictionary } from "@/i18n";
 import { emptyFormState, fieldError, type FormState } from "@/lib/forms";
 import { Button, Input, ValidationErrors } from "@/components/ui";
+import { AddLineButton, RemoveLineButton, RemoveLineHeader, useLineRows } from "@/components/line-rows";
 import { submitExtractionAction } from "../../actions";
-import { INVOICE_FORM_LINES } from "../../constants";
+import { INVOICE_FORM_MAX_LINES } from "../../constants";
 import type { Violation } from "@/lib/validation/engine";
 
 /** Confidence at or below this is flagged for a human to check. */
@@ -36,6 +37,18 @@ const LINE_FIELDS: [string, string][] = [
   ["TaxAmount", "taxAmount"],
   ["LineTotal", "lineTotal"],
 ];
+
+/**
+ * How many lines the capture found. It writes them contiguously from one, so
+ * the count is the last row with anything in it — and it is where the station
+ * opens, because a corrector starts from what the reader produced. A line the
+ * reader missed entirely is what `validation-add-line` is for.
+ */
+function capturedLineCount(fields: Record<string, string>): number {
+  let last = 0;
+  for (let n = 1; n <= INVOICE_FORM_MAX_LINES; n++) if (LINE_FIELDS.some(([suffix]) => (fields[`line${n}${suffix}`] ?? "").trim())) last = n;
+  return last;
+}
 
 export interface FieldBoxView {
   field: string;
@@ -77,7 +90,7 @@ export function ValidationStation({
   const conf = (truthKey: string) => confidence[truthKey];
   const low = (truthKey: string) => conf(truthKey) !== undefined && conf(truthKey) <= LOW_CONFIDENCE;
   const err = (f: string) => fieldError(state, f);
-  const usedLines = Array.from({ length: INVOICE_FORM_LINES }, (_, i) => i + 1).filter((n) => LINE_FIELDS.some(([suffix]) => (fields[`line${n}${suffix}`] ?? "").trim()));
+  const rows = useLineRows({ start: Math.max(1, capturedLineCount(fields)), max: INVOICE_FORM_MAX_LINES, values: state.values });
   const firstPage = boxes.filter((b) => b.page === 1);
 
   const Cell = ({ formKey, truthKey, label }: { formKey: string; truthKey: string; label: string }) => (
@@ -161,32 +174,41 @@ export function ValidationStation({
 
       <h3 className="section-title mb-2 mt-4">{t.cycle.lines}</h3>
       <div className="table-wrap">
-        <table id="validation-lines" data-testid="validation-lines" className="al-table">
+        <table id="validation-lines" data-testid="validation-lines" data-lines={rows.count} className="al-table">
           <thead>
             <tr>
               <th>#</th>
               {LINE_FIELDS.map(([suffix]) => (
                 <th key={suffix}>{suffix}</th>
               ))}
+              <RemoveLineHeader label={t.common.removeLine} />
             </tr>
           </thead>
           <tbody>
-            {usedLines.map((n) => (
-              <tr key={n} id={`validation-line-${n}`} data-testid={`validation-line-${n}`}>
-                <td>{n}</td>
-                {LINE_FIELDS.map(([suffix, leaf]) => {
-                  const truthKey = `lines[${n - 1}].${leaf}`;
-                  return (
-                    <td key={suffix} data-low-confidence={low(truthKey) ? "1" : "0"} className={low(truthKey) ? "bg-[#fdf6e7]" : ""}>
-                      <Input testId={`validate-field-line-${n}-${leaf}`} name={`line${n}${suffix}`} defaultValue={v(`line${n}${suffix}`)} invalid={!!err(truthKey)} />
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {rows.keys.map((key, idx) => {
+              const n = idx + 1;
+              return (
+                <tr key={key} id={`validation-line-${n}`} data-testid={`validation-line-${n}`}>
+                  <td>{n}</td>
+                  {LINE_FIELDS.map(([suffix, leaf]) => {
+                    const truthKey = `lines[${n - 1}].${leaf}`;
+                    return (
+                      <td key={suffix} data-low-confidence={low(truthKey) ? "1" : "0"} className={low(truthKey) ? "bg-[#fdf6e7]" : ""}>
+                        <Input testId={`validate-field-line-${n}-${leaf}`} name={`line${n}${suffix}`} defaultValue={v(`line${n}${suffix}`)} invalid={!!err(truthKey)} />
+                      </td>
+                    );
+                  })}
+                  <td>
+                    <RemoveLineButton entity="validation" label={t.common.removeLine} n={n} rowKey={key} rows={rows} />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+      {rows.countField}
+      <AddLineButton entity="validation" label={t.common.addLine} rows={rows} />
       <div className="mt-4">
         <Button testId="validation-submit" disabled={pending}>
           {t.cycle.submitExtraction}

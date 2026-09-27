@@ -90,7 +90,7 @@ const B: Block[] = [
     ["3", "Download the PDF.", "#invoice-download (attachment, file name INV-YYYY-NNNNN_VENDOR.pdf)", "If data-rendered is 0, wait and retry; do not proceed without the file."],
     ["4", "Read header fields: invoice number, dates, PO reference, vendor name and tax ID, IBAN, bank, currency, totals.", "PDF", "Read what is printed, even when it looks wrong. The match, not the reader, decides."],
     ["5", "Read every line: PO line, item code, description, quantity, unit of measure, unit price, VAT %, tax amount, line total.", "PDF", "Lines may be a subset of the PO lines or partial quantities."],
-    ["6", "Enter the fields into the extraction form.", "#extraction-form, #extraction-field-{field}, #extraction-field-line-{n}-{field}", "Leave unused lines blank. Do not invent values for blank fields."],
+    ["6", "Enter the fields into the extraction form.", "#extraction-form, #extraction-field-{field}, #extraction-field-line-{n}-{field}", "The table opens with one row; click #extraction-add-line for each further line. Do not invent values for blank fields."],
     ["7", "Submit.", "#extraction-submit", "The three-way match runs on the submitted values against the referenced PO and posted goods receipts."],
     ["8", "Read the result.", "#validation-errors with data-count and data-blocking; each li has data-rule-id and data-severity", "Branch on rule IDs, never on message text. Warnings do not block."],
     ["9", "Decide: approve when the match is clean or only warnings; reject or route as exception otherwise.", "#invoice-approve, #invoice-reject", "See section 3.4 for the rule-to-action table."],

@@ -312,6 +312,8 @@ table.al-table tfoot td { background: var(--al-surface-2); }
 .al-input:hover { border-color: var(--al-primary); }
 .al-input[aria-invalid="true"] { border-color: var(--al-error); box-shadow: inset 0 0 0 1px var(--al-error); }
 .al-input[readonly] { background: var(--al-surface-2); color: var(--al-muted); }
+/* A table you type into: cell padding is room the inputs need more than the gutter does. */
+table.al-table td:has(> .al-input) { padding: .3rem .35rem; }
 .al-label { display: block; font-size: 0.78rem; color: var(--al-muted); margin-bottom: 0.2rem; }
 .al-btn { display: inline-flex; align-items: center; justify-content: center; gap: .375rem; min-height: 2.5rem; border-radius: var(--al-radius); padding: 0 1.125rem; font-size: 0.84375rem; font-weight: 600; border: 1px solid var(--al-primary); background: var(--al-primary); color: var(--al-primary-contrast); cursor: pointer; text-decoration: none; line-height: 1.2; }
 .al-btn:hover { background: var(--al-primary-hover); border-color: var(--al-primary-hover); }
@@ -436,9 +438,20 @@ table.al-table tfoot td { background: var(--al-surface-2); }
  * and 28px more than they have. Below 70rem the sideways scrollbar is worth
  * more than a pinned heading, so it keeps it and the heading scrolls.
  */
+/*
+ * Sticky column headers, but only on the table that owns the screen.
+ *
+ * A sticky `th` sticks to its nearest scroll container, so it does nothing
+ * inside a .table-wrap that scrolls sideways — which is why the wrap of a
+ * list table gives up its horizontal scroll above 70rem, where none of them
+ * needs it. A table nested in a column keeps its scroll: the quotes on an RFQ
+ * and the lines on a purchase order sit beside the document card, and letting
+ * one overflow instead of scroll slides its right-hand edge underneath that
+ * card, where a button can be seen but not clicked.
+ */
 @media (min-width: 70rem) {
-  .table-wrap { overflow-x: visible; }
-  table.al-table thead th { position: sticky; top: calc(var(--al-topbar-h) + var(--al-pagehead-h)); z-index: 10; }
+  .page-shell > .table-wrap { overflow-x: visible; }
+  .page-shell > .table-wrap table.al-table thead th { position: sticky; top: calc(var(--al-topbar-h) + var(--al-pagehead-h)); z-index: 10; }
 }
 
 /*

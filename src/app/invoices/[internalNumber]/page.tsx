@@ -99,7 +99,9 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
         <div className="lg:col-span-2">
           {hidden ? (
             <div className="al-card" id={`invoice-detail-${inv.internalNumber}`} data-testid={`invoice-detail-${inv.internalNumber}`} data-status={inv.status} data-hidden="1">
-              <p className="text-sm text-muted">{tc.extractionIntro}</p>
+              {/* Not the extraction instructions: those are on the form below,
+                  and this card sat directly above it saying the same thing. */}
+              <p className="text-sm text-muted">{tc.hiddenFields}</p>
             </div>
           ) : (
             <>

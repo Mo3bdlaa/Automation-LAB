@@ -112,6 +112,19 @@ two coexist. A shared cookie on `.mohammedshaker.com` was considered and rejecte
 couples both apps to one auth library version and breaks across any different apex domain.
 (It would also mean touching that site, which this project does not do.)
 
+**Line tables grow; they do not open at a guess.** The purchase order form, the extraction
+form and the validation station all take document lines by hand, and all three used to
+render a fixed number of rows — five, eight and "whatever capture found". A fixed count is
+two faults at once: an order of eight lines could not be typed into five rows, and a
+one-line invoice made you look at seven empty ones. They now open with one row (the
+validation station with the lines capture found) and grow on `{entity}-add-line`, up to a
+cap of forty that exists to stop a runaway client, not to limit anybody. Rows are numbered
+by position and each carries its own React key, so removing one renumbers those below it
+and carries their values up with them. The row count posts with the form, so a rejected
+submission comes back with the rows the participant had open. The server reads every row up
+to the cap whatever the form rendered, so a bot may post `line9ItemCode` without clicking
+first — the selectors stay a contract, the row count never was one.
+
 ---
 
 ## 5. Open questions

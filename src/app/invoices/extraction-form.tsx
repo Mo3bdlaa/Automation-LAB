@@ -4,8 +4,9 @@ import { useActionState } from "react";
 import type { Dictionary } from "@/i18n";
 import { emptyFormState, fieldError, type FormState } from "@/lib/forms";
 import { Button, Field, Input, ValidationErrors } from "@/components/ui";
+import { AddLineButton, RemoveLineButton, RemoveLineHeader, useLineRows } from "@/components/line-rows";
 import { submitExtractionAction } from "./actions";
-import { INVOICE_FORM_LINES } from "./constants";
+import { INVOICE_FORM_MAX_LINES, INVOICE_FORM_START_LINES } from "./constants";
 
 export function ExtractionForm({ t, internalNumber, previous, level = 1 }: { t: Dictionary; internalNumber: string; previous: Record<string, string> | null; level?: number }) {
   const bound = submitExtractionAction.bind(null, internalNumber);
@@ -13,6 +14,7 @@ export function ExtractionForm({ t, internalNumber, previous, level = 1 }: { t: 
   const v = (k: string) => state.values[k] ?? previous?.[k] ?? "";
   const err = (f: string) => fieldError(state, f);
   const tc = t.cycle;
+  const rows = useLineRows({ start: INVOICE_FORM_START_LINES, max: INVOICE_FORM_MAX_LINES, values: state.values });
   const head: [string, string, string?][] = [
     ["number", tc.number], ["invoiceDate", tc.invoiceDate, "date"], ["dueDate", tc.dueDate, "date"], ["poNumber", tc.poNumber], ["currency", "Currency"],
     ["vendorName", tc.printedVendorName], ["vendorTaxId", tc.printedVendorTaxId], ["iban", tc.printedIban], ["bankName", tc.printedBankName],
@@ -32,7 +34,7 @@ export function ExtractionForm({ t, internalNumber, previous, level = 1 }: { t: 
       </div>
       <h3 className="section-title mb-1 mt-4">{tc.lines}</h3>
       <div className="table-wrap">
-        <table id="extraction-lines-form" data-testid="extraction-lines-form" className="al-table">
+        <table id="extraction-lines-form" data-testid="extraction-lines-form" data-lines={rows.count} className="al-table">
           <thead>
             <tr>
               <th>#</th>
@@ -45,44 +47,53 @@ export function ExtractionForm({ t, internalNumber, previous, level = 1 }: { t: 
               <th>VAT %</th>
               <th>{t.po.taxTotal}</th>
               <th>{t.po.lineTotal}</th>
+              <RemoveLineHeader label={t.common.removeLine} />
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: INVOICE_FORM_LINES }, (_, i) => i + 1).map((n) => (
-              <tr key={n} id={`extraction-line-${n}`} data-testid={`extraction-line-${n}`}>
-                <td>{n}</td>
-                <td>
-                  <Input testId={`extraction-field-line-${n}-poLine`} name={`line${n}PoLine`} type="number" step="1" defaultValue={v(`line${n}PoLine`)} />
-                </td>
-                <td>
-                  <Input testId={`extraction-field-line-${n}-itemCode`} name={`line${n}ItemCode`} defaultValue={v(`line${n}ItemCode`)} />
-                </td>
-                <td>
-                  <Input testId={`extraction-field-line-${n}-description`} name={`line${n}Description`} defaultValue={v(`line${n}Description`)} />
-                </td>
-                <td>
-                  <Input testId={`extraction-field-line-${n}-quantity`} name={`line${n}Quantity`} type="number" step="0.001" defaultValue={v(`line${n}Quantity`)} invalid={!!err(`lines[${n}].quantity`)} />
-                </td>
-                <td>
-                  <Input testId={`extraction-field-line-${n}-uom`} name={`line${n}Uom`} defaultValue={v(`line${n}Uom`)} invalid={!!err(`lines[${n}].uom`)} />
-                </td>
-                <td>
-                  <Input testId={`extraction-field-line-${n}-unitPrice`} name={`line${n}UnitPrice`} type="number" step="0.0001" defaultValue={v(`line${n}UnitPrice`)} invalid={!!err(`lines[${n}].unitPrice`)} />
-                </td>
-                <td>
-                  <Input testId={`extraction-field-line-${n}-taxRate`} name={`line${n}TaxRate`} type="number" step="0.1" defaultValue={v(`line${n}TaxRate`)} invalid={!!err(`lines[${n}].taxRate`)} />
-                </td>
-                <td>
-                  <Input testId={`extraction-field-line-${n}-taxAmount`} name={`line${n}TaxAmount`} type="number" step="0.01" defaultValue={v(`line${n}TaxAmount`)} />
-                </td>
-                <td>
-                  <Input testId={`extraction-field-line-${n}-lineTotal`} name={`line${n}LineTotal`} type="number" step="0.01" defaultValue={v(`line${n}LineTotal`)} />
-                </td>
-              </tr>
-            ))}
+            {rows.keys.map((key, idx) => {
+              const n = idx + 1;
+              return (
+                <tr key={key} id={`extraction-line-${n}`} data-testid={`extraction-line-${n}`}>
+                  <td>{n}</td>
+                  <td>
+                    <Input testId={`extraction-field-line-${n}-poLine`} name={`line${n}PoLine`} type="number" step="1" defaultValue={v(`line${n}PoLine`)} />
+                  </td>
+                  <td>
+                    <Input testId={`extraction-field-line-${n}-itemCode`} name={`line${n}ItemCode`} defaultValue={v(`line${n}ItemCode`)} />
+                  </td>
+                  <td>
+                    <Input testId={`extraction-field-line-${n}-description`} name={`line${n}Description`} defaultValue={v(`line${n}Description`)} />
+                  </td>
+                  <td>
+                    <Input testId={`extraction-field-line-${n}-quantity`} name={`line${n}Quantity`} type="number" step="0.001" defaultValue={v(`line${n}Quantity`)} invalid={!!err(`lines[${n}].quantity`)} />
+                  </td>
+                  <td>
+                    <Input testId={`extraction-field-line-${n}-uom`} name={`line${n}Uom`} defaultValue={v(`line${n}Uom`)} invalid={!!err(`lines[${n}].uom`)} />
+                  </td>
+                  <td>
+                    <Input testId={`extraction-field-line-${n}-unitPrice`} name={`line${n}UnitPrice`} type="number" step="0.0001" defaultValue={v(`line${n}UnitPrice`)} invalid={!!err(`lines[${n}].unitPrice`)} />
+                  </td>
+                  <td>
+                    <Input testId={`extraction-field-line-${n}-taxRate`} name={`line${n}TaxRate`} type="number" step="0.1" defaultValue={v(`line${n}TaxRate`)} invalid={!!err(`lines[${n}].taxRate`)} />
+                  </td>
+                  <td>
+                    <Input testId={`extraction-field-line-${n}-taxAmount`} name={`line${n}TaxAmount`} type="number" step="0.01" defaultValue={v(`line${n}TaxAmount`)} />
+                  </td>
+                  <td>
+                    <Input testId={`extraction-field-line-${n}-lineTotal`} name={`line${n}LineTotal`} type="number" step="0.01" defaultValue={v(`line${n}LineTotal`)} />
+                  </td>
+                  <td>
+                    <RemoveLineButton entity="extraction" label={t.common.removeLine} n={n} rowKey={key} rows={rows} />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+      {rows.countField}
+      <AddLineButton entity="extraction" label={t.common.addLine} rows={rows} />
       <div className="mt-4">
         <Button testId="extraction-submit" disabled={pending}>
           {tc.submitExtraction}

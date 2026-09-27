@@ -6,7 +6,7 @@ import type { invoices } from "@/db/schema";
 import type { MatchContext } from "@/lib/validation/matching";
 import { num, str } from "@/lib/forms";
 import { TAX_CODES, round2 } from "@/lib/generator/money";
-import { INVOICE_FORM_LINES } from "@/app/invoices/constants";
+import { INVOICE_FORM_MAX_LINES } from "@/app/invoices/constants";
 
 type Inv = typeof invoices.$inferSelect;
 
@@ -20,7 +20,7 @@ export const EXTRACTION_LINE_FIELDS = ["PoLine", "ItemCode", "Description", "Qua
  */
 export function extractionToInvoice(inv: Inv, fields: Record<string, string>): { asStored: Inv; lines: MatchContext["invoice"]["lines"] } {
   const lines: MatchContext["invoice"]["lines"] = [];
-  for (let n = 1; n <= INVOICE_FORM_LINES; n++) {
+  for (let n = 1; n <= INVOICE_FORM_MAX_LINES; n++) {
     const qty = num(fields, `line${n}Quantity`, 0);
     const desc = str(fields, `line${n}Description`);
     const itemCode = str(fields, `line${n}ItemCode`).toUpperCase();
@@ -80,7 +80,7 @@ export function flattenApiExtraction(body: ApiExtractionBody): Record<string, st
     out[k] = String(v);
   };
   for (const key of EXTRACTION_HEADER_FIELDS) put(key, body.fields[key]);
-  body.lines.slice(0, INVOICE_FORM_LINES).forEach((l, i) => {
+  body.lines.slice(0, INVOICE_FORM_MAX_LINES).forEach((l, i) => {
     const n = i + 1;
     put(`line${n}PoLine`, l.poLineNo);
     put(`line${n}ItemCode`, l.itemCode);

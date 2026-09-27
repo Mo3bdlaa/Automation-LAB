@@ -6,7 +6,7 @@ import { documents, extractions, invoices } from "@/db/schema";
 import { requireLab } from "@/lib/auth/server";
 import { decideInvoice, matchStoredInvoice, submitExtraction } from "@/lib/services/invoices";
 import { failedState, formValues, str, type FormState } from "@/lib/forms";
-import { INVOICE_FORM_LINES } from "./constants";
+import { INVOICE_FORM_MAX_LINES } from "./constants";
 import { EXTRACTION_HEADER_FIELDS, EXTRACTION_LINE_FIELDS, extractionToInvoice } from "@/lib/services/extraction";
 
 export async function submitExtractionAction(internalNumber: string, _prev: FormState, formData: FormData): Promise<FormState> {
@@ -20,7 +20,7 @@ export async function submitExtractionAction(internalNumber: string, _prev: Form
 
   const fields: Record<string, string> = {};
   for (const k of EXTRACTION_HEADER_FIELDS) fields[k] = str(values, k);
-  for (let n = 1; n <= INVOICE_FORM_LINES; n++) for (const k of EXTRACTION_LINE_FIELDS) if (str(values, `line${n}${k}`)) fields[`line${n}${k}`] = str(values, `line${n}${k}`);
+  for (let n = 1; n <= INVOICE_FORM_MAX_LINES; n++) for (const k of EXTRACTION_LINE_FIELDS) if (str(values, `line${n}${k}`)) fields[`line${n}${k}`] = str(values, `line${n}${k}`);
   const { asStored, lines } = extractionToInvoice(inv, fields);
   if (lines.length === 0) return failedState([{ ruleId: "INV-LINE-MIN", severity: "error", message: "Enter at least one line." }], values);
 

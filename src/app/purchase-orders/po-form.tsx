@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState } from "react";
 import type { Dictionary } from "@/i18n";
 import { emptyFormState, fieldError, type FormState } from "@/lib/forms";
 import { Button, Field, Input, LinkButton, Select, ValidationErrors } from "@/components/ui";
+import { AddLineButton, RemoveLineButton, RemoveLineHeader, useLineRows } from "@/components/line-rows";
 import { createPurchaseOrderAction } from "./actions";
-import { PO_FORM_LINES, PO_FORM_MAX_LINES } from "./constants";
+import { PO_FORM_MAX_LINES, PO_FORM_START_LINES } from "./constants";
 
 export interface PoFormOptions {
   vendors: { value: string; label: string }[];
@@ -17,25 +18,6 @@ export interface PoFormOptions {
   today: string;
 }
 
-/**
- * How many line rows to open with.
- *
- * Normally the default, but a rejected submission comes back through a remount
- * — the form is keyed on the action's nonce — so the rows a participant added
- * have to be read back out of the echoed values, or their figures vanish along
- * with the error message that told them to fix something. `lineRows` is the
- * count the form posted; the scan is the fallback for a bot that posted
- * `line9ItemCode` without it.
- */
-function openRowCount(values: Record<string, string>): number {
-  let rows = Number(values.lineRows) || 0;
-  for (const [key, value] of Object.entries(values)) {
-    const m = /^line(\d+)[A-Z]/.exec(key);
-    if (m && value.trim()) rows = Math.max(rows, Number(m[1]));
-  }
-  return Math.min(PO_FORM_MAX_LINES, Math.max(PO_FORM_LINES, rows));
-}
-
 export function PoForm({ t, options }: { t: Dictionary; options: PoFormOptions }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createPurchaseOrderAction, emptyFormState);
   const v = (key: string, fallback = "") => state.values[key] ?? fallback;
@@ -43,21 +25,7 @@ export function PoForm({ t, options }: { t: Dictionary; options: PoFormOptions }
   const tp = t.po;
   const lineErr = (n: number, f: string) => err(`lines[${n}].${f}`);
 
-  /**
-   * One key per row. The key keeps a row on the same DOM node — and so keeps
-   * whatever is typed into it — while the field names, ids and testids come
-   * from the row's position: delete the third of five rows and the fourth
-   * becomes the third, carrying its values up with it, the way a line table on
-   * any ERP behaves.
-   */
-  const [rowKeys, setRowKeys] = useState<number[]>(() => Array.from({ length: openRowCount(state.values) }, (_, i) => i));
-  const nextKey = useRef(rowKeys.length);
-  const addRow = () => {
-    if (rowKeys.length >= PO_FORM_MAX_LINES) return;
-    const key = nextKey.current++;
-    setRowKeys((keys) => [...keys, key]);
-  };
-  const removeRow = (key: number) => setRowKeys((keys) => (keys.length > 1 ? keys.filter((k) => k !== key) : keys));
+  const rows = useLineRows({ start: PO_FORM_START_LINES, max: PO_FORM_MAX_LINES, values: state.values });
 
   return (
     <form key={state.nonce ?? 0} id="po-form" data-testid="po-form" action={action} noValidate>
@@ -95,7 +63,7 @@ export function PoForm({ t, options }: { t: Dictionary; options: PoFormOptions }
       <h2 className="mb-1 mt-5 text-lg font-semibold text-primary">{tp.lines}</h2>
       <p className="mb-2 text-xs text-muted">{tp.lineHint}</p>
       <div className="table-wrap">
-        <table id="po-lines-form" data-testid="po-lines-form" data-lines={rowKeys.length} className="al-table">
+        <table id="po-lines-form" data-testid="po-lines-form" data-lines={rows.count} className="al-table">
           <thead>
             <tr>
               <th>{tp.line}</th>
@@ -105,13 +73,11 @@ export function PoForm({ t, options }: { t: Dictionary; options: PoFormOptions }
               <th>{tp.unitPrice}</th>
               <th>{tp.discount}</th>
               <th>{tp.taxCode}</th>
-              <th>
-                <span className="sr-only">{tp.removeLine}</span>
-              </th>
+              <RemoveLineHeader label={t.common.removeLine} />
             </tr>
           </thead>
           <tbody>
-            {rowKeys.map((key, idx) => {
+            {rows.keys.map((key, idx) => {
               const n = idx + 1;
               const anyErr = ["itemCode", "quantity", "unitPrice", "uom", "taxCode"].some((f) => lineErr(n, f));
               return (
@@ -136,9 +102,7 @@ export function PoForm({ t, options }: { t: Dictionary; options: PoFormOptions }
                     <Input testId={`po-field-line-${n}-taxCode`} name={`line${n}TaxCode`} defaultValue={v(`line${n}TaxCode`)} placeholder="S15" invalid={!!lineErr(n, "taxCode")} />
                   </td>
                   <td>
-                    <Button testId={`po-line-${n}-remove`} type="button" variant="secondary" small onClick={() => removeRow(key)} disabled={rowKeys.length <= 1} ariaLabel={`${tp.removeLine} ${n}`} title={tp.removeLine}>
-                      &times;
-                    </Button>
+                    <RemoveLineButton entity="po" label={t.common.removeLine} n={n} rowKey={key} rows={rows} />
                   </td>
                 </tr>
               );
@@ -146,14 +110,8 @@ export function PoForm({ t, options }: { t: Dictionary; options: PoFormOptions }
           </tbody>
         </table>
       </div>
-      {/* The row count is posted so a rejected submission comes back with the
-          same rows the participant had open. */}
-      <input type="hidden" name="lineRows" value={rowKeys.length} />
-      <div className="mt-2">
-        <Button testId="po-add-line" type="button" variant="secondary" small onClick={addRow} disabled={rowKeys.length >= PO_FORM_MAX_LINES}>
-          + {tp.addLine}
-        </Button>
-      </div>
+      {rows.countField}
+      <AddLineButton entity="po" label={t.common.addLine} rows={rows} />
       <div className="mt-4 flex gap-2">
         <Button testId="po-submit" disabled={pending}>
           {tp.createPo}
