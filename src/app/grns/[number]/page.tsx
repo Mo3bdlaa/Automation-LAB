@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { deliveryLocations, deliveryNotes, documentFiles, documents, employees, grnLines, grns, items, purchaseOrderLines, purchaseOrders, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
+import { participantPdfsEnabled } from "@/lib/documents/participant-pdfs";
 import { DocumentCard, Facts, Flash, LinkButton, Page, Section, Status, TableWrap } from "@/components/ui";
 import { fmtNumber } from "@/lib/generator/money";
 
@@ -26,6 +27,9 @@ export default async function GrnDetailPage({ params, searchParams }: { params: 
     g.receivedById ? session.tdb.one(employees, eq(employees.id, g.receivedById)) : null,
   ]);
   const file = doc ? await session.tdb.one(documentFiles, and(eq(documentFiles.documentId, doc.id), eq(documentFiles.level, 1))!) : null;
+  // A document this participant made is printed on first download, so the
+  // card offers the download rather than a wait that never ends.
+  const ownDoc = !!doc && doc.tenantId === session.tenant.id;
   const poLines = await session.tdb.list(purchaseOrderLines, { where: eq(purchaseOrderLines.purchaseOrderId, g.purchaseOrderId) });
   const itemIds = lines.map((l) => l.itemId).filter(Boolean) as string[];
   const its = itemIds.length ? await session.tdb.list(items, { where: inArray(items.id, itemIds) }) : [];
@@ -91,7 +95,7 @@ export default async function GrnDetailPage({ params, searchParams }: { params: 
             </TableWrap>
           </Section>
         </div>
-        <DocumentCard entity="grn" documentId={doc?.id ?? null} file={file} labels={{ title: t.po.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: t.po.filename }} />
+        <DocumentCard entity="grn" documentId={doc?.id ?? null} file={file} labels={{ title: t.po.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: t.po.filename, notPrinted: t.common.notPrintedHere }} lazy={ownDoc && participantPdfsEnabled()} notPrinted={ownDoc && !participantPdfsEnabled()} />
       </div>
     </Page>
   );

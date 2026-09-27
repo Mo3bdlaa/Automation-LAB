@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { costCenters, deliveryLocations, deliveryNotes, documentFiles, documents, employees, grns, invoices, items, purchaseOrderLines, purchaseOrders, quotes, rfqs, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
+import { participantPdfsEnabled } from "@/lib/documents/participant-pdfs";
 import { Button, DocumentCard, Dl, Flash, LinkButton, Page, Section, Status, TableWrap } from "@/components/ui";
 import { fmtNumber } from "@/lib/generator/money";
 import { approvePurchaseOrderAction } from "../actions";
@@ -21,6 +22,9 @@ export default async function PoDetailPage({ params, searchParams }: { params: P
     session.tdb.one(documents, and(eq(documents.kind, "purchase_order"), eq(documents.sourceId, po.id))!),
   ]);
   const file = doc ? await session.tdb.one(documentFiles, and(eq(documentFiles.documentId, doc.id), eq(documentFiles.level, 1))!) : null;
+  // A document this participant made is printed on first download, so the
+  // card offers the download rather than a wait that never ends.
+  const ownDoc = !!doc && doc.tenantId === session.tenant.id;
   const empIds = [po.buyerId, po.requesterId, po.approverId].filter(Boolean) as string[];
   const emps = empIds.length ? await session.tdb.list(employees, { where: inArray(employees.id, empIds) }) : [];
   const emp = (id: string | null) => emps.find((e) => e.id === id);
@@ -88,7 +92,7 @@ export default async function PoDetailPage({ params, searchParams }: { params: P
           />
         </div>
         <div>
-          <DocumentCard entity="po" documentId={doc?.id ?? null} file={file} labels={{ title: tp.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: tp.filename }} />
+          <DocumentCard entity="po" documentId={doc?.id ?? null} file={file} labels={{ title: tp.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: tp.filename, notPrinted: t.common.notPrintedHere }} lazy={ownDoc && participantPdfsEnabled()} notPrinted={ownDoc && !participantPdfsEnabled()} />
           <div className="al-card mt-4" id="po-related" data-testid="po-related" data-count={related.length}>
             <h2 className="mb-2">{t.cycle.relatedDocuments}</h2>
             {related.length === 0 ? (

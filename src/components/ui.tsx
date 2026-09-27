@@ -332,6 +332,7 @@ export function DocumentCard({
   file,
   labels,
   lazy,
+  notPrinted,
   level = 1,
   levels,
   levelHref,
@@ -339,8 +340,16 @@ export function DocumentCard({
   entity: string;
   documentId: string | null;
   file: { filename: string; pages: number; sizeBytes: number } | null;
-  labels: { title: string; download: string; rendering: string; notRendered: string; filename: string; levels?: string };
+  labels: { title: string; download: string; rendering: string; notRendered: string; filename: string; levels?: string; notPrinted?: string };
+  /**
+   * The document is printed when somebody asks for it, so offer the download
+   * even though no file exists yet: the first request queues the render and
+   * answers 409 with a Retry-After, and the second one serves the PDF. True
+   * for every document a participant created.
+   */
   lazy?: boolean;
+  /** This instance does not print it at all (PARTICIPANT_DOCUMENT_PDFS=0). */
+  notPrinted?: boolean;
   level?: number;
   levels?: { level: number; label: string }[];
   levelHref?: (level: number) => string;
@@ -379,6 +388,12 @@ export function DocumentCard({
             {labels.download}
           </a>
         </>
+      ) : notPrinted ? (
+        // Not "Rendering…", which was a wait that never ended: nothing is
+        // coming, and the screen should say so rather than spin.
+        <p id={`${entity}-document-not-printed`} data-testid={`${entity}-document-not-printed`} className="text-sm text-muted">
+          {labels.notPrinted ?? labels.notRendered}
+        </p>
       ) : lazy || level > 1 ? (
         <a id={`${entity}-download`} data-testid={`${entity}-download`} href={href} className="al-btn" download>
           {labels.download}

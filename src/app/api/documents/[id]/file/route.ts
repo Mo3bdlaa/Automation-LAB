@@ -9,6 +9,14 @@ import { enqueue } from "@/lib/jobs/queue";
 import { kickJobs } from "@/lib/jobs/runner";
 
 /**
+ * A participant document is printed by the job this route kicks off, which
+ * runs after the response in the same invocation. Chromium's cold start is
+ * most of that: the default ten seconds would leave the job half-done and the
+ * caller retrying against a render that never finishes.
+ */
+export const maxDuration = 60;
+
+/**
  * Download a rendered document. `Content-Disposition: attachment` with a
  * predictable filename so UiPath's download-and-wait pattern works.
  * `?level=N` selects the difficulty level (P1 renders level 1).
@@ -29,18 +37,25 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   if (!doc) return Response.json({ error: "not_found" }, { status: 404 });
   const file = await s.tdb.one(documentFiles, and(eq(documentFiles.documentId, doc.id), eq(documentFiles.level, level))!);
   if (!file) {
-    // Where nothing can render it, say so rather than queueing a job that will
-    // never run and answering 409 for ever. The master set is produced ahead of
-    // time, so this only reaches documents a participant created.
-    if (!participantPdfsEnabled()) {
+    // A document the participant made — a purchase order they approved, a
+    // goods receipt they posted — is not in the master set and so was never
+    // rendered ahead of time. It is printed on first download instead, the
+    // same way the thousand vendor compliance documents are: the cost then
+    // follows the downloads people actually make rather than every action
+    // they take, and nothing starts a browser on the request path. Setting
+    // PARTICIPANT_DOCUMENT_PDFS=0 turns that off for an event that would
+    // rather not pay for it at all.
+    const participantOwned = doc.tenantId === s.tenant.id;
+    if (participantOwned && !participantPdfsEnabled()) {
       return Response.json(
         { error: "not_rendered", documentId: doc.id, level, message: "This instance does not print documents you create. The record itself is available through the API." },
         { status: 404 },
       );
     }
     // Level 1 is rendered at provisioning time for most kinds; vendor
-    // compliance documents and every degraded level are produced on demand.
-    if (level === 1 && !EAGER_KINDS.has(doc.kind)) {
+    // compliance documents, participant documents and every degraded level
+    // are produced on demand.
+    if (level === 1 && (participantOwned || !EAGER_KINDS.has(doc.kind))) {
       await enqueue("render_document", { documentId: doc.id }, { tenantId: doc.tenantId, priority: 8 });
       kickJobs();
     } else if (level > 1) {

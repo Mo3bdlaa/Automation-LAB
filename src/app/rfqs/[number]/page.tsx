@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { documentFiles, documents, employees, purchaseOrders, quotes, rfqLines, rfqs, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
+import { participantPdfsEnabled } from "@/lib/documents/participant-pdfs";
 import { Button, DocumentCard, Facts, Flash, LinkButton, Page, Section, Status, TableWrap } from "@/components/ui";
 import { fmtNumber } from "@/lib/generator/money";
 import { awardQuoteAction } from "../actions";
@@ -24,6 +25,9 @@ export default async function RfqDetailPage({ params, searchParams }: { params: 
     rfq.purchaseOrderId ? session.tdb.one(purchaseOrders, eq(purchaseOrders.id, rfq.purchaseOrderId)) : null,
   ]);
   const file = doc ? await session.tdb.one(documentFiles, and(eq(documentFiles.documentId, doc.id), eq(documentFiles.level, 1))!) : null;
+  // A document this participant made is printed on first download, so the
+  // card offers the download rather than a wait that never ends.
+  const ownDoc = !!doc && doc.tenantId === session.tenant.id;
   const vs = qs.length ? await session.tdb.list(vendors, { where: inArray(vendors.id, qs.map((q) => q.vendorId)) }) : [];
   const qDocs = qs.length ? await session.tdb.list(documents, { where: and(eq(documents.kind, "quote"), inArray(documents.sourceId, qs.map((q) => q.id)))! }) : [];
   const qFiles = qDocs.length ? await session.tdb.list(documentFiles, { where: inArray(documentFiles.documentId, qDocs.map((d) => d.id)) }) : [];
@@ -136,7 +140,7 @@ export default async function RfqDetailPage({ params, searchParams }: { params: 
             </TableWrap>
           </Section>
         </div>
-        <DocumentCard entity="rfq" documentId={doc?.id ?? null} file={file} labels={{ title: t.po.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: t.po.filename }} />
+        <DocumentCard entity="rfq" documentId={doc?.id ?? null} file={file} labels={{ title: t.po.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: t.po.filename, notPrinted: t.common.notPrintedHere }} lazy={ownDoc && participantPdfsEnabled()} notPrinted={ownDoc && !participantPdfsEnabled()} />
       </div>
     </Page>
   );

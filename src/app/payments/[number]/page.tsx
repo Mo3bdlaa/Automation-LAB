@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { documentFiles, documents, invoices, payments, receipts, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
+import { participantPdfsEnabled } from "@/lib/documents/participant-pdfs";
 import { DocumentCard, Facts, LinkButton, Page } from "@/components/ui";
 import { fmtNumber } from "@/lib/generator/money";
 import { formatIban } from "@/lib/generator/iban";
@@ -23,6 +24,9 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
   ]);
   const doc = rc ? await session.tdb.one(documents, and(eq(documents.kind, "receipt"), eq(documents.sourceId, rc.id))!) : null;
   const file = doc ? await session.tdb.one(documentFiles, and(eq(documentFiles.documentId, doc.id), eq(documentFiles.level, 1))!) : null;
+  // A document this participant made is printed on first download, so the
+  // card offers the download rather than a wait that never ends.
+  const ownDoc = !!doc && doc.tenantId === session.tenant.id;
   return (
     <Page
       title={p.number}
@@ -49,7 +53,7 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
             ]}
           />
         </div>
-        <DocumentCard entity="receipt" documentId={doc?.id ?? null} file={file} labels={{ title: tc.receipt, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: t.po.filename }} />
+        <DocumentCard entity="receipt" documentId={doc?.id ?? null} file={file} labels={{ title: tc.receipt, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: t.po.filename, notPrinted: t.common.notPrintedHere }} lazy={ownDoc && participantPdfsEnabled()} notPrinted={ownDoc && !participantPdfsEnabled()} />
       </div>
     </Page>
   );

@@ -112,6 +112,20 @@ two coexist. A shared cookie on `.mohammedshaker.com` was considered and rejecte
 couples both apps to one auth library version and breaks across any different apex domain.
 (It would also mean touching that site, which this project does not do.)
 
+**Participant documents are printed on first download, not on creation.** The master
+set is rendered once, ahead of time, which is what lets the deployed app serve a thousand
+documents without a browser. Two participant actions also produce a document — approving a
+purchase order, posting a goods receipt — and those cannot exist in advance. Rendering them
+the moment they are created restores exactly the per-participant cost the shared master set
+removed, so instead the download route queues the render and answers 409 with Retry-After,
+the same path the thousand vendor compliance documents have always taken. The cost then
+follows the downloads people actually make. `PARTICIPANT_DOCUMENT_PDFS=0` turns printing
+off entirely for an event that would rather not pay for it, and the document card then says
+so plainly instead of showing "Rendering…" for ever, which is what it used to do.
+`PARTICIPANT_DOCUMENT_PDFS_EAGER=1` prints them at creation time, which is the default on a
+development machine because a file already on disk is what the screens and the smoke
+scripts expect.
+
 **Line tables grow; they do not open at a guess.** The purchase order form, the extraction
 form and the validation station all take document lines by hand, and all three used to
 render a fixed number of rows — five, eight and "whatever capture found". A fixed count is

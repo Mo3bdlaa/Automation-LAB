@@ -126,6 +126,7 @@ export const en = {
     notRendered: "Not rendered yet",
     validationErrors: "Validation messages",
     noValidationErrors: "No validation messages.",
+    notPrintedHere: "This lab does not print documents you create. The record, its lines and its status are all here, and the API returns the same.",
     addLine: "Add line",
     removeLine: "Remove line",
     saved: "Saved.",

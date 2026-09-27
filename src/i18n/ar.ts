@@ -128,6 +128,7 @@ export const ar: Dictionary = {
     notRendered: "لم يُنشأ بعد",
     validationErrors: "رسائل التحقق",
     noValidationErrors: "لا توجد رسائل تحقق.",
+    notPrintedHere: "هذا المختبر لا يطبع المستندات التي تنشئها. السجل وبنوده وحالته موجودة كلها هنا، وتعيدها الواجهة البرمجية كما هي.",
     addLine: "إضافة بند",
     removeLine: "حذف البند",
     saved: "تم الحفظ.",
