@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { documentFiles, documents, employees, purchaseOrders, quotes, rfqLines, rfqs, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
+import { DocumentDownload } from "@/components/document-download";
 import { participantPdfsEnabled } from "@/lib/documents/participant-pdfs";
 import { Button, DocumentCard, Facts, Flash, LinkButton, Page, Section, Status, TableWrap } from "@/components/ui";
 import { fmtNumber } from "@/lib/generator/money";
@@ -82,7 +83,7 @@ export default async function RfqDetailPage({ params, searchParams }: { params: 
             </TableWrap>
           </Section>
         </div>
-        <DocumentCard entity="rfq" documentId={doc?.id ?? null} file={file} labels={{ title: t.po.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: t.po.filename, notPrinted: t.common.notPrintedHere }} lazy={ownDoc && participantPdfsEnabled()} notPrinted={ownDoc && !participantPdfsEnabled()} />
+        <DocumentCard entity="rfq" documentId={doc?.id ?? null} file={file} labels={{ title: t.po.document, download: t.common.download, rendering: t.common.rendering, printing: t.common.printing, notRendered: t.common.notRendered, filename: t.po.filename, notPrinted: t.common.notPrintedHere }} lazy={ownDoc && participantPdfsEnabled()} notPrinted={ownDoc && !participantPdfsEnabled()} />
       </div>
       {/* Full width, below the grid: the quotes carry two actions in their
           last column, and in a two-thirds column that column falls off the
@@ -122,9 +123,7 @@ export default async function RfqDetailPage({ params, searchParams }: { params: 
                       </td>
                       <td className="flex gap-2">
                         {d && f ? (
-                          <a id={`quotes-action-download-${q.id}`} data-testid={`quotes-action-download-${q.id}`} href={`/api/documents/${d.id}/file`} download={f.filename} className="underline">
-                            PDF
-                          </a>
+                          <DocumentDownload testId={`quotes-action-download-${q.id}`} href={`/api/documents/${d.id}/file`} filename={f.filename} label="PDF" labels={{ printing: t.common.printing, failed: t.common.notRendered }} />
                         ) : (
                           <span className="text-muted">{t.common.rendering}</span>
                         )}

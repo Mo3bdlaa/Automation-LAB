@@ -53,7 +53,7 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
             ]}
           />
         </div>
-        <DocumentCard entity="receipt" documentId={doc?.id ?? null} file={file} labels={{ title: tc.receipt, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: t.po.filename, notPrinted: t.common.notPrintedHere }} lazy={ownDoc && participantPdfsEnabled()} notPrinted={ownDoc && !participantPdfsEnabled()} />
+        <DocumentCard entity="receipt" documentId={doc?.id ?? null} file={file} labels={{ title: tc.receipt, download: t.common.download, rendering: t.common.rendering, printing: t.common.printing, notRendered: t.common.notRendered, filename: t.po.filename, notPrinted: t.common.notPrintedHere }} lazy={ownDoc && participantPdfsEnabled()} notPrinted={ownDoc && !participantPdfsEnabled()} />
       </div>
     </Page>
   );

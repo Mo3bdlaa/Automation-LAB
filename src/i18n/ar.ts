@@ -129,6 +129,7 @@ export const ar: Dictionary = {
     validationErrors: "رسائل التحقق",
     noValidationErrors: "لا توجد رسائل تحقق.",
     notPrintedHere: "هذا المختبر لا يطبع المستندات التي تنشئها. السجل وبنوده وحالته موجودة كلها هنا، وتعيدها الواجهة البرمجية كما هي.",
+    printing: "جارٍ طباعة الملف…",
     addLine: "إضافة بند",
     removeLine: "حذف البند",
     saved: "تم الحفظ.",

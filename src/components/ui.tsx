@@ -6,6 +6,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Violation } from "@/lib/validation/engine";
+import { DocumentDownload } from "./document-download";
 
 export function Page({ title, subtitle, titleId = "page-title", actions, children, status }: { title: string; subtitle?: ReactNode; titleId?: string; actions?: ReactNode; children: ReactNode; status?: ReactNode }) {
   return (
@@ -340,7 +341,7 @@ export function DocumentCard({
   entity: string;
   documentId: string | null;
   file: { filename: string; pages: number; sizeBytes: number } | null;
-  labels: { title: string; download: string; rendering: string; notRendered: string; filename: string; levels?: string; notPrinted?: string };
+  labels: { title: string; download: string; rendering: string; notRendered: string; filename: string; levels?: string; notPrinted?: string; printing?: string };
   /**
    * The document is printed when somebody asks for it, so offer the download
    * even though no file exists yet: the first request queues the render and
@@ -384,9 +385,7 @@ export function DocumentCard({
           <p id={`${entity}-document-filename`} data-testid={`${entity}-document-filename`} className="mb-2 text-sm">
             {labels.filename}: <code>{file.filename}</code> · {file.pages}p · {Math.round(file.sizeBytes / 1024)} KB
           </p>
-          <a id={`${entity}-download`} data-testid={`${entity}-download`} href={href} className="al-btn" download={file.filename}>
-            {labels.download}
-          </a>
+          <DocumentDownload testId={`${entity}-download`} href={href} filename={file.filename} label={labels.download} labels={{ printing: labels.printing ?? labels.rendering, failed: labels.notPrinted ?? labels.notRendered }} />
         </>
       ) : notPrinted ? (
         // Not "Rendering…", which was a wait that never ended: nothing is
@@ -395,9 +394,8 @@ export function DocumentCard({
           {labels.notPrinted ?? labels.notRendered}
         </p>
       ) : lazy || level > 1 ? (
-        <a id={`${entity}-download`} data-testid={`${entity}-download`} href={href} className="al-btn" download>
-          {labels.download}
-        </a>
+        // No file yet: the first click queues the printing and waits for it.
+        <DocumentDownload testId={`${entity}-download`} href={href} label={labels.download} labels={{ printing: labels.printing ?? labels.rendering, failed: labels.notPrinted ?? labels.notRendered }} />
       ) : (
         <p id={`${entity}-document-rendering`} data-testid={`${entity}-document-rendering`} className="text-sm text-muted">
           {labels.rendering}

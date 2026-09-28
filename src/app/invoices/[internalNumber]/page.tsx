@@ -171,7 +171,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
             level={level}
             levels={LEVELS.map((l) => ({ level: l, label: LEVEL_SPECS[l].label }))}
             levelHref={(l) => `/invoices/${encodeURIComponent(inv.internalNumber)}${l > 1 ? `?level=${l}` : ""}`}
-            labels={{ title: t.po.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: t.po.filename, levels: t.cycle.difficulty }}
+            labels={{ title: t.po.document, download: t.common.download, rendering: t.common.rendering, printing: t.common.printing, notRendered: t.common.notRendered, filename: t.po.filename, levels: t.cycle.difficulty }}
           />
           {staff && defects.length ? (
             <div className="al-card mt-4" id="invoice-defects" data-testid="invoice-defects">

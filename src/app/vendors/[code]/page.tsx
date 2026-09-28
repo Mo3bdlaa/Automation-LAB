@@ -4,6 +4,7 @@ import { documentFiles, documents, vendorDocuments, vendors } from "@/db/schema"
 import { inArray } from "drizzle-orm";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
+import { DocumentDownload } from "@/components/document-download";
 import { Dl, Facts, Flash, LinkButton, Page, Section, Status, TableWrap } from "@/components/ui";
 import { formatIban } from "@/lib/generator/iban";
 
@@ -114,9 +115,13 @@ export default async function VendorDetailPage({ params, searchParams }: { param
                       <td>{d.issuer}</td>
                       <td>
                         {doc ? (
-                          <a id={`vendor-documents-download-${d.kind}`} data-testid={`vendor-documents-download-${d.kind}`} href={`/api/documents/${doc.id}/file`} download={f?.filename ?? true} className="underline">
-                            {t.common.download}
-                          </a>
+                          <DocumentDownload
+                            testId={`vendor-documents-download-${d.kind}`}
+                            href={`/api/documents/${doc.id}/file`}
+                            filename={f?.filename}
+                            label={t.common.download}
+                            labels={{ printing: t.common.printing, failed: t.common.notRendered }}
+                          />
                         ) : (
                           t.common.none
                         )}

@@ -92,7 +92,7 @@ export default async function PoDetailPage({ params, searchParams }: { params: P
           />
         </div>
         <div>
-          <DocumentCard entity="po" documentId={doc?.id ?? null} file={file} labels={{ title: tp.document, download: t.common.download, rendering: t.common.rendering, notRendered: t.common.notRendered, filename: tp.filename, notPrinted: t.common.notPrintedHere }} lazy={ownDoc && participantPdfsEnabled()} notPrinted={ownDoc && !participantPdfsEnabled()} />
+          <DocumentCard entity="po" documentId={doc?.id ?? null} file={file} labels={{ title: tp.document, download: t.common.download, rendering: t.common.rendering, printing: t.common.printing, notRendered: t.common.notRendered, filename: tp.filename, notPrinted: t.common.notPrintedHere }} lazy={ownDoc && participantPdfsEnabled()} notPrinted={ownDoc && !participantPdfsEnabled()} />
           <div className="al-card mt-4" id="po-related" data-testid="po-related" data-count={related.length}>
             <h2 className="mb-2">{t.cycle.relatedDocuments}</h2>
             {related.length === 0 ? (

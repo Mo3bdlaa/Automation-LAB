@@ -127,6 +127,7 @@ export const en = {
     validationErrors: "Validation messages",
     noValidationErrors: "No validation messages.",
     notPrintedHere: "This lab does not print documents you create. The record, its lines and its status are all here, and the API returns the same.",
+    printing: "Printing the PDF…",
     addLine: "Add line",
     removeLine: "Remove line",
     saved: "Saved.",
