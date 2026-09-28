@@ -33,6 +33,7 @@ All lowercase, hyphen-separated. `id` and `data-testid` carry the same value.
 | Download link | `{entity}-download` | `po-download` |
 | Work queue on the home screen | `tile-{queue}` with `data-count` | `tile-invoices-pending`. The id kept its old name when the tiles became a ranked queue: it is published in the process documents and in the scenario catalogue, so it is a contract, not a description. |
 | Extraction form field | `extraction-field-{field}` / `extraction-field-line-{n}-{field}` | `extraction-field-line-1-unitPrice` |
+| Invoice entry | `invoice-form`, `invoice-field-{field}`, `invoice-field-line-{n}-{field}`, `invoice-submit` | accounts payable entry at `/invoices/new`, prefilled from `?po=`. `po-record-invoice` opens it from a purchase order; `invoices-new` from the list |
 | Line row controls | `{entity}-add-line` / `{entity}-line-{n}-remove` | `po-add-line`, `extraction-add-line`, `validation-add-line`, `po-line-3-remove`. A line table opens with one row (the validation station with the lines capture found) and grows on the button. Rows are numbered by position, so removing one renumbers those below it; the count is on the table, `#po-lines-form[data-lines]`. A bot may post `line9ItemCode` without clicking anything — the server reads every row up to the cap |
 | Related document link | `related-{kind}-{code}` | `related-grn-GRN-2026-05003` |
 | Validation station form | `validation-station-form` | with `#validation-document`, `#validation-fields`, `#validation-lines` |

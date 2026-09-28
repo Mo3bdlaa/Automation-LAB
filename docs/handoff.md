@@ -112,6 +112,21 @@ two coexist. A shared cookie on `.mohammedshaker.com` was considered and rejecte
 couples both apps to one auth library version and breaks across any different apex domain.
 (It would also mean touching that site, which this project does not do.)
 
+**Accounts payable entry exists, and it is prefilled from the order.** The lab's own
+invoices arrive already printed, because reading them is the exercise — but an ERP replica
+without a screen for keying a vendor invoice is missing a room, and a participant wanting to
+see the far side of the three-way match had nowhere to enter one. `/invoices/new` registers
+a vendor invoice; `?po=` fills in the vendor, the currency and the lines from the order,
+because the exercise worth setting is "change one figure and see which rule catches it",
+not "type an invoice from scratch". What is typed is kept as typed: the printed vendor
+details and the totals reach the match exactly as entered, so a figure keyed wrong produces
+the same rule ID as a misread on a scan. A blank total is the sum of the lines. The match
+runs before the response, and the result is written to an extraction row on the invoice's
+own document — the same row a re-match writes, which is what the screens read. No ground
+truth is stored for it: ground truth is what an extraction is scored against, and these
+values were typed by the person who would be scored. `POST /api/invoices` is the same
+service, so a bot and a person are held to the same rules.
+
 **Participant documents are printed on first download, not on creation.** The master
 set is rendered once, ahead of time, which is what lets the deployed app serve a thousand
 documents without a browser. Two participant actions also produce a document — approving a

@@ -134,6 +134,22 @@ const bytes = readFileSync(await dl.path());
 log("download:", dl.suggestedFilename(), bytes.length, "bytes, header:", bytes.subarray(0, 5).toString());
 copyFileSync(await dl.path(), `${shots}/downloaded-po.pdf`);
 
+// Accounts payable entry: invoice the order that was just received.
+await p.goto(`${base}/purchase-orders/${receivedPo}`);
+if (await p.locator("#po-record-invoice").count()) {
+  await p.click("#po-record-invoice");
+  await p.waitForURL(/\/invoices\/new/);
+  const entryLines = await p.locator("#invoice-lines-form tbody tr").count();
+  await p.fill("#invoice-field-number", `SMOKE-${uniq}`);
+  await Promise.all([p.waitForURL(/\/invoices\/INV-/), p.click("#invoice-submit")]);
+  const recorded = new URL(p.url()).pathname.split("/").pop();
+  const recordedStatus = await p.locator(`#invoice-status-${recorded}`).getAttribute("data-status");
+  log("recorded invoice", recorded, "from", receivedPo, "lines:", entryLines, "status:", recordedStatus, "rules:", await ruleIds());
+  if (!["matched", "exception"].includes(recordedStatus ?? "")) fail(`recorded invoice is ${recordedStatus}`);
+} else {
+  log("no invoiceable PO (ok)");
+}
+
 // RFQ award → draft PO
 await p.goto(`${base}/rfqs`);
 const rfqCount = Number(await p.locator("#rfqs-pager").getAttribute("data-total"));

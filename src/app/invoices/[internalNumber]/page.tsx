@@ -46,7 +46,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
     ? { ...shown.asStored, lines: shown.lines.map((l) => ({ id: `x${l.lineNo}`, lineNo: l.lineNo, description: studentFields![`line${l.lineNo}Description`] ?? l.itemCode ?? "", quantity: String(l.quantity), uom: l.uom, unitPrice: String(l.unitPrice), taxRate: String(l.taxRate), taxAmount: String(l.taxAmount), lineTotal: String(l.lineTotal) })) }
     : { ...inv, lines };
   const truthLabel = staff ? " (as stored)" : " (as extracted)";
-  const flash = sp.extracted ? tc.extracted : sp.approved ? tc.approved : sp.rejected ? tc.rejected : sp.paid ? tc.paid : sp.rematched ? "Match re-run." : null;
+  const flash = sp.recorded ? tc.recorded : sp.extracted ? tc.extracted : sp.approved ? tc.approved : sp.rejected ? tc.rejected : sp.paid ? tc.paid : sp.rematched ? "Match re-run." : null;
   const canDecide = ["matched", "exception", "extracted"].includes(inv.status);
 
   return (

@@ -34,7 +34,15 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   const tc = t.cycle;
   const hidden = (inv: (typeof rows)[number]) => inv.status === "pending_extraction";
   return (
-    <Page title={tc.invoices} subtitle={t.invoicesPage.subtitle}>
+    <Page
+      title={tc.invoices}
+      subtitle={t.invoicesPage.subtitle}
+      actions={
+        <LinkButton testId="invoices-new" href="/invoices/new">
+          {tc.recordInvoice}
+        </LinkButton>
+      }
+    >
       <StatusTabs
         entity="invoices"
         current={status}

@@ -12,10 +12,12 @@ import type { LabSession } from "@/lib/auth/server";
 import { audit } from "@/lib/auth/server";
 import { runRules, type ValidationResult, type Violation } from "@/lib/validation/engine";
 import { matchRules, type MatchContext } from "@/lib/validation/matching";
-import { round2 } from "@/lib/generator/money";
+import { lineMoney, round2, TAX_CODES, totals, type TaxCode } from "@/lib/generator/money";
 import { CORPUS_TODAY } from "@/lib/generator/dates";
 import { gradeDefects, scoreInvoiceExtraction, type DefectGrade, type ExtractionScore } from "@/lib/grading/score";
 import { emitWebhook } from "@/lib/webhooks/emit";
+import { participantPdfsEager } from "@/lib/documents/participant-pdfs";
+import { enqueue } from "@/lib/jobs/queue";
 
 export type MatchLine = MatchContext["invoice"]["lines"][number];
 
@@ -199,4 +201,172 @@ export async function decideInvoice(session: LabSession, inv: Invoice, decision:
   await audit(session, "invoice.pay", "invoice", inv.internalNumber, { amount: inv.grandTotal, payment: number });
   await emitWebhook(session, "invoice.status_changed", { internalNumber: inv.internalNumber, status: "paid", previousStatus: "approved", paymentNumber: number });
   return { ok: true, status: "paid", paymentNumber: number };
+}
+
+/** One line of a vendor invoice as somebody types it in. */
+export interface InvoiceEntryLine {
+  itemCode?: string;
+  description?: string;
+  quantity: number;
+  uom?: string;
+  unitPrice: number;
+  discountPct?: number;
+  taxCode?: string;
+}
+
+export interface InvoiceEntryInput {
+  /** The vendor's own invoice number, as printed on the paper. */
+  number: string;
+  poNumber?: string;
+  /** Only needed when there is no purchase order to take the vendor from. */
+  vendorCode?: string;
+  invoiceDate?: string;
+  dueDate?: string;
+  currency?: string;
+  /**
+   * What the paper says about the vendor. Left blank they are taken from the
+   * master, which is the clean case; typed differently they are how a changed
+   * bank account or a mistyped tax number reaches the match, which is the
+   * whole point of keeping them separate from the master in the first place.
+   */
+  printedVendorName?: string;
+  printedVendorTaxId?: string;
+  printedIban?: string;
+  printedBankName?: string;
+  /** Blank means "add up the lines"; a figure means "this is what the paper says". */
+  subtotal?: number;
+  taxTotal?: number;
+  grandTotal?: number;
+  lines: InvoiceEntryLine[];
+}
+
+export type RecordInvoiceResult =
+  | { ok: true; internalNumber: string; status: Invoice["status"]; violations: Violation[] }
+  | { ok: false; error: "validation_failed"; message: string; violations: Violation[] };
+
+/**
+ * Register a vendor invoice that arrived on paper.
+ *
+ * Accounts payable in any ERP has this screen: the invoice is in your hand,
+ * you key it against the order, and the system tells you whether it agrees
+ * with what was ordered and what was received. The lab's own invoices arrive
+ * already printed, because reading them is the exercise — but a participant
+ * who wants to see the far side of the three-way match had nowhere to enter
+ * one, and an ERP replica missing accounts payable entry is missing a room.
+ *
+ * What is typed is kept as typed. The printed vendor details, the totals and
+ * the line prices all go in exactly as given, and the match then runs against
+ * the master and the purchase order — so keying a figure wrong here produces
+ * the same violation, with the same rule ID, as a misread on a scan.
+ */
+export async function recordInvoice(session: LabSession, input: InvoiceEntryInput): Promise<RecordInvoiceResult> {
+  const tdb = session.tdb;
+  const number = (input.number ?? "").trim();
+  const fail = (violations: Violation[]): RecordInvoiceResult => ({ ok: false, error: "validation_failed", message: "The invoice cannot be registered as entered.", violations });
+  if (!number) {
+    return fail([{ ruleId: "INV-NUMBER-REQUIRED", severity: "error", message: "The vendor's invoice number is required.", field: "number" }]);
+  }
+  const entered = input.lines.filter((l) => Number(l.quantity) > 0 || (l.itemCode ?? "").trim() || (l.description ?? "").trim());
+  if (!entered.length) {
+    return fail([{ ruleId: "INV-LINE-MIN", severity: "error", message: "Enter at least one line.", field: "lines" }]);
+  }
+
+  const po = input.poNumber?.trim() ? await tdb.one(purchaseOrders, eq(purchaseOrders.number, input.poNumber.trim().toUpperCase())) : null;
+  if (input.poNumber?.trim() && !po) {
+    return fail([{ ruleId: "INV-PO-UNKNOWN", severity: "error", message: `No purchase order ${input.poNumber.trim()} in this sandbox.`, field: "poNumber" }]);
+  }
+  const vendor = input.vendorCode?.trim()
+    ? await tdb.one(vendors, eq(vendors.code, input.vendorCode.trim().toUpperCase()))
+    : po
+      ? await tdb.one(vendors, eq(vendors.id, po.vendorId))
+      : null;
+  if (!vendor) {
+    return fail([{ ruleId: "INV-VENDOR-REQUIRED", severity: "error", message: "Choose the vendor, or a purchase order to take it from.", field: "vendorCode" }]);
+  }
+
+  const invoiceDate = input.invoiceDate?.trim() || CORPUS_TODAY;
+  const codes = entered.map((l) => (l.itemCode ?? "").trim().toUpperCase()).filter(Boolean);
+  const itemRows = codes.length ? await tdb.list(items, { where: inArray(items.code, codes) }) : [];
+  const poLines = po ? await tdb.list(purchaseOrderLines, { where: eq(purchaseOrderLines.purchaseOrderId, po.id), orderBy: [{ column: purchaseOrderLines.lineNo }] }) : [];
+
+  const lines = entered.map((l, idx) => {
+    const itemCode = (l.itemCode ?? "").trim().toUpperCase();
+    const item = itemRows.find((i) => i.code === itemCode) ?? null;
+    const poLine = item ? (poLines.find((p) => p.itemId === item.id) ?? null) : null;
+    const taxCode = (l.taxCode ?? "").trim().toUpperCase() || poLine?.taxCode || item?.taxCode || "S15";
+    const rate = TAX_CODES[taxCode as TaxCode]?.rate ?? 0;
+    const quantity = Number(l.quantity) || 0;
+    const unitPrice = Number(l.unitPrice) || 0;
+    const discountPct = Number(l.discountPct) || 0;
+    const m = lineMoney({ quantity, unitPrice, discountPct, taxCode: (taxCode in TAX_CODES ? taxCode : "S15") as TaxCode });
+    return {
+      lineNo: idx + 1, item, poLine, taxCode, taxRate: rate, quantity, unitPrice, discountPct,
+      uom: (l.uom ?? "").trim().toUpperCase() || poLine?.uom || item?.uom || "EA",
+      description: (l.description ?? "").trim() || item?.name || itemCode || "—",
+      taxAmount: m.tax, lineTotal: m.net,
+    };
+  });
+  const computed = totals(lines.filter((l) => l.taxCode in TAX_CODES).map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice, discountPct: l.discountPct, taxCode: l.taxCode as TaxCode })));
+  const subtotal = input.subtotal ?? computed.subtotal;
+  const taxTotal = input.taxTotal ?? computed.taxTotal;
+  const grandTotal = input.grandTotal ?? computed.grandTotal;
+
+  const year = invoiceDate.slice(0, 4);
+  const [last] = await tdb.list(invoices, {
+    where: and(eq(invoices.tenantId, session.tenant.id), sql`${invoices.internalNumber} like ${`INV-${year}-9%`}`)!,
+    orderBy: [{ column: invoices.internalNumber, direction: "desc" }],
+    limit: 1,
+  });
+  const internalNumber = `INV-${year}-${String(last ? Number(last.internalNumber.slice(-5)) + 1 : 90001).padStart(5, "0")}`;
+
+  let inserted!: Invoice;
+  let documentId = "";
+  await tdb.transaction(async (tx) => {
+    const [inv] = await tx.insert(invoices, {
+      number, internalNumber, purchaseOrderId: po?.id ?? null, vendorId: vendor.id,
+      printedVendorName: input.printedVendorName?.trim() || vendor.name,
+      printedVendorTaxId: (input.printedVendorTaxId ?? "").replace(/\s+/g, "") || vendor.taxId,
+      printedIban: ((input.printedIban ?? "").replace(/\s+/g, "") || vendor.iban).toUpperCase(),
+      printedBankName: input.printedBankName?.trim() || vendor.bankName,
+      printedPoNumber: po?.number ?? input.poNumber?.trim() ?? null,
+      invoiceDate, dueDate: input.dueDate?.trim() || invoiceDate,
+      currency: (input.currency ?? "").trim().toUpperCase() || po?.currency || vendor.currency,
+      subtotal: subtotal.toFixed(2), taxTotal: taxTotal.toFixed(2), grandTotal: grandTotal.toFixed(2),
+      // Not pending_extraction: nothing is hidden from somebody who typed it.
+      status: "extracted", receivedDate: CORPUS_TODAY,
+    });
+    inserted = inv;
+    await tx.insert(
+      invoiceLines,
+      lines.map((l) => ({
+        invoiceId: inv.id, lineNo: l.lineNo, purchaseOrderLineId: l.poLine?.id ?? null, itemId: l.item?.id ?? null, description: l.description,
+        quantity: String(l.quantity), uom: l.uom, unitPrice: l.unitPrice.toFixed(4), discountPct: l.discountPct.toFixed(2),
+        taxCode: l.taxCode, taxRate: l.taxRate.toFixed(4), taxAmount: l.taxAmount.toFixed(2), lineTotal: l.lineTotal.toFixed(2),
+      })),
+    );
+    // The invoice gets a document of its own, so the registered copy can be
+    // printed like any other and the match result has somewhere to hang.
+    //
+    // No ground truth, deliberately: ground truth is what an extraction is
+    // scored against, and these values were typed by the person who would be
+    // scored. Recording your own invoice and then "extracting" it would be
+    // marking your own homework.
+    const [d] = await tx.insert(documents, { kind: "invoice", number, sourceId: inv.id, vendorId: vendor.id, language: "bilingual" });
+    documentId = d.id;
+  });
+
+  const result = await matchStoredInvoice(session, inserted);
+  const status: Invoice["status"] = result.ok ? "matched" : "exception";
+  await tdb.update(invoices, { status, updatedAt: new Date() }, eq(invoices.id, inserted.id));
+  // The screens and the API both read the match from the last extraction on
+  // the document — the same row a re-match writes. Without it a registered
+  // invoice would sit in "exception" with nothing on screen saying why.
+  await tdb.insert(extractions, {
+    documentId, userId: session.principal.userId, source: session.channel, fields: { entry: "1" },
+    matchResult: { ok: result.ok, violations: result.violations },
+  });
+  if (participantPdfsEager()) await enqueue("render_document", { documentId }, { tenantId: session.tenant.id, priority: 5 });
+  await audit(session, "invoice.record", "invoice", internalNumber, { lines: lines.length, po: po?.number ?? null, violations: result.violations.map((v) => v.ruleId) });
+  await emitWebhook(session, "invoice.status_changed", { internalNumber, status, previousStatus: "extracted", source: "entry" });
+  return { ok: true, internalNumber, status, violations: result.violations };
 }

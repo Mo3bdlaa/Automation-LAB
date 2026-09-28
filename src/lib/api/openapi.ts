@@ -142,6 +142,22 @@ export function openApiDocument(origin: string) {
           parameters: [{ name: "status", in: "query", schema: { type: "string", enum: INVOICE_STATUSES } }, { name: "q", in: "query", schema: { type: "string" } }, ...listParams],
           responses: { "200": jsonOk("Invoices. Pending ones carry `hidden: true`.", { type: "object" }), ...errorResponses },
         },
+        post: {
+          tags: ["Invoices"],
+          summary: "Register a vendor invoice that arrived on paper.",
+          description:
+            "Accounts payable entry. Values are kept exactly as sent — the printed vendor details and the totals go to the three-way match as given, so a figure keyed wrong produces the same rule IDs as a misread scan. A blank total is the sum of the lines. The match runs before the response.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { type: "object", required: ["number", "lines"], properties: { number: { type: "string" }, poNumber: { type: "string" }, vendorCode: { type: "string" }, invoiceDate: { type: "string", format: "date" }, dueDate: { type: "string", format: "date" }, currency: { type: "string" }, printedVendorName: { type: "string" }, printedVendorTaxId: { type: "string" }, printedIban: { type: "string" }, printedBankName: { type: "string" }, subtotal: { type: "number" }, taxTotal: { type: "number" }, grandTotal: { type: "number" }, lines: { type: "array", items: { type: "object", required: ["quantity", "unitPrice"], properties: { itemCode: { type: "string" }, description: { type: "string" }, quantity: { type: "number" }, uom: { type: "string" }, unitPrice: { type: "number" }, discountPct: { type: "number" }, taxCode: { type: "string" } } } } } },
+                example: { number: "TI-7841119", poNumber: "PO-2026-05057", lines: [{ itemCode: "ITM-000327", quantity: 7, unitPrice: 3700 }] },
+              },
+            },
+          },
+          responses: { "201": jsonOk("The invoice as registered, its status and the match violations.", { type: "object" }), ...errorResponses },
+        },
       },
       "/api/invoices/{internalNumber}": {
         get: { tags: ["Invoices"], summary: "One invoice.", description: "Values stay hidden until an extraction is submitted.", parameters: [{ name: "internalNumber", in: "path", required: true, schema: { type: "string" }, example: "INV-2026-05012" }], responses: { "200": jsonOk("Invoice.", ref("Invoice")), ...errorResponses } },

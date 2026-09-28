@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { documents, extractions, invoices } from "@/db/schema";
 import { requireLab } from "@/lib/auth/server";
-import { decideInvoice, matchStoredInvoice, submitExtraction } from "@/lib/services/invoices";
-import { failedState, formValues, str, type FormState } from "@/lib/forms";
+import { decideInvoice, matchStoredInvoice, recordInvoice, submitExtraction, type InvoiceEntryLine } from "@/lib/services/invoices";
+import { failedState, formValues, num, str, type FormState } from "@/lib/forms";
 import { INVOICE_FORM_MAX_LINES } from "./constants";
 import { EXTRACTION_HEADER_FIELDS, EXTRACTION_LINE_FIELDS, extractionToInvoice } from "@/lib/services/extraction";
 
@@ -60,4 +60,52 @@ export async function decideInvoiceAction(formData: FormData): Promise<void> {
   const result = await decideInvoice(session, inv, decision);
   const flag = result.ok ? { approve: "approved", reject: "rejected", pay: "paid" }[decision] : null;
   redirect(`/invoices/${encodeURIComponent(internalNumber)}${flag ? `?${flag}=1` : ""}`);
+}
+
+/**
+ * Register a vendor invoice that arrived on paper. Thin over recordInvoice:
+ * the rules, the numbering and the match all live in the service, so the REST
+ * route and this form cannot drift apart.
+ */
+export async function recordInvoiceAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireLab();
+  const values = formValues(formData);
+  const lines: InvoiceEntryLine[] = [];
+  for (let n = 1; n <= INVOICE_FORM_MAX_LINES; n++) {
+    const itemCode = str(values, `line${n}ItemCode`).toUpperCase();
+    const description = str(values, `line${n}Description`);
+    const quantity = num(values, `line${n}Quantity`, 0);
+    if (!itemCode && !description && !quantity) continue;
+    lines.push({
+      itemCode, description, quantity,
+      uom: str(values, `line${n}Uom`),
+      unitPrice: num(values, `line${n}UnitPrice`, 0),
+      discountPct: num(values, `line${n}DiscountPct`, 0),
+      taxCode: str(values, `line${n}TaxCode`),
+    });
+  }
+  const optional = (key: string) => {
+    const v = num(values, key, NaN);
+    return Number.isNaN(v) ? undefined : v;
+  };
+  const result = await recordInvoice(session, {
+    number: str(values, "number"),
+    poNumber: str(values, "poNumber"),
+    vendorCode: str(values, "vendorCode"),
+    invoiceDate: str(values, "invoiceDate"),
+    dueDate: str(values, "dueDate"),
+    currency: str(values, "currency"),
+    printedVendorName: str(values, "printedVendorName"),
+    printedVendorTaxId: str(values, "printedVendorTaxId"),
+    printedIban: str(values, "printedIban"),
+    printedBankName: str(values, "printedBankName"),
+    subtotal: optional("subtotal"),
+    taxTotal: optional("taxTotal"),
+    grandTotal: optional("grandTotal"),
+    lines,
+  });
+  if (!result.ok) return failedState(result.violations, values);
+  // A registered invoice lands on its own page with the match already run, so
+  // the first thing seen is whether it agrees with the order and the receipt.
+  redirect(`/invoices/${encodeURIComponent(result.internalNumber)}?recorded=1`);
 }

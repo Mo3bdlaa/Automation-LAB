@@ -65,6 +65,7 @@ const screens = [
   delivery && `/deliveries/${delivery}`,
   payment && `/payments/${payment}`,
   "/purchase-orders/new", "/vendors/new", "/items/new",
+  po && `/invoices/new?po=${po}`, "/invoices/new",
   "/challenges", "/leaderboard", "/account", "/rules", "/sandbox", "/search?q=INV",
 ].filter(Boolean);
 

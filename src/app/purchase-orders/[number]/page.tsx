@@ -62,6 +62,11 @@ export default async function PoDetailPage({ params, searchParams }: { params: P
               <Button testId="po-approve">Approve</Button>
             </form>
           ) : null}
+          {!readOnly && po.status !== "draft" && po.status !== "cancelled" ? (
+            <LinkButton testId="po-record-invoice" href={`/invoices/new?po=${encodeURIComponent(po.number)}`} variant="secondary">
+              {t.cycle.recordInvoice}
+            </LinkButton>
+          ) : null}
           <LinkButton testId="po-back" href="/purchase-orders" variant="secondary">
             {tp.title}
           </LinkButton>
