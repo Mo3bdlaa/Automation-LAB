@@ -9,6 +9,15 @@ import { db, schema } from "@/db/client";
 import type { Job, JobKind } from "@/db/schema";
 
 export async function enqueue(kind: JobKind, payload: Record<string, unknown>, opts: { tenantId?: string | null; priority?: number } = {}): Promise<Job> {
+  // The same work, asked for twice, is one job. A participant clicking
+  // Download three times while a render is queued was queueing three renders
+  // of the same document; the queue is the wrong place to discover impatience.
+  const [existing] = await db
+    .select()
+    .from(schema.jobs)
+    .where(and(eq(schema.jobs.kind, kind), eq(schema.jobs.status, "queued"), sql`${schema.jobs.payload} = ${JSON.stringify(payload)}::jsonb`)!)
+    .limit(1);
+  if (existing) return existing;
   const [job] = await db
     .insert(schema.jobs)
     .values({ kind, payload, tenantId: opts.tenantId ?? null, priority: opts.priority ?? 0 })

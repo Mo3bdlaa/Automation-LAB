@@ -6,7 +6,8 @@ import { blobStore } from "@/lib/blob";
 import { EAGER_KINDS } from "@/lib/documents/kinds";
 import { isLevel, LEVELS, LEVEL_SPECS } from "@/lib/documents/levels";
 import { enqueue } from "@/lib/jobs/queue";
-import { kickJobs } from "@/lib/jobs/runner";
+import { after } from "next/server";
+import { drainJobs } from "@/lib/jobs/runner";
 
 /**
  * A participant document is printed by the job this route kicks off, which
@@ -57,10 +58,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     // are produced on demand.
     if (level === 1 && (participantOwned || !EAGER_KINDS.has(doc.kind))) {
       await enqueue("render_document", { documentId: doc.id }, { tenantId: doc.tenantId, priority: 8 });
-      kickJobs();
+      after(drainJobs);
     } else if (level > 1) {
       await enqueue("degrade_document", { documentId: doc.id, level }, { tenantId: doc.tenantId, priority: 8 });
-      kickJobs();
+      after(drainJobs);
     }
     return Response.json(
       { error: "not_rendered", documentId: doc.id, level, message: `The ${LEVEL_SPECS[level].label} is being produced. Retry after a few seconds.` },

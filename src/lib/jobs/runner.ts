@@ -41,11 +41,41 @@ export async function runJobs(opts: { maxJobs?: number; timeBudgetMs?: number; l
 let inFlight: Promise<unknown> | null = null;
 
 /**
- * Best-effort in-process processing after an enqueue. Local dev needs no
- * worker; on Vercel this piggybacks on the request's `after()` window and the
- * cron route picks up anything left. Runs in rounds until the queue is empty
- * or nothing was processed in a round. Set JOBS_KICK=0 to disable (e.g. when
- * a dedicated worker runs).
+ * Work the queue until it is empty, once. Exported so a route can hand it to
+ * Next's `after()` itself — see the note on kickJobs about why doing that from
+ * here is not reliable.
+ */
+export function drainJobs(): Promise<unknown> {
+  if (inFlight) return inFlight;
+  const budget = Number(process.env.JOBS_KICK_BUDGET_MS ?? 60_000);
+  const rounds = Number(process.env.JOBS_KICK_ROUNDS ?? 6);
+  inFlight = (async () => {
+    for (let round = 0; round < rounds; round++) {
+      const r = await runJobs({ maxJobs: 100, timeBudgetMs: budget, log: (m) => console.log(`[jobs] ${m}`) });
+      if (r.processed + r.failed === 0) break;
+    }
+  })()
+    .catch((e) => console.error("[jobs] drain failed", e))
+    .finally(() => {
+      inFlight = null;
+    });
+  return inFlight;
+}
+
+/**
+ * Best-effort in-process processing after an enqueue.
+ *
+ * It reaches for Next's `after()` through a dynamic import, which is why a
+ * route that needs the work to actually happen should call `after(drainJobs)`
+ * itself instead: `after()` has to be called inside the request, and by the
+ * time this import resolves the request may be over. It then throws, the
+ * timer fallback takes its place, and on a serverless host the instance is
+ * frozen the moment the response is sent — the job stays queued until the
+ * nightly cron. That is exactly what a download of a just-created document
+ * did on the deployed lab: three queued renders, none of them run, no error
+ * anywhere. Local development is unaffected, which is what hid it.
+ *
+ * Set JOBS_KICK=0 to disable (e.g. when a dedicated worker runs).
  */
 export function kickJobs(): void {
   if (process.env.JOBS_KICK === "0") return;
@@ -53,21 +83,7 @@ export function kickJobs(): void {
   // Bounded on purpose: a web process must not grind through an unbounded
   // backlog. Whatever is left is picked up by the next kick or by the cron
   // route (/api/jobs/run), which is what runs on a deployed lab.
-  const budget = Number(process.env.JOBS_KICK_BUDGET_MS ?? 60_000);
-  const rounds = Number(process.env.JOBS_KICK_ROUNDS ?? 6);
-  const run = () => {
-    inFlight = (async () => {
-      for (let round = 0; round < rounds; round++) {
-        const r = await runJobs({ maxJobs: 100, timeBudgetMs: budget, log: (m) => console.log(`[jobs] ${m}`) });
-        if (r.processed + r.failed === 0) break;
-      }
-    })()
-      .catch((e) => console.error("[jobs] kick failed", e))
-      .finally(() => {
-        inFlight = null;
-      });
-    return inFlight;
-  };
+  const run = () => drainJobs();
   // Prefer Next's after() so serverless functions keep the process alive; fall back to a plain timer.
   import("next/server")
     .then((m) => {
