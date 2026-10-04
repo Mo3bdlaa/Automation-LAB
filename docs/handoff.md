@@ -165,8 +165,17 @@ degraded scan, just an artefact of our own chrome. It is gone from the shared pa
 once. What stays is the footer line, in both scripts, in the bottom margin and clear of the
 body: a page printed from the lab still says what it is, and `noindex` plus the robots deny
 are untouched. The difficulty ladder (levels 2 to 5) is where document difficulty belongs
-and is unaffected. Already-rendered PDFs keep their watermark until the master set is
-re-seeded — `pnpm db:seed --force --levels` — because the set is rendered at seed time.
+and is unaffected.
+
+Already-rendered PDFs keep their watermark until they are reprinted, and seeding is the
+wrong tool for that: `--force` rebuilds the transaction set and clears everyone's in-flight
+work, because the rows they were working against stop existing. After a change to how a
+document prints, the rows are fine and only the paper is stale. So `pnpm docs:reprint`
+re-renders each document in place — the blob key is derived from (tenant, document, level),
+so every file is overwritten where it already sits and nothing downstream learns a new
+address. Run it from the **Reprint the document set** workflow in the Actions tab rather
+than a laptop: the runner has Chromium, hours to spend and the credentials as repository
+secrets, exactly as the seed workflow does. It defaults to a dry run.
 
 ---
 
