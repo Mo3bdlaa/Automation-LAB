@@ -19,8 +19,10 @@ const reachable = await db
 
 describe("rate limit policies", () => {
   it("is tight where credentials are guessed and generous where work happens", () => {
-    // Signing in is the attack surface; a wordlist run should die immediately.
-    expect(POLICIES.login.limit).toBeLessThanOrEqual(10);
+    // Signing in is the attack surface. The window matters as much as the
+    // count: a wordlist run is capped at a few tries a minute.
+    expect(POLICIES.login.limit).toBeLessThanOrEqual(20);
+    expect(POLICIES.login.limit / POLICIES.login.windowSeconds).toBeLessThanOrEqual(0.1);
     expect(POLICIES.register.limit).toBeLessThanOrEqual(5);
 
     // A performer working a 12-invoice queue makes several hundred calls in a

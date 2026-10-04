@@ -32,10 +32,11 @@ export interface Policy {
 
 export const POLICIES = {
   /**
-   * Password guessing. Ten tries a quarter of an hour is plenty for someone who
-   * genuinely mistypes and useless for someone working through a word list.
+   * Password guessing. Twenty tries in five minutes leaves room for someone
+   * who mistypes, or for a shared address where several people sign in at
+   * once, and is still four a minute: useless for working through a word list.
    */
-  login: { limit: 10, windowSeconds: 900 },
+  login: { limit: 20, windowSeconds: 300 },
   /** Account spam. A person creates one account, maybe two. */
   register: { limit: 5, windowSeconds: 3600 },
   /** Issuing a robot password: cheap for us, but it is a credential. */

@@ -501,7 +501,7 @@ The lab was built for a cohort of thirty. The decision to run it as an open prac
   in?" — runs, scores, certificates.
 - **Rate limiting that does not break the site.** An open site pointed at by robots needs
   limits that stop an attack without stopping the thing the site is for, and those pull in
-  opposite directions. Tight where credentials are guessed (10 sign-ins per 15 minutes, 5
+  opposite directions. Tight where credentials are guessed (20 sign-ins per 5 minutes, 5
   sign-ups an hour, per address — counted by address rather than the email typed, or anyone
   could lock a participant out of their own account). Generous where the work happens (600
   a minute per account; a twelve-invoice run uses under a fifth). Counters are in Postgres,

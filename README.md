@@ -306,7 +306,7 @@ robots. An authenticated participant gets **600 requests a minute**, counted per
 so a classroom behind one NAT does not throttle itself — a performer working a
 twelve-invoice queue uses well under a fifth of that, while a loop with no delay in it is
 stopped. Anonymous traffic gets 120 a minute per address, certificate checks 60 per ten
-minutes, and the tight ones are the credential paths: 10 sign-in attempts per 15 minutes
+minutes, and the tight ones are the credential paths: 20 sign-in attempts per 5 minutes
 and 5 sign-ups an hour, per address. Every response carries `X-RateLimit-Limit` and
 `X-RateLimit-Remaining`; a `429` carries `Retry-After` in seconds and
 `{ error: "rate_limited", retryAfter }`. Policies live in `src/lib/api/rate-limit.ts`.
