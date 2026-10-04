@@ -197,7 +197,7 @@ html, body { overscroll-behavior-y: none; }
  * This used to be a yellow bar across the top of every page reading SPECIMEN —
  * TRAINING ONLY, and that single element did more than anything else to make a
  * working system read as a throwaway demo. The disclosure is not weaker now,
- * it is in three quieter places: this chip, a watermark printed on the
+ * it is in three quieter places: this chip, the footer line printed on the
  * documents themselves, and a plain paragraph in the footer.
  */
 .env-chip { display: inline-flex; align-items: center; gap: .375rem; font-size: .71875rem; font-weight: 600; color: var(--al-training); background: var(--al-training-wash); border: 1px solid var(--al-training-line); border-radius: 3px; padding: .25rem .5625rem; white-space: nowrap; }

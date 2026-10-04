@@ -16,7 +16,7 @@ is what turns the sandbox into a scored, verifiable challenge.
 - A single process's PDD, written to a client's own template, with drawn process maps: `pnpm pdd:process` → `.data/Invoice-Processing-PDD.docx` and `.pdf`
 - Per-scenario PDD and SDD template: generated live at `/challenges/{slug}/pdd.pdf` and `/challenges/{slug}/sdd.docx`
 
-Everything in the lab is fictitious. Every PDF is watermarked `SPECIMEN — TRAINING ONLY`,
+Everything in the lab is fictitious. Every PDF carries a `SPECIMEN — TRAINING ONLY` footer,
 every response carries `X-Robots-Tag: noindex`, and `robots.txt` denies all crawlers.
 
 ## What P0 to P5 contain
@@ -30,7 +30,7 @@ every response carries `X-Robots-Tag: noindex`, and `robots.txt` denies all craw
 | Shared corpus seeder: 250 vendors, 1,200 items, 60 employees, 15 cost centres, 40 GL accounts, 8 delivery locations, 900 historical POs (rows only) | `src/lib/generator/`, `src/lib/corpus/persist.ts` |
 | Per-student sandbox provisioning from a seed derived from the user id, plus reset | `src/lib/sandbox/lifecycle.ts` |
 | Selector-stable UI: nav, paginated tables, vendor / item CRUD, PO create + approve | `src/app/*`, `src/components/ui.tsx` |
-| PO PDF: HTML/CSS → headless Chromium in a background job, bilingual, watermarked | `src/lib/documents/` |
+| PO PDF: HTML/CSS → headless Chromium in a background job, bilingual, specimen-footed | `src/lib/documents/` |
 | Declarative validation rules with stable IDs, rendered in `#validation-errors` | `src/lib/validation/` |
 | Background job queue (Postgres, SKIP LOCKED) with worker, cron route and in-process kick | `src/lib/jobs/` |
 | i18n structure (EN/AR, RTL) | `src/i18n/` |

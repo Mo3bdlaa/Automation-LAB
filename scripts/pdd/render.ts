@@ -231,7 +231,7 @@ td.shot img { display: block; width: 100%; max-height: ${CELL_IMAGE_MAX_H}px; ob
     <div class="sub">${escHtml(DOC.subtitle)}</div>
     <div class="course">${escHtml(DOC.strapline)}</div>
     <dl><dt>Version</dt><dd>${DOC.version}</dd><dt>Date</dt><dd>${DOC.date}</dd><dt>Author</dt><dd>${escHtml(DOC.author)}</dd><dt>Status</dt><dd>${escHtml(DOC.status)}</dd><dt>Target application</dt><dd>${escHtml(DOC.targetApp)}</dd></dl>
-    <div class="warn">All data in Automation Lab is fictitious. Documents are watermarked SPECIMEN - TRAINING ONLY.</div>
+    <div class="warn">All data in Automation Lab is fictitious. Documents are footed SPECIMEN - TRAINING ONLY.</div>
   </div>
   <div class="pb"></div>
   ${tocHtml}
@@ -353,7 +353,7 @@ td.shot img { display: block; width: 100%; max-height: ${CELL_IMAGE_MAX_H}px; ob
       ...[["Version", DOC.version], ["Date", DOC.date], ["Author", DOC.author], ["Status", DOC.status], ["Target application", DOC.targetApp]].map(
         ([k, v]) => new Paragraph({ children: [run(`${k}: `, { bold: true, size: 22 }), run(v, { size: 22 })], spacing: { after: 80 } }),
       ),
-      new Paragraph({ children: [run("All data in Automation Lab is fictitious. Documents are watermarked SPECIMEN - TRAINING ONLY.", { italics: true, size: 18, color: "7A0000" })], spacing: { before: 1800 } }),
+      new Paragraph({ children: [run("All data in Automation Lab is fictitious. Documents are footed SPECIMEN - TRAINING ONLY.", { italics: true, size: 18, color: "7A0000" })], spacing: { before: 1800 } }),
       new Paragraph({ children: [new PageBreak()] }),
       new Paragraph({ heading: HeadingLevel.HEADING_1, children: [run("Contents", { size: 30, bold: true, color: NAVY })], spacing: { after: 160 } }),
       new TableOfContents("Contents", { hyperlink: true, headingStyleRange: "1-2" }) as unknown as Paragraph,

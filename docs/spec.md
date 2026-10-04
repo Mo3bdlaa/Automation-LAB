@@ -152,8 +152,10 @@ Next.js (App Router) + TypeScript + Tailwind/shadcn, Postgres + Drizzle, headles
 Chromium for PDF, sharp for degradation, S3-compatible blob. Dockerfile for portability.
 
 ## Safety
-Every generated document watermarked `SPECIMEN - TRAINING ONLY`. `noindex` + robots
-deny — plausible fake IBANs and tax IDs must not be indexable.
+Every generated document carries a `SPECIMEN - TRAINING ONLY` footer line, in English and
+Arabic. `noindex` + robots deny — plausible fake IBANs and tax IDs must not be indexable.
+The footer replaced a large diagonal watermark, which lay across the fields the exercise
+asks a bot to read and cost extraction accuracy on the graded documents themselves.
 
 ## Look and feel
 Enterprise-ERP styling so the target application resembles the systems students automate
@@ -167,8 +169,8 @@ the challenge and the leaderboard are open to anyone and a login wall in front o
 would be a lie about what this is.
 
 That the data is fabricated is disclosed in three quiet places rather than one loud one:
-a chip in the top bar, the watermark printed into every document, and a paragraph in the
-footer. A banner across every page was tried first and was the single thing that made a
+a chip in the top bar, the footer line printed on every document, and a paragraph in the
+site footer. A banner across every page was tried first and was the single thing that made a
 working system read as a throwaway demo.
 
 Colours and fonts live in one token block (`src/app/globals.css`) and can be re-branded

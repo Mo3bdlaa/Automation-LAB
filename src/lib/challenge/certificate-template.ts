@@ -71,8 +71,8 @@ html, body { margin: 0; padding: 0; }
   </div>
 </div>`;
   // Not baseDocument: every generated business document in the lab carries a
-  // SPECIMEN watermark because it is fictitious. A certificate is the one
-  // artefact here that is about a real person and a real result.
+  // SPECIMEN footer because it is fictitious. A certificate is the one artefact
+  // here that is about a real person and a real result.
   return `<!doctype html>
 <html lang="en" dir="ltr">
 <head><meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><title>Certificate ${esc(facts.code)}</title>

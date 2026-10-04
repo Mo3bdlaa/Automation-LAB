@@ -33,7 +33,7 @@
         "text": "Navigation. Each link carries a stable id (nav-invoices, nav-grns, …)."
       }
     ],
-    "bytes": 225425
+    "bytes": 211580
   },
   {
     "id": "02-invoice-queue",
@@ -69,7 +69,7 @@
         "text": "Pagination by URL. data-page, data-page-count and data-total let a bot loop without scraping text."
       }
     ],
-    "bytes": 215303
+    "bytes": 214897
   },
   {
     "id": "03-invoice-pending",
@@ -81,7 +81,7 @@
     "callouts": [
       {
         "n": 1,
-        "selector": "#invoice-status-INV-2026-05034",
+        "selector": "#invoice-status-INV-2026-05039",
         "text": "Status badge with data-status=\"pending_extraction\"."
       },
       {
@@ -100,7 +100,7 @@
         "text": "Extraction form: the student or bot types what the PDF shows."
       }
     ],
-    "bytes": 140149
+    "bytes": 140414
   },
   {
     "id": "04-extraction-form",
@@ -143,7 +143,7 @@
     "callouts": [
       {
         "n": 1,
-        "selector": "#invoice-status-INV-2026-05034",
+        "selector": "#invoice-status-INV-2026-05039",
         "text": "The invoice moved to Exception because at least one blocking rule fired."
       },
       {
@@ -167,7 +167,7 @@
         "text": "Re-run match after a corrected extraction."
       }
     ],
-    "bytes": 217489
+    "bytes": 216586
   },
   {
     "id": "06-purchase-order",
@@ -198,7 +198,7 @@
         "text": "Lines with quantity, unit of measure, price and tax code: the reference values for the match."
       }
     ],
-    "bytes": 186648
+    "bytes": 188991
   },
   {
     "id": "07-vendor-compliance",
@@ -297,7 +297,7 @@
         "text": "Background jobs: provisioning and PDF rendering."
       }
     ],
-    "bytes": 139553
+    "bytes": 139934
   },
   {
     "id": "11-arabic-rtl",
@@ -318,7 +318,7 @@
         "text": "Tables, labels and status badges are translated; ids and data-testid values stay identical."
       }
     ],
-    "bytes": 287114
+    "bytes": 272351
   },
   {
     "id": "12-document-invoice",
@@ -349,7 +349,7 @@
         "text": "Printed grand total. INV-TOTAL-TIE checks it against the sum of the lines."
       }
     ],
-    "bytes": 256814
+    "bytes": 254634
   },
   {
     "id": "13-document-purchase-order",
@@ -373,14 +373,9 @@
         "n": 3,
         "selector": "table.lines",
         "text": "Ordered quantities and prices: the reference side of the three-way match."
-      },
-      {
-        "n": 4,
-        "selector": ".watermark span",
-        "text": "Every generated document is watermarked SPECIMEN - TRAINING ONLY in both languages."
       }
     ],
-    "bytes": 323574
+    "bytes": 324536
   },
   {
     "id": "14-document-licence",
@@ -411,7 +406,7 @@
         "text": "Seal and machine-readable block, which make the document harder to read than plain text."
       }
     ],
-    "bytes": 125524
+    "bytes": 116873
   },
   {
     "id": "15-difficulty-ladder",
@@ -442,7 +437,7 @@
         "text": "The magnified crop shows what the extractor actually has to read at each level."
       }
     ],
-    "bytes": 899353
+    "bytes": 823311
   },
   {
     "id": "16-arabic-invoice",
@@ -473,6 +468,6 @@
         "text": "Identifiers stay machine-readable, in Eastern Arabic numerals where the vendor uses them."
       }
     ],
-    "bytes": 245123
+    "bytes": 246266
   }
 ]

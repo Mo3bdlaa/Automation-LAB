@@ -8,8 +8,15 @@ export function esc(s: unknown): string {
 }
 
 /**
- * Shared page chrome: fonts, watermark, print sizing. Every document template
- * wraps its body in this. The watermark is non-negotiable (docs/spec.md, Safety).
+ * Shared page chrome: fonts, the specimen footer, print sizing. Every document
+ * template wraps its body in this.
+ *
+ * There used to be a large diagonal SPECIMEN watermark across the page as well.
+ * It is gone: it sat on top of the very fields the exercise is about reading,
+ * so it cost extraction accuracy on exactly the documents a participant is
+ * graded on, and no invoice a bot will ever meet in production carries one.
+ * The footer line stays, in both scripts, so a printed page still says what it
+ * is (docs/spec.md, Safety); it sits in the bottom margin, clear of the body.
  */
 export function baseDocument(opts: { title: string; body: string; extraCss?: string; lang?: "en" | "ar"; dir?: "ltr" | "rtl" }): string {
   return `<!doctype html>
@@ -39,18 +46,7 @@ body {
 .nowrap { white-space: nowrap; }
 [dir="rtl"] .num { text-align: left; }
 [dir="rtl"] table.lines th, [dir="rtl"] table.lines td { text-align: right; }
-.watermark {
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  display: flex; align-items: center; justify-content: center;
-}
-.watermark span {
-  transform: rotate(-32deg);
-  font-size: 34pt; font-weight: 700; letter-spacing: 0.12em;
-  color: rgba(180, 30, 30, 0.13); border: 3px solid rgba(180, 30, 30, 0.13);
-  padding: 8pt 20pt; white-space: nowrap; text-align: center; line-height: 1.2;
-}
-.watermark small { display: block; font-size: 16pt; letter-spacing: 0.05em; font-family: "Noto Naskh Arabic"; }
-.content { position: relative; z-index: 1; }
+.content { position: relative; }
 .specimen-footer {
   position: fixed; bottom: 0; left: 0; right: 0; font-size: 7.5pt; color: #8a1c1c;
   text-align: center; letter-spacing: 0.08em;
@@ -59,7 +55,6 @@ ${opts.extraCss ?? ""}
 </style>
 </head>
 <body>
-<div class="watermark" aria-hidden="true"><span>${esc(SPECIMEN_TEXT)}<small>${esc(SPECIMEN_TEXT_AR)}</small></span></div>
 <div class="specimen-footer">${esc(SPECIMEN_TEXT)} · ${esc(SPECIMEN_TEXT_AR)} · Automation Lab · fictitious data</div>
 <div class="content">
 ${opts.body}

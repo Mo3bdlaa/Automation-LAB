@@ -340,7 +340,6 @@ await figure(
     ["#po-number", "Purchase order number, quoted on every downstream document."],
     [".parties", "Vendor and delivery details, including payment terms and the approver."],
     ["table.lines", "Ordered quantities and prices: the reference side of the three-way match."],
-    [".watermark span", "Every generated document is watermarked SPECIMEN - TRAINING ONLY in both languages."],
   ],
   { include: [".content"], pad: 10 },
 );

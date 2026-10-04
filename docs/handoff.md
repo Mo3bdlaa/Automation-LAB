@@ -154,6 +154,20 @@ submission comes back with the rows the participant had open. The server reads e
 to the cap whatever the form rendered, so a bot may post `line9ItemCode` without clicking
 first — the selectors stay a contract, the row count never was one.
 
+**The watermark came off the documents.**
+Every generated PDF used to carry a large diagonal `SPECIMEN — TRAINING ONLY` block across
+the middle of the page. It sat exactly where the invoice total, the tax line and the table
+of lines sit, so the one thing the lab exists to teach — reading those fields out of a PDF —
+was being measured against pages with a translucent red stamp over the numbers. No invoice
+a bot meets in production has one, so the difficulty it added was the wrong kind: not a
+degraded scan, just an artefact of our own chrome. It is gone from the shared page chrome in
+`src/lib/documents/templates/base.ts`, which means it is gone from every document type at
+once. What stays is the footer line, in both scripts, in the bottom margin and clear of the
+body: a page printed from the lab still says what it is, and `noindex` plus the robots deny
+are untouched. The difficulty ladder (levels 2 to 5) is where document difficulty belongs
+and is unaffected. Already-rendered PDFs keep their watermark until the master set is
+re-seeded — `pnpm db:seed --force --levels` — because the set is rendered at seed time.
+
 ---
 
 ## 5. Open questions
@@ -216,7 +230,7 @@ Roughly in dependency order. Status reflects this repository.
 7. Selector-stable UI shell: nav, paginated tables, vendor and item master CRUD forms.
    `id` / `data-testid` naming convention documented. — done
 8. First PDF template: purchase order, HTML/CSS → Chromium, in a background job.
-   Watermark `SPECIMEN — TRAINING ONLY`. — done
+   Marked `SPECIMEN — TRAINING ONLY`. — done
 9. Validation rule engine with declarative rules. Errors rendered in a fixed container
    **with rule IDs** so bots can branch on `PO-INV-PRICE` rather than parsing prose. — done
 10. `noindex` and robots deny across the whole site. — done
@@ -422,8 +436,8 @@ what a UiPath community chapter can run as a hackathon.
   an alphabet without look-alike characters — idempotently, so re-closing never issues a
   second one. `/verify/{code}` is public and unauthenticated, names the holder, the scenario
   and the score, and serves a PDF; an invented code answers 404. The certificate is
-  deliberately the one document in the lab that is *not* watermarked `SPECIMEN`: it is a real
-  statement about a real run, and it is the artefact a chapter leader endorses.
+  deliberately the one document in the lab that carries no `SPECIMEN` marking at all: it is a
+  real statement about a real run, and it is the artefact a chapter leader endorses.
 - **Per-scenario documents.** `/challenges/{slug}/pdd.pdf` is generated from the same
   scenario definition the grader uses, so the process document cannot describe a process the
   grader does not measure. `/challenges/{slug}/sdd.docx` is a solution design skeleton with
@@ -542,13 +556,15 @@ The lab was built for a cohort of thirty. The decision to run it as an open prac
 - **Replayability.** Students rerun bots constantly. Reset must return identical starting
   conditions, and API endpoints should be idempotent where possible.
 - **Fake financial data.** Plausible IBANs and tax IDs must never be indexable or mistakable
-  for real documents. Watermark plus `noindex` are non-negotiable.
+  for real documents. The specimen footer plus `noindex` are non-negotiable; the diagonal
+  watermark that used to sit over the body was not, and was removed because it degraded
+  extraction on the documents being graded (see "The watermark came off the documents").
 - **Do not "consolidate" the lab onto the VPS to save money.** See section 4.
 - **A public event is a provisioning event.** Every sign-up provisions a sandbox and renders
   its documents. `SANDBOX_ACTIVE_POS` sizes the cycle down (default 60) and the challenge
   scenarios were sized to fit a small sandbox for exactly this reason; measure a burst of
   concurrent sign-ups before advertising a date.
-- **Certificates are the one unwatermarked document.** Anything printed on one is a claim
+- **Certificates carry no specimen marking at all.** Anything printed on one is a claim
   the lab is making in public. Keep the code alphabet, the idempotent issue and the public
   verification page as they are.
 

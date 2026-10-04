@@ -16,6 +16,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed-corpus.ts",
     "db:reset": "tsx scripts/reset-db.ts",
+    "docs:reprint": "tsx scripts/reprint-documents.ts",
     "render:po": "tsx scripts/render-po.ts",
     "worker": "tsx scripts/worker.ts",
     "serve:prod": "scripts/serve-prod.sh",

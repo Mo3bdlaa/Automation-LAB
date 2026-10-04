@@ -4,7 +4,7 @@ import { SPECIMEN_TEXT } from "./templates/base";
 import { documentFilename } from "./service";
 
 describe("purchase order template", () => {
-  it("contains the watermark, Arabic labels, and escapes user content", () => {
+  it("carries the specimen footer, Arabic labels, and escapes user content", () => {
     const html = renderPurchaseOrderHtml({
       number: "PO-2026-05001",
       orderDate: "2026-08-20",
@@ -25,6 +25,8 @@ describe("purchase order template", () => {
       lines: [{ lineNo: 1, itemCode: "ITM-000001", description: "Thing", descriptionAr: "شيء", quantity: "1", uom: "EA", unitPrice: "100.0000", discountPct: "0.00", taxCode: "S15", taxAmount: "15.00", lineTotal: "100.00" }],
     });
     expect(html).toContain(SPECIMEN_TEXT);
+    // The diagonal watermark is gone: it covered the fields being extracted.
+    expect(html).not.toContain('class="watermark"');
     expect(html).toContain("أمر شراء");
     expect(html).toContain("Acme &amp; Sons");
     expect(html).not.toContain("<script>alert");
