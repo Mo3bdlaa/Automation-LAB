@@ -97,7 +97,7 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
                       <tr key={l.lineNo} id={`delivery-line-row-${l.lineNo}`} data-testid={`delivery-line-row-${l.lineNo}`}>
                         <td>{l.lineNo}</td>
                         <td>{l.poLineNo ?? ""}</td>
-                        <td>{l.itemCode ?? ""}</td>
+                        <td className="al-code">{l.itemCode ?? ""}</td>
                         <td>{l.description}</td>
                         <td className="num">{l.quantity}</td>
                         <td>{l.uom}</td>

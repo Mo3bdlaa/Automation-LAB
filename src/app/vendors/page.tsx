@@ -63,7 +63,7 @@ export default async function VendorsPage({ searchParams }: { searchParams: Prom
           <tbody>
             {rows.map((v) => (
               <tr key={v.id} id={`vendors-row-${v.code}`} data-testid={`vendors-row-${v.code}`} data-code={v.code} data-shared={session.tdb.isReadOnlyRow(vendors, v) ? "1" : "0"}>
-                <td id={`vendors-cell-${v.code}-code`} data-testid={`vendors-cell-${v.code}-code`}>
+                <td id={`vendors-cell-${v.code}-code`} data-testid={`vendors-cell-${v.code}-code`} className="al-code">
                   <Link href={`/vendors/${encodeURIComponent(v.code)}`}>{v.code}</Link>
                 </td>
                 <td id={`vendors-cell-${v.code}-name`} data-testid={`vendors-cell-${v.code}-name`}>

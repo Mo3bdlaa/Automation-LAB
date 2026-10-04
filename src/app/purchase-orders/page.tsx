@@ -3,7 +3,7 @@ import { and, eq, ilike, inArray, or } from "drizzle-orm";
 import { PO_STATUSES, purchaseOrders, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { LinkButton, ListFilter, PAGE_SIZE, Page, Pager, Status, TableWrap, Toolbar, parsePage } from "@/components/ui";
+import { CodeName, LinkButton, ListFilter, PAGE_SIZE, Page, Pager, Status, TableWrap, Toolbar, parsePage } from "@/components/ui";
 import { fmtNumber } from "@/lib/generator/money";
 
 export default async function PurchaseOrdersPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -78,11 +78,11 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
               const v = vendorById.get(po.vendorId);
               return (
                 <tr key={po.id} id={`purchase-orders-row-${po.number}`} data-testid={`purchase-orders-row-${po.number}`} data-number={po.number} data-status={po.status} data-historical={po.historical ? "1" : "0"}>
-                  <td id={`purchase-orders-cell-${po.number}-number`} data-testid={`purchase-orders-cell-${po.number}-number`}>
+                  <td id={`purchase-orders-cell-${po.number}-number`} data-testid={`purchase-orders-cell-${po.number}-number`} className="al-code">
                     <Link href={`/purchase-orders/${encodeURIComponent(po.number)}`}>{po.number}</Link>
                   </td>
                   <td id={`purchase-orders-cell-${po.number}-orderDate`} data-testid={`purchase-orders-cell-${po.number}-orderDate`} className="al-date">{po.orderDate}</td>
-                  <td id={`purchase-orders-cell-${po.number}-vendor`} data-testid={`purchase-orders-cell-${po.number}-vendor`}>{v ? <bdi>{`${v.code} · ${v.name}`}</bdi> : t.common.none}</td>
+                  <td id={`purchase-orders-cell-${po.number}-vendor`} data-testid={`purchase-orders-cell-${po.number}-vendor`}>{v ? <CodeName code={v.code} name={v.name} /> : t.common.none}</td>
                   <td id={`purchase-orders-cell-${po.number}-status`} data-testid={`purchase-orders-cell-${po.number}-status`}>
                     <Status status={po.status} />
                   </td>

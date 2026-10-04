@@ -139,7 +139,7 @@ export default async function PoDetailPage({ params, searchParams }: { params: P
             {lines.map((l) => (
               <tr key={l.id} id={`po-line-row-${l.lineNo}`} data-testid={`po-line-row-${l.lineNo}`}>
                 <td>{l.lineNo}</td>
-                <td id={`po-line-cell-${l.lineNo}-itemCode`} data-testid={`po-line-cell-${l.lineNo}-itemCode`}>{item(l.itemId)?.code ?? t.common.none}</td>
+                <td id={`po-line-cell-${l.lineNo}-itemCode`} data-testid={`po-line-cell-${l.lineNo}-itemCode`} className="al-code">{item(l.itemId)?.code ?? t.common.none}</td>
                 <td id={`po-line-cell-${l.lineNo}-description`} data-testid={`po-line-cell-${l.lineNo}-description`}>{l.description}</td>
                 <td className="num" id={`po-line-cell-${l.lineNo}-quantity`} data-testid={`po-line-cell-${l.lineNo}-quantity`}>
                   {fmtNumber(l.quantity, "en-US", Number(l.quantity) % 1 === 0 ? 0 : 3)}

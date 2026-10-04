@@ -313,6 +313,14 @@ table.al-table td.num, table.al-table th.num { text-align: end; font-variant-num
  * its key, so a date in an object header is covered without marking it twice.
  */
 .al-date, [data-field$="Date"], [data-field$="date"] { white-space: nowrap; }
+
+/*
+ * A document code is one identifier for the same reason: INV-2026-05039 split
+ * across two lines is a worse thing to read, by eye or by selector, than a
+ * column that is one word wider. The name beside a code is free to wrap — only
+ * the code is held together.
+ */
+.al-code, [data-field$="Number"], [data-field$="number"], [data-field$="Code"], [data-field$="code"] { white-space: nowrap; }
 table.al-table tfoot td { background: var(--al-surface-2); }
 
 /* Forms */

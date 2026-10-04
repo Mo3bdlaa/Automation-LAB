@@ -3,7 +3,7 @@ import { ilike, inArray } from "drizzle-orm";
 import { grns, purchaseOrders, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { ListFilter, PAGE_SIZE, Page, Pager, Status, TableWrap, Toolbar, parsePage } from "@/components/ui";
+import { CodeName, ListFilter, PAGE_SIZE, Page, Pager, Status, TableWrap, Toolbar, parsePage } from "@/components/ui";
 
 export default async function GrnsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { t } = await i18n();
@@ -45,12 +45,12 @@ export default async function GrnsPage({ searchParams }: { searchParams: Promise
               const v = vs.find((x) => x.id === g.vendorId);
               return (
                 <tr key={g.id} id={`grns-row-${g.number}`} data-testid={`grns-row-${g.number}`} data-number={g.number} data-status={g.status}>
-                  <td id={`grns-cell-${g.number}-number`} data-testid={`grns-cell-${g.number}-number`}>
+                  <td id={`grns-cell-${g.number}-number`} data-testid={`grns-cell-${g.number}-number`} className="al-code">
                     <Link href={`/grns/${encodeURIComponent(g.number)}`}>{g.number}</Link>
                   </td>
                   <td className="al-date">{g.receivedDate}</td>
-                  <td>{v ? <bdi>{`${v.code} · ${v.name}`}</bdi> : t.common.none}</td>
-                  <td>{po ? <Link href={`/purchase-orders/${encodeURIComponent(po.number)}`}>{po.number}</Link> : t.common.none}</td>
+                  <td>{v ? <CodeName code={v.code} name={v.name} /> : t.common.none}</td>
+                  <td className="al-code">{po ? <Link href={`/purchase-orders/${encodeURIComponent(po.number)}`}>{po.number}</Link> : t.common.none}</td>
                   <td>
                     <Status status={g.status} />
                   </td>

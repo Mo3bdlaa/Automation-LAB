@@ -39,6 +39,18 @@ export function Page({ title, subtitle, titleId = "page-title", actions, childre
   );
 }
 
+/**
+ * `V-00097 · Eastern Safety Equipment Co.` — the code is one token and stays
+ * whole; the name after it wraps as the column needs.
+ */
+export function CodeName({ code, name }: { code: string; name: string }) {
+  return (
+    <bdi>
+      <span className="al-code">{code}</span> · {name}
+    </bdi>
+  );
+}
+
 /** Key facts strip under an object header (Fiori object page style). */
 export function Facts({ entity, code, facts }: { entity: string; code: string; facts: { key: string; label: string; value: ReactNode }[] }) {
   return (

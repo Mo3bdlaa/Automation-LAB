@@ -3,7 +3,7 @@ import { ilike, inArray, or } from "drizzle-orm";
 import { invoices, payments, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { ListFilter, PAGE_SIZE, Page, Pager, TableWrap, Toolbar, parsePage } from "@/components/ui";
+import { CodeName, ListFilter, PAGE_SIZE, Page, Pager, TableWrap, Toolbar, parsePage } from "@/components/ui";
 import { fmtNumber } from "@/lib/generator/money";
 
 export default async function PaymentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -49,14 +49,14 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
               const v = vs.find((x) => x.id === p.vendorId);
               return (
                 <tr key={p.id} id={`payments-row-${p.number}`} data-testid={`payments-row-${p.number}`} data-number={p.number}>
-                  <td id={`payments-cell-${p.number}-number`} data-testid={`payments-cell-${p.number}-number`}>
+                  <td id={`payments-cell-${p.number}-number`} data-testid={`payments-cell-${p.number}-number`} className="al-code">
                     <Link href={`/payments/${encodeURIComponent(p.number)}`}>{p.number}</Link>
                   </td>
                   <td className="al-date">{p.paidDate}</td>
-                  <td>{v ? <bdi>{`${v.code} · ${v.name}`}</bdi> : t.common.none}</td>
-                  <td>{inv ? <Link href={`/invoices/${encodeURIComponent(inv.internalNumber)}`}>{inv.internalNumber}</Link> : t.common.none}</td>
+                  <td>{v ? <CodeName code={v.code} name={v.name} /> : t.common.none}</td>
+                  <td className="al-code">{inv ? <Link href={`/invoices/${encodeURIComponent(inv.internalNumber)}`}>{inv.internalNumber}</Link> : t.common.none}</td>
                   <td>{p.method.replace(/_/g, " ")}</td>
-                  <td>{p.reference}</td>
+                  <td className="al-code">{p.reference}</td>
                   <td className="num" id={`payments-cell-${p.number}-amount`} data-testid={`payments-cell-${p.number}-amount`}>
                     {fmtNumber(p.amount)} {p.currency}
                   </td>

@@ -50,7 +50,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
           <tbody>
             {rows.map((i) => (
               <tr key={i.id} id={`items-row-${i.code}`} data-testid={`items-row-${i.code}`} data-code={i.code} data-shared={session.tdb.isReadOnlyRow(items, i) ? "1" : "0"}>
-                <td id={`items-cell-${i.code}-code`} data-testid={`items-cell-${i.code}-code`}>
+                <td id={`items-cell-${i.code}-code`} data-testid={`items-cell-${i.code}-code`} className="al-code">
                   <Link href={`/items/${encodeURIComponent(i.code)}`}>{i.code}</Link>
                 </td>
                 <td id={`items-cell-${i.code}-name`} data-testid={`items-cell-${i.code}-name`}>

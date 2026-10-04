@@ -3,7 +3,7 @@ import { and, eq, ilike, inArray, or } from "drizzle-orm";
 import { INVOICE_STATUSES, invoices, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { LinkButton, ListFilter, PAGE_SIZE, Page, Pager, Status, StatusTabs, TableWrap, Toolbar, parsePage } from "@/components/ui";
+import { CodeName, LinkButton, ListFilter, PAGE_SIZE, Page, Pager, Status, StatusTabs, TableWrap, Toolbar, parsePage } from "@/components/ui";
 import { fmtNumber } from "@/lib/generator/money";
 
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -89,13 +89,13 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
               const h = hidden(inv);
               return (
                 <tr key={inv.id} id={`invoices-row-${inv.internalNumber}`} data-testid={`invoices-row-${inv.internalNumber}`} data-number={inv.internalNumber} data-status={inv.status}>
-                  <td id={`invoices-cell-${inv.internalNumber}-internalNumber`} data-testid={`invoices-cell-${inv.internalNumber}-internalNumber`}>
+                  <td id={`invoices-cell-${inv.internalNumber}-internalNumber`} data-testid={`invoices-cell-${inv.internalNumber}-internalNumber`} className="al-code">
                     <Link href={`/invoices/${encodeURIComponent(inv.internalNumber)}`}>{inv.internalNumber}</Link>
                   </td>
                   <td id={`invoices-cell-${inv.internalNumber}-receivedDate`} data-testid={`invoices-cell-${inv.internalNumber}-receivedDate`} className="al-date">{inv.receivedDate}</td>
-                  <td id={`invoices-cell-${inv.internalNumber}-vendor`} data-testid={`invoices-cell-${inv.internalNumber}-vendor`}>{h ? <span className="text-muted">{tc.hidden}</span> : v ? <bdi>{`${v.code} · ${v.name}`}</bdi> : <bdi>{inv.printedVendorName}</bdi>}</td>
-                  <td id={`invoices-cell-${inv.internalNumber}-number`} data-testid={`invoices-cell-${inv.internalNumber}-number`}>{h ? <span className="text-muted">—</span> : inv.number}</td>
-                  <td id={`invoices-cell-${inv.internalNumber}-poNumber`} data-testid={`invoices-cell-${inv.internalNumber}-poNumber`}>{h ? <span className="text-muted">—</span> : inv.printedPoNumber ?? t.common.none}</td>
+                  <td id={`invoices-cell-${inv.internalNumber}-vendor`} data-testid={`invoices-cell-${inv.internalNumber}-vendor`}>{h ? <span className="text-muted">{tc.hidden}</span> : v ? <CodeName code={v.code} name={v.name} /> : <bdi>{inv.printedVendorName}</bdi>}</td>
+                  <td id={`invoices-cell-${inv.internalNumber}-number`} data-testid={`invoices-cell-${inv.internalNumber}-number`} className="al-code">{h ? <span className="text-muted">—</span> : inv.number}</td>
+                  <td id={`invoices-cell-${inv.internalNumber}-poNumber`} data-testid={`invoices-cell-${inv.internalNumber}-poNumber`} className="al-code">{h ? <span className="text-muted">—</span> : inv.printedPoNumber ?? t.common.none}</td>
                   <td id={`invoices-cell-${inv.internalNumber}-status`} data-testid={`invoices-cell-${inv.internalNumber}-status`}>
                     <Status status={inv.status} label={t.invoiceStatus[inv.status]} />
                   </td>

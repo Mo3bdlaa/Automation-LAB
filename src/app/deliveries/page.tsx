@@ -3,7 +3,7 @@ import { and, eq, ilike, inArray, or } from "drizzle-orm";
 import { deliveryNotes, purchaseOrders, vendors } from "@/db/schema";
 import { i18n } from "@/i18n/server";
 import { requireLab } from "@/lib/auth/server";
-import { ListFilter, PAGE_SIZE, Page, Pager, Status, TableWrap, Toolbar, parsePage } from "@/components/ui";
+import { CodeName, ListFilter, PAGE_SIZE, Page, Pager, Status, TableWrap, Toolbar, parsePage } from "@/components/ui";
 
 const STATUSES = ["in_transit", "delivered", "received"] as const;
 
@@ -60,12 +60,12 @@ export default async function DeliveriesPage({ searchParams }: { searchParams: P
               const v = vs.find((x) => x.id === dn.vendorId);
               return (
                 <tr key={dn.id} id={`deliveries-row-${dn.id}`} data-testid={`deliveries-row-${dn.id}`} data-number={dn.number} data-status={dn.status}>
-                  <td id={`deliveries-cell-${dn.id}-number`} data-testid={`deliveries-cell-${dn.id}-number`}>
+                  <td id={`deliveries-cell-${dn.id}-number`} data-testid={`deliveries-cell-${dn.id}-number`} className="al-code">
                     <Link href={`/deliveries/${dn.id}`}>{dn.number}</Link>
                   </td>
                   <td className="al-date">{dn.deliveryDate}</td>
-                  <td>{v ? <bdi>{`${v.code} · ${v.name}`}</bdi> : t.common.none}</td>
-                  <td>{po ? <Link href={`/purchase-orders/${encodeURIComponent(po.number)}`}>{po.number}</Link> : t.common.none}</td>
+                  <td>{v ? <CodeName code={v.code} name={v.name} /> : t.common.none}</td>
+                  <td className="al-code">{po ? <Link href={`/purchase-orders/${encodeURIComponent(po.number)}`}>{po.number}</Link> : t.common.none}</td>
                   <td>{dn.carrier ?? t.common.none}</td>
                   <td>
                     <Status status={dn.status} />

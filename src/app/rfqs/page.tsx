@@ -53,7 +53,7 @@ export default async function RfqsPage({ searchParams }: { searchParams: Promise
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} id={`rfqs-row-${r.number}`} data-testid={`rfqs-row-${r.number}`} data-number={r.number} data-status={r.status}>
-                <td id={`rfqs-cell-${r.number}-number`} data-testid={`rfqs-cell-${r.number}-number`}>
+                <td id={`rfqs-cell-${r.number}-number`} data-testid={`rfqs-cell-${r.number}-number`} className="al-code">
                   <Link href={`/rfqs/${encodeURIComponent(r.number)}`}>{r.number}</Link>
                 </td>
                 <td id={`rfqs-cell-${r.number}-issueDate`} data-testid={`rfqs-cell-${r.number}-issueDate`} className="al-date">{r.issueDate}</td>
