@@ -63,7 +63,7 @@ export default async function DeliveriesPage({ searchParams }: { searchParams: P
                   <td id={`deliveries-cell-${dn.id}-number`} data-testid={`deliveries-cell-${dn.id}-number`}>
                     <Link href={`/deliveries/${dn.id}`}>{dn.number}</Link>
                   </td>
-                  <td>{dn.deliveryDate}</td>
+                  <td className="al-date">{dn.deliveryDate}</td>
                   <td>{v ? <bdi>{`${v.code} · ${v.name}`}</bdi> : t.common.none}</td>
                   <td>{po ? <Link href={`/purchase-orders/${encodeURIComponent(po.number)}`}>{po.number}</Link> : t.common.none}</td>
                   <td>{dn.carrier ?? t.common.none}</td>

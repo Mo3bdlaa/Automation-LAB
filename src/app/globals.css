@@ -305,6 +305,14 @@ table.al-table th, table.al-table td { border-bottom: 1px solid var(--al-border)
 table.al-table th { background: var(--al-surface-2); font-weight: 600; color: var(--al-muted); white-space: nowrap; font-size: .6875rem; letter-spacing: .04em; text-transform: uppercase; box-shadow: inset 0 -1px 0 var(--al-border); }
 table.al-table tbody tr:hover td { background: var(--al-surface-2); }
 table.al-table td.num, table.al-table th.num { text-align: end; font-variant-numeric: tabular-nums; }
+
+/*
+ * A date is one token, but the browser is entitled to break 2026-10-11 at a
+ * hyphen, and in a narrow column it does: the year ends up on one line and the
+ * day on the next. Date cells say so, and `Facts` tags every detail field with
+ * its key, so a date in an object header is covered without marking it twice.
+ */
+.al-date, [data-field$="Date"], [data-field$="date"] { white-space: nowrap; }
 table.al-table tfoot td { background: var(--al-surface-2); }
 
 /* Forms */

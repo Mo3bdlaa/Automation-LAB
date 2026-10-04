@@ -48,7 +48,7 @@ export default async function GrnsPage({ searchParams }: { searchParams: Promise
                   <td id={`grns-cell-${g.number}-number`} data-testid={`grns-cell-${g.number}-number`}>
                     <Link href={`/grns/${encodeURIComponent(g.number)}`}>{g.number}</Link>
                   </td>
-                  <td>{g.receivedDate}</td>
+                  <td className="al-date">{g.receivedDate}</td>
                   <td>{v ? <bdi>{`${v.code} · ${v.name}`}</bdi> : t.common.none}</td>
                   <td>{po ? <Link href={`/purchase-orders/${encodeURIComponent(po.number)}`}>{po.number}</Link> : t.common.none}</td>
                   <td>

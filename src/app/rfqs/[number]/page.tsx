@@ -112,7 +112,7 @@ export default async function RfqDetailPage({ params, searchParams }: { params: 
                     <tr key={q.id} id={`quotes-row-${q.id}`} data-testid={`quotes-row-${q.id}`} data-vendor={v?.code ?? ""} data-status={q.status} data-document-id={d?.id ?? ""}>
                       <td>{v ? <Link href={`/vendors/${encodeURIComponent(v.code)}`}>{`${v.code} · ${v.name}`}</Link> : t.common.none}</td>
                       <td id={`quotes-cell-${q.id}-number`} data-testid={`quotes-cell-${q.id}-number`}>{q.number}</td>
-                      <td>{q.quoteDate}</td>
+                      <td className="al-date">{q.quoteDate}</td>
                       <td>{q.validUntil}</td>
                       <td className="num">{q.leadTimeDays}</td>
                       <td className="num" id={`quotes-cell-${q.id}-grandTotal`} data-testid={`quotes-cell-${q.id}-grandTotal`}>

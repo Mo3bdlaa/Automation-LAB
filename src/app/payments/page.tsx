@@ -52,7 +52,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                   <td id={`payments-cell-${p.number}-number`} data-testid={`payments-cell-${p.number}-number`}>
                     <Link href={`/payments/${encodeURIComponent(p.number)}`}>{p.number}</Link>
                   </td>
-                  <td>{p.paidDate}</td>
+                  <td className="al-date">{p.paidDate}</td>
                   <td>{v ? <bdi>{`${v.code} · ${v.name}`}</bdi> : t.common.none}</td>
                   <td>{inv ? <Link href={`/invoices/${encodeURIComponent(inv.internalNumber)}`}>{inv.internalNumber}</Link> : t.common.none}</td>
                   <td>{p.method.replace(/_/g, " ")}</td>

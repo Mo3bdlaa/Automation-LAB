@@ -56,8 +56,8 @@ export default async function RfqsPage({ searchParams }: { searchParams: Promise
                 <td id={`rfqs-cell-${r.number}-number`} data-testid={`rfqs-cell-${r.number}-number`}>
                   <Link href={`/rfqs/${encodeURIComponent(r.number)}`}>{r.number}</Link>
                 </td>
-                <td id={`rfqs-cell-${r.number}-issueDate`} data-testid={`rfqs-cell-${r.number}-issueDate`}>{r.issueDate}</td>
-                <td id={`rfqs-cell-${r.number}-dueDate`} data-testid={`rfqs-cell-${r.number}-dueDate`}>{r.dueDate}</td>
+                <td id={`rfqs-cell-${r.number}-issueDate`} data-testid={`rfqs-cell-${r.number}-issueDate`} className="al-date">{r.issueDate}</td>
+                <td id={`rfqs-cell-${r.number}-dueDate`} data-testid={`rfqs-cell-${r.number}-dueDate`} className="al-date">{r.dueDate}</td>
                 <td id={`rfqs-cell-${r.number}-status`} data-testid={`rfqs-cell-${r.number}-status`}>
                   <Status status={r.status} />
                 </td>

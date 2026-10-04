@@ -81,7 +81,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
                   <td id={`purchase-orders-cell-${po.number}-number`} data-testid={`purchase-orders-cell-${po.number}-number`}>
                     <Link href={`/purchase-orders/${encodeURIComponent(po.number)}`}>{po.number}</Link>
                   </td>
-                  <td id={`purchase-orders-cell-${po.number}-orderDate`} data-testid={`purchase-orders-cell-${po.number}-orderDate`}>{po.orderDate}</td>
+                  <td id={`purchase-orders-cell-${po.number}-orderDate`} data-testid={`purchase-orders-cell-${po.number}-orderDate`} className="al-date">{po.orderDate}</td>
                   <td id={`purchase-orders-cell-${po.number}-vendor`} data-testid={`purchase-orders-cell-${po.number}-vendor`}>{v ? <bdi>{`${v.code} · ${v.name}`}</bdi> : t.common.none}</td>
                   <td id={`purchase-orders-cell-${po.number}-status`} data-testid={`purchase-orders-cell-${po.number}-status`}>
                     <Status status={po.status} />

@@ -110,8 +110,8 @@ export default async function VendorDetailPage({ params, searchParams }: { param
                     <tr key={d.id} id={`vendor-documents-row-${d.kind}`} data-testid={`vendor-documents-row-${d.kind}`} data-kind={d.kind} data-document-id={doc?.id ?? ""} data-expired={d.expiryDate < "2026-09-01" ? "1" : "0"}>
                       <td>{d.kind.replace("vendor_", "").replace(/_/g, " ")}</td>
                       <td id={`vendor-documents-cell-${d.kind}-number`} data-testid={`vendor-documents-cell-${d.kind}-number`}>{d.number}</td>
-                      <td>{d.issuedDate}</td>
-                      <td id={`vendor-documents-cell-${d.kind}-expiry`} data-testid={`vendor-documents-cell-${d.kind}-expiry`}>{d.expiryDate}</td>
+                      <td className="al-date">{d.issuedDate}</td>
+                      <td id={`vendor-documents-cell-${d.kind}-expiry`} data-testid={`vendor-documents-cell-${d.kind}-expiry`} className="al-date">{d.expiryDate}</td>
                       <td>{d.issuer}</td>
                       <td>
                         {doc ? (

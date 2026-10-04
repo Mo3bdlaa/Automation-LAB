@@ -92,7 +92,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                   <td id={`invoices-cell-${inv.internalNumber}-internalNumber`} data-testid={`invoices-cell-${inv.internalNumber}-internalNumber`}>
                     <Link href={`/invoices/${encodeURIComponent(inv.internalNumber)}`}>{inv.internalNumber}</Link>
                   </td>
-                  <td id={`invoices-cell-${inv.internalNumber}-receivedDate`} data-testid={`invoices-cell-${inv.internalNumber}-receivedDate`}>{inv.receivedDate}</td>
+                  <td id={`invoices-cell-${inv.internalNumber}-receivedDate`} data-testid={`invoices-cell-${inv.internalNumber}-receivedDate`} className="al-date">{inv.receivedDate}</td>
                   <td id={`invoices-cell-${inv.internalNumber}-vendor`} data-testid={`invoices-cell-${inv.internalNumber}-vendor`}>{h ? <span className="text-muted">{tc.hidden}</span> : v ? <bdi>{`${v.code} · ${v.name}`}</bdi> : <bdi>{inv.printedVendorName}</bdi>}</td>
                   <td id={`invoices-cell-${inv.internalNumber}-number`} data-testid={`invoices-cell-${inv.internalNumber}-number`}>{h ? <span className="text-muted">—</span> : inv.number}</td>
                   <td id={`invoices-cell-${inv.internalNumber}-poNumber`} data-testid={`invoices-cell-${inv.internalNumber}-poNumber`}>{h ? <span className="text-muted">—</span> : inv.printedPoNumber ?? t.common.none}</td>
