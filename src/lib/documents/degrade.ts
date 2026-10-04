@@ -16,7 +16,7 @@ import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import type { Page } from "playwright-core";
-import { sharedBrowser, type FieldBox } from "./renderer";
+import { resolveChromiumExecutable, sharedBrowser, type FieldBox } from "./renderer";
 import { degradeParams, type DegradeParams } from "./degrade-params";
 import type { Level } from "./levels";
 
@@ -67,6 +67,29 @@ function pdfjsSources() {
 const RECYCLE_AFTER = 25;
 let worker: { page: Page; used: number } | null = null;
 
+/**
+ * The browser this pipeline needs, which is not any browser.
+ *
+ * Degrading a page holds one context open with pdf.js loaded and opens a second
+ * to print the images back into a PDF. The serverless browser runs
+ * `--single-process`, where closing one context closes the browser with it, so
+ * the first document dies mid-way with "Target page, context or browser has
+ * been closed" and the cause is three stack frames away from the reason. Said
+ * out loud here instead: this runs on a machine with a real Chromium, which is
+ * also why the levels are produced at seed time and never on the request path.
+ */
+async function degraderBrowser() {
+  const target = await resolveChromiumExecutable();
+  if (target.disposable) {
+    throw new Error(
+      "The degradation pipeline needs a browser it can keep open, and the one it found is the serverless browser, " +
+        "which runs --single-process and closes with its first context. Install Chromium and point " +
+        "CHROMIUM_EXECUTABLE_PATH at it.",
+    );
+  }
+  return sharedBrowser();
+}
+
 async function workerPage(): Promise<Page> {
   if (worker && worker.used >= RECYCLE_AFTER) {
     await worker.page.context().close().catch(() => {});
@@ -76,7 +99,7 @@ async function workerPage(): Promise<Page> {
     worker.used += 1;
     return worker.page;
   }
-  const b = await sharedBrowser();
+  const b = await degraderBrowser();
   const context = await b.newContext();
   const page = await context.newPage();
   await page.setContent("<!doctype html><html><head><meta charset='utf-8'></head><body></body></html>");
@@ -175,7 +198,7 @@ export async function degradePdf(documentId: string, level: Level, pdf: Uint8Arr
 
 /** Wraps the degraded page images back into an A4 PDF, one image per page. */
 async function imagesToPdf(images: string[]): Promise<Uint8Array> {
-  const b = await sharedBrowser();
+  const b = await degraderBrowser();
   const context = await b.newContext();
   try {
     const p = await context.newPage();

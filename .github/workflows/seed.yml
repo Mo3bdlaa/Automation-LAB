@@ -58,6 +58,13 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright-core install --with-deps chromium
 
+      # resolveChromiumExecutable prefers the serverless browser, which is right
+      # on Vercel and wrong here: it runs --single-process, so the degradation
+      # pipeline's second context closes the browser out from under it. Point at
+      # the one just installed.
+      - name: Use the installed browser
+        run: echo "CHROMIUM_EXECUTABLE_PATH=$(node -e "console.log(require('playwright-core').chromium.executablePath())")" >> "$GITHUB_ENV"
+
       - name: Check the credentials before spending two hours
         run: |
           missing=0
